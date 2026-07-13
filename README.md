@@ -22,6 +22,21 @@ The live feed is intentionally organized into small-group rooms. For 200 partici
 
 Use `?lang=en` for the development-language version. Use `?room=MESA-04` to prefill and lock a room code, which is useful for QR codes.
 
+## 200-user load test
+
+The reproducible emulator test models 200 participants in 20 rooms. Each participant opens five questions, publishes five reflections, gives ten hearts, and has at most one live feed open at a time. It uses the local Firebase Authentication and Firestore emulators, so it creates no production data and incurs no Firebase usage.
+
+Requirements: Node.js 22, Java 21, and an internet connection for the first Firebase CLI/emulator download.
+
+```sh
+npx --yes firebase-tools@15.23.0 emulators:exec \
+  --only auth,firestore \
+  --project demo-youcat-loadtest \
+  'LOAD_USERS=200 LOAD_ROOM_SIZE=10 LOAD_TIMEOUT_MS=120000 node scripts/load-test.mjs'
+```
+
+See [`docs/load-test-report-2026-07-13.md`](docs/load-test-report-2026-07-13.md) for the verified event scenario and results.
+
 ## Firebase setup
 
 1. Create or select a dedicated Firebase project.
