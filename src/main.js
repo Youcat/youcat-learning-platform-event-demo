@@ -488,7 +488,7 @@ function renderReaderCarousel(number, official, learning) {
       <article class="carousel-panel reader-panel">
         <div class="panel-label">${c("loveForever")} · ${number}</div>
         <h2>${escapeHtml(official.question)}</h2>
-        <div class="panel-scroll"><p>${escapeHtml(official.answer)}</p></div>
+        <div class="panel-scroll source-text official-text">${renderParagraphs(official.answer, { initial: true })}</div>
       </article>
     `,
     ...learning.deepDive.map((deepDive, index) => `
@@ -497,18 +497,32 @@ function renderReaderCarousel(number, official, learning) {
         <p class="source-line">${escapeHtml(deepDive.source)}</p>
         <h2>${escapeHtml(tr(deepDive.title))}</h2>
         ${deepDive.editionNote ? `<p class="source-warning">${escapeHtml(deepDive.editionNote)}</p>` : ""}
-        <div class="panel-scroll source-text">${renderParagraphs(tr(deepDive.body))}</div>
+        <div class="panel-scroll source-text official-text">${renderParagraphs(tr(deepDive.body), { initial: true, stripLeadingNumber: true })}</div>
       </article>
     `),
   ];
   return carousel("reader-carousel", panels, `${c("reader")} ${number}`);
 }
 
-function renderParagraphs(text) {
+function renderParagraphs(text, { initial = false, stripLeadingNumber = false } = {}) {
   return String(text)
     .split(/\n{2,}/)
-    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+    .map((paragraph, index) => {
+      const displayText = stripLeadingNumber ? stripReferenceNumber(paragraph) : paragraph.trim();
+      if (!initial || index !== 0) return `<p>${escapeHtml(displayText)}</p>`;
+      const firstLetter = displayText.match(/\p{L}/u);
+      if (!firstLetter) return `<p>${escapeHtml(displayText)}</p>`;
+      const letterIndex = firstLetter.index;
+      return `<p class="has-initial">${escapeHtml(displayText.slice(0, letterIndex))}<span class="source-initial">${escapeHtml(firstLetter[0])}</span>${escapeHtml(displayText.slice(letterIndex + firstLetter[0].length))}</p>`;
+    })
     .join("");
+}
+
+function stripReferenceNumber(text) {
+  return String(text)
+    .trim()
+    .replace(/^(?:Cân\.\s*)?\d+(?:[–-]\d+)?\s*(?:[.—-]\s*)?/u, "")
+    .trim();
 }
 
 function renderGamesCarousel(number, learning, interaction, allGamesDone) {

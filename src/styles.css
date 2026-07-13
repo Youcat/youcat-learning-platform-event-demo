@@ -641,6 +641,21 @@ textarea:focus-visible {
   margin-bottom: 20px;
 }
 
+.official-text .has-initial::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.source-initial {
+  float: left;
+  margin: 4px 5px 0 0;
+  color: var(--love-red);
+  font-size: 49px;
+  font-weight: 800;
+  line-height: 38px;
+}
+
 .source-warning {
   margin: -4px 0 12px;
   padding: 9px 11px;
