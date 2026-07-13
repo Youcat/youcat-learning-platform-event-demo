@@ -350,6 +350,7 @@ textarea:focus-visible {
 
 .question-card {
   position: relative;
+  --question-copy-offset: 121px;
   padding: 18px 0 20px;
   border-bottom: 1px solid var(--border);
 }
@@ -359,7 +360,7 @@ textarea:focus-visible {
   position: absolute;
   z-index: 0;
   top: 47px;
-  left: calc((var(--card-index) % 3) * 6px);
+  left: var(--question-copy-offset);
   width: min(160px, 52vw);
   height: 16px;
   background: var(--love-red-35);
@@ -437,7 +438,7 @@ textarea:focus-visible {
   min-height: 42px;
   align-items: center;
   gap: 6px;
-  margin-left: 121px;
+  margin-left: var(--question-copy-offset);
   padding: 6px 10px;
   border: 1px solid var(--love-red-35);
   border-radius: 999px;
@@ -1014,14 +1015,15 @@ textarea:focus-visible {
     gap: 12px;
   }
 
+  .question-card {
+    --question-copy-offset: 104px;
+  }
+
   .question-card-illustration {
     width: 92px;
     height: 92px;
   }
 
-  .reflection-total {
-    margin-left: 104px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
