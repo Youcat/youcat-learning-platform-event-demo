@@ -36,6 +36,6 @@ Two tests used 200 simultaneous connections:
 
 The test scenario uses about 3,000 Firestore writes and an estimated 31,000–40,000 reads. This fits the daily Spark allowance if the demo is the project's primary activity that day. Repeated reconnects or additional rehearsals on the same day increase read usage.
 
-## Remaining live-event requirement
+## Scheduled live-event quota
 
-Firebase Authentication normally limits new account creation to 100 accounts per IP address per hour. The event uses a shared venue network, so a temporary increase should cover 26 July 2026 from 11:00 to 18:00 in `America/Sao_Paulo`.
+Firebase Authentication normally limits new account creation to 100 accounts per IP address per hour. A temporary quota of 500 sign-ups per hour is scheduled for 26 July 2026, starting at 10:00 in `America/Sao_Paulo` and lasting 24 hours. The Firebase project remains on the no-cost Spark plan.
