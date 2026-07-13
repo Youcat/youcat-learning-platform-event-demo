@@ -617,9 +617,9 @@ app.addEventListener("submit", async (event) => {
     const name = String(form.get("name") || "").trim();
     const age = Number(form.get("age"));
     const room = normalizeRoom(form.get("room"));
-    const error = document.querySelector("#welcome-error");
+    const welcomeError = document.querySelector("#welcome-error");
     if (!name || age < 18 || age > 120 || room.length < 3) {
-      error.textContent = language === "pt" ? "Preencha nome, idade (18+) e um código de grupo válido." : "Enter a name, an age of 18+, and a valid group code.";
+      welcomeError.textContent = language === "pt" ? "Preencha nome, idade (18+) e um código de grupo válido." : "Enter a name, an age of 18+, and a valid group code.";
       return;
     }
 
@@ -628,8 +628,9 @@ app.addEventListener("submit", async (event) => {
       state.profile = { name, age };
       state.room = room;
       renderHome();
-    } catch {
-      error.textContent = language === "pt" ? "Não foi possível entrar no grupo. Tente novamente." : "Could not join the group. Please try again.";
+    } catch (error) {
+      console.error("Unable to join Firebase group", error);
+      welcomeError.textContent = language === "pt" ? "Não foi possível entrar no grupo. Tente novamente." : "Could not join the group. Please try again.";
     }
     return;
   }
@@ -661,7 +662,8 @@ app.addEventListener("submit", async (event) => {
         const local = state.reflections.get(number) || [];
         state.reflections.set(number, [{ ...result, id: result.id }, ...local]);
       }
-    } catch {
+    } catch (error) {
+      console.error("Unable to publish reflection", error);
       interaction.submitted = false;
       interaction.answer = text;
       state.feedError = c("tryAgain");
