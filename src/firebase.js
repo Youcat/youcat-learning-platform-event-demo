@@ -60,11 +60,8 @@ export async function subscribeToRoom(roomCode, questionNumber, callback, onErro
   return services.onSnapshot(
     roomQuery,
     (snapshot) => {
-      const now = Date.now();
       callback(
-        snapshot.docs
-          .map((item) => ({ id: item.id, questionNumber, ...item.data() }))
-          .filter((item) => !item.expiresAt || item.expiresAt.toMillis() > now),
+        snapshot.docs.map((item) => ({ id: item.id, questionNumber, ...item.data() })),
       );
     },
     onError,
@@ -83,14 +80,12 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
       text,
       voters: [],
       createdAt: { toMillis: () => Date.now() },
-      expiresAt: { toMillis: () => Date.now() + 6 * 60 * 60 * 1000 },
     };
   }
 
   const services = await getServices();
   const answerId = uid;
   const answerRef = services.doc(services.db, "rooms", roomCode, "questions", String(questionNumber), "reflections", answerId);
-  const expiresAt = services.Timestamp.fromMillis(Date.now() + 6 * 60 * 60 * 1000);
   await services.setDoc(answerRef, {
     authorUid: uid,
     name,
@@ -98,7 +93,6 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
     text,
     voters: [],
     createdAt: services.serverTimestamp(),
-    expiresAt,
   });
   return { id: answerId };
 }

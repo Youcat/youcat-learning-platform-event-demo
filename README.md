@@ -5,10 +5,10 @@ Mobile-first, Brazilian Portuguese demo for a 200-person event. The app contains
 ## Architecture
 
 - GitHub Pages serves the static Vite app.
-- Cloud Firestore is used only for six-hour group reflections and hearts.
+- Cloud Firestore stores group reflections and hearts.
 - Firebase Anonymous Authentication gives each open browser session one participant ID.
 - No profile, progress, or game state is persisted after the page is renewed.
-- Expired answers are hidden by the client immediately; Firestore TTL removes them later.
+- Reflections remain visible indefinitely. The demo does not automatically delete Firestore documents.
 - If Firebase variables are absent, the app runs as a safe local preview.
 
 The live feed is intentionally organized into small-group rooms. For 200 participants, use about 20 room codes with roughly 10 people each. Do not put all 200 participants in one room: every answer would be delivered to every open listener and would consume the daily Firestore read allowance quickly.
@@ -30,9 +30,7 @@ Use `?lang=en` for the development-language version. Use `?room=MESA-04` to pref
 4. Create a **Cloud Firestore** database in the region closest to the event.
 5. Copy `.env.example` to `.env.local` and add the six Web app values.
 6. Associate the Firebase CLI with the project and deploy `firestore.rules` and `firestore.indexes.json`.
-7. Confirm the TTL policy is active for the collection group `reflections`, field `expiresAt`.
-
-TTL deletion requires a billing-enabled Firebase project. The app still hides expired answers without TTL, but the stored documents will not be deleted automatically.
+7. Keep the project on the no-cost Spark plan. Reflections remain stored until you manually delete them or the dedicated project.
 
 Before the event, request a temporary increase to Firebase Authentication’s new-account creation limit. The standard limit is 100 new accounts per IP address per hour, and a venue Wi-Fi network can make many phones appear under one public IP. See [Firebase Authentication limits](https://firebase.google.com/docs/auth/limits).
 
@@ -63,7 +61,7 @@ Firebase Web app configuration values are public identifiers, not server secrets
 - Verify that a participant cannot heart their own answer or heart the same answer twice.
 - Check Firebase Authentication and Firestore usage during the rehearsal.
 - Schedule the temporary Authentication quota increase for the event window.
-- Keep the Firebase project for this event only; delete it after the retention window if no further demo is planned.
+- Keep the Firebase project for this event only; delete it manually if the stored reflections are no longer needed.
 
 ## Content source
 
