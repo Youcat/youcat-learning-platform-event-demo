@@ -511,7 +511,7 @@ textarea:focus-visible {
 
 .intro-illustration {
   display: grid;
-  width: min(48vw, 190px);
+  width: 100%;
   aspect-ratio: 1;
   align-self: center;
   place-items: center;
