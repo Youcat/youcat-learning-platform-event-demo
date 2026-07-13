@@ -495,13 +495,22 @@ function renderReaderCarousel(number, official, learning) {
       <article class="carousel-panel reader-panel deep-dive-panel">
         <div class="panel-label">${c("deepDive")} ${index + 1}</div>
         <p class="source-line">${escapeHtml(deepDive.source)}</p>
-        <h2>${escapeHtml(tr(deepDive.title))}</h2>
+        <h2 class="source-document-title ${sourceTitleClass(deepDive.source)}">${escapeHtml(tr(deepDive.title))}</h2>
         ${deepDive.editionNote ? `<p class="source-warning">${escapeHtml(deepDive.editionNote)}</p>` : ""}
-        <div class="panel-scroll source-text official-text">${renderParagraphs(tr(deepDive.body), { initial: true, stripLeadingNumber: true })}</div>
+        <div class="panel-scroll source-text official-text">
+          ${deepDive.question ? `<h3 class="source-question">${escapeHtml(tr(deepDive.question))}</h3>` : ""}
+          ${renderParagraphs(tr(deepDive.body), { initial: true, stripLeadingNumber: true })}
+        </div>
       </article>
     `),
   ];
   return carousel("reader-carousel", panels, `${c("reader")} ${number}`);
+}
+
+function sourceTitleClass(source) {
+  if (/^YOUCAT\b/.test(source)) return "is-youcat";
+  if (/^DOCAT\b/.test(source)) return "is-docat";
+  return "is-magisterium";
 }
 
 function renderParagraphs(text, { initial = false, stripLeadingNumber = false } = {}) {

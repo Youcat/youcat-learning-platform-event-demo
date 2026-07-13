@@ -14,11 +14,11 @@ const sandbox = { window: {} };
 vm.runInNewContext(fs.readFileSync(referenceBundle, "utf8"), sandbox);
 const references = sandbox.window.YOUCAT_REFERENCE_TEXTS.PT;
 
-function qaText(filePath, number) {
+function qaEntry(filePath, number) {
   const markdown = fs.readFileSync(filePath, "utf8");
-  const match = markdown.match(new RegExp(`^## ${number}\\. .*?\\n\\n([\\s\\S]*?)(?=\\n\\n## |$)`, "m"));
+  const match = markdown.match(new RegExp(`^## ${number}\\. (.*?)\\n\\n([\\s\\S]*?)(?=\\n\\n## |$)`, "m"));
   if (!match) throw new Error(`Missing authenticated Q&A ${number} in ${filePath}`);
-  return match[1].trim();
+  return { question: match[1].trim(), answer: match[2].trim() };
 }
 
 function passage(abbr, label) {
@@ -100,19 +100,26 @@ const names = {
   B: "Bíblia — fonte portuguesa atual do mapa",
 };
 
-const page = (source, title, body, editionNote = "") => ({
+const page = (source, title, body, editionNote = "", question = "") => ({
   source,
   title: { en: title, pt: title },
   body: { en: body, pt: body },
   ...(editionNote ? { editionNote } : {}),
+  ...(question ? { question: { en: question, pt: question } } : {}),
 });
 const ref = (abbr, number, label = String(number)) => page(
   `${abbr} ${number}`,
   names[abbr],
   new Set(["CCC", "AL", "CV", "FC", "HV"]).has(abbr) ? htmlSection(abbr, number) : passage(abbr, label),
 );
-const youcat = (number) => page(`YOUCAT ${number}`, names.YOUCAT, qaText(youcatPath, number));
-const docat = (number) => page(`DOCAT ${number}`, names.DOCAT, qaText(docatPath, number));
+const youcat = (number) => {
+  const entry = qaEntry(youcatPath, number);
+  return page(`YOUCAT ${number}`, names.YOUCAT, entry.answer, "", entry.question);
+};
+const docat = (number) => {
+  const entry = qaEntry(docatPath, number);
+  return page(`DOCAT ${number}`, names.DOCAT, entry.answer, "", entry.question);
+};
 const bible = (source, key, label) => page(
   source,
   names.B,

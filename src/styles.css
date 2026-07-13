@@ -19,6 +19,9 @@
   --border-soft: #ece4cf;
   --love-red: #d60056;
   --love-red-35: rgba(214, 0, 86, .35);
+  --youcat-yellow: #ffd64d;
+  --docat-blue: #2f80ed;
+  --document-grey: #6f6a61;
   --error: #b3261e;
   --nav-height: 66px;
   --content-width: 420px;
@@ -639,6 +642,32 @@ textarea:focus-visible {
 
 .source-text p {
   margin-bottom: 20px;
+}
+
+.source-document-title {
+  color: var(--document-grey);
+}
+
+.source-document-title.is-youcat,
+.source-document-title.is-docat {
+  font-family: "Rockster", "Fira Sans", sans-serif;
+  font-weight: 900;
+}
+
+.source-document-title.is-youcat {
+  color: var(--youcat-yellow);
+}
+
+.source-document-title.is-docat {
+  color: var(--docat-blue);
+}
+
+.source-question {
+  margin: 0 0 18px;
+  color: var(--graphite);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
 }
 
 .official-text .has-initial::after {

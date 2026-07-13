@@ -70,6 +70,10 @@ const deepDiveSources = {
       "body": {
         "en": "Porque ela quer proteger o amor. Uma pessoa não pode doar nada maior a outra do que a si mesma. \"Eu amo-te\" significa, para ambas, \"eu quero-te somente a ti, quero-te totalmente e quero-te para sempre!\" Porque assim é, não se pode dizer \"eu amo-te\" apenas por um período de tempo ou por uma prova, mesmo que seja apenas com o corpo. Muitos pensam que vivem seriamente as suas relações pré-matrimoniais. E, no entanto, confrontam-se com dois elementos incompatíveis com o amor, o medo de ser deixado e o medo de engravidar. Porque o amor é tão grande, tão santo e tão único, a Igreja pede insistentemente aos jovens que esperem pelo casamento para assumirem totalmente o relacionamento sexual.",
         "pt": "Porque ela quer proteger o amor. Uma pessoa não pode doar nada maior a outra do que a si mesma. \"Eu amo-te\" significa, para ambas, \"eu quero-te somente a ti, quero-te totalmente e quero-te para sempre!\" Porque assim é, não se pode dizer \"eu amo-te\" apenas por um período de tempo ou por uma prova, mesmo que seja apenas com o corpo. Muitos pensam que vivem seriamente as suas relações pré-matrimoniais. E, no entanto, confrontam-se com dois elementos incompatíveis com o amor, o medo de ser deixado e o medo de engravidar. Porque o amor é tão grande, tão santo e tão único, a Igreja pede insistentemente aos jovens que esperem pelo casamento para assumirem totalmente o relacionamento sexual."
+      },
+      "question": {
+        "en": "Por que razão a Igreja é contra as relações sexuais antes do Matrimônio?",
+        "pt": "Por que razão a Igreja é contra as relações sexuais antes do Matrimônio?"
       }
     },
     {
@@ -153,6 +157,10 @@ const deepDiveSources = {
       "body": {
         "en": "Peca gravemente quem faz mau uso do amor, arrancando a sexualidade humana da intimidade de um amor vivido comprometidamente por duas pessoas e convertendo-a em mercadoria comprável. Quem fabrica, consome ou compra productos pornográficos fere a dignidade humana e alicia os outros ao mal. A pornografia é uma variante da prostituição, pois também aí o ser humano é tentado a dar \"amor\" por dinheiro. Atores, produtores e comerciantes faltam da mesma forma grave contra o amor e a dignidade humana. Quem consome produtos pornográficos, quem se move em mundos virtuais pornográficos ou participa em eventos pornográficos encontra-se no alargado circuito da prostituição e promove o negócio sujo e bilionário do sexo.",
         "pt": "Peca gravemente quem faz mau uso do amor, arrancando a sexualidade humana da intimidade de um amor vivido comprometidamente por duas pessoas e convertendo-a em mercadoria comprável. Quem fabrica, consome ou compra productos pornográficos fere a dignidade humana e alicia os outros ao mal. A pornografia é uma variante da prostituição, pois também aí o ser humano é tentado a dar \"amor\" por dinheiro. Atores, produtores e comerciantes faltam da mesma forma grave contra o amor e a dignidade humana. Quem consome produtos pornográficos, quem se move em mundos virtuais pornográficos ou participa em eventos pornográficos encontra-se no alargado circuito da prostituição e promove o negócio sujo e bilionário do sexo."
+      },
+      "question": {
+        "en": "Por que razão a produção e o consumo de pornografia são um pecado contra o amor?",
+        "pt": "Por que razão a produção e o consumo de pornografia são um pecado contra o amor?"
       }
     },
     {
@@ -210,6 +218,10 @@ const deepDiveSources = {
       "body": {
         "en": "Um amor casto é um amor que se defende contra todas as forças internas e externas que o procuram destruir. É casta aquela pessoa que assumiu conscientemente a sua sexualidade e a integrou bem na sua personalidade. Castidade e continência não são o mesmo. Até uma pessoa que tem uma vida sexual ativa no matrimônio deve ser casta; ela comporta-se castamente quando a sua atividade corporal é expressão de um amor sério e fiel. A castidade não deve ser confundida com beatice. Uma pessoa que vive castamente não é um joguete dos seus desejos, mas vive conscientemente a sua sexualidade pelo amor e como expressão desse amor. A falta de castidade enfraquece o amor e obscurece o seu sentido. A Igreja Católica defende o princípio \"ecológico\", isto é, totalizante, da sexualidade, primeiro, contém o desejo sexual, que é algo bom e belo; segundo, o amor pessoal; terceiro, a vitalidade, ou seja, abertura aos filhos. E tal como a cerveja é feita de lúpulo, malte e água, que sabem bastante mal separados e bastante bem juntos, a Igreja Católica defende que aqueles três aspectos são indissociáveis. Quando, na verdade, um homem tem uma mulher para o prazer sexual, uma segunda para o romatismo e uma terceira para ter filhos, ele instrumentaliza todas as três e não ama realmente nenhuma.",
         "pt": "Um amor casto é um amor que se defende contra todas as forças internas e externas que o procuram destruir. É casta aquela pessoa que assumiu conscientemente a sua sexualidade e a integrou bem na sua personalidade. Castidade e continência não são o mesmo. Até uma pessoa que tem uma vida sexual ativa no matrimônio deve ser casta; ela comporta-se castamente quando a sua atividade corporal é expressão de um amor sério e fiel. A castidade não deve ser confundida com beatice. Uma pessoa que vive castamente não é um joguete dos seus desejos, mas vive conscientemente a sua sexualidade pelo amor e como expressão desse amor. A falta de castidade enfraquece o amor e obscurece o seu sentido. A Igreja Católica defende o princípio \"ecológico\", isto é, totalizante, da sexualidade, primeiro, contém o desejo sexual, que é algo bom e belo; segundo, o amor pessoal; terceiro, a vitalidade, ou seja, abertura aos filhos. E tal como a cerveja é feita de lúpulo, malte e água, que sabem bastante mal separados e bastante bem juntos, a Igreja Católica defende que aqueles três aspectos são indissociáveis. Quando, na verdade, um homem tem uma mulher para o prazer sexual, uma segunda para o romatismo e uma terceira para ter filhos, ele instrumentaliza todas as três e não ama realmente nenhuma."
+      },
+      "question": {
+        "en": "O que é o amor casto? Por que deve um cristão viver castamente?",
+        "pt": "O que é o amor casto? Por que deve um cristão viver castamente?"
       }
     },
     {
@@ -246,6 +258,10 @@ const deepDiveSources = {
       "body": {
         "en": "Porque ela quer proteger o amor. Uma pessoa não pode doar nada maior a outra do que a si mesma. \"Eu amo-te\" significa, para ambas, \"eu quero-te somente a ti, quero-te totalmente e quero-te para sempre!\" Porque assim é, não se pode dizer \"eu amo-te\" apenas por um período de tempo ou por uma prova, mesmo que seja apenas com o corpo. Muitos pensam que vivem seriamente as suas relações pré-matrimoniais. E, no entanto, confrontam-se com dois elementos incompatíveis com o amor, o medo de ser deixado e o medo de engravidar. Porque o amor é tão grande, tão santo e tão único, a Igreja pede insistentemente aos jovens que esperem pelo casamento para assumirem totalmente o relacionamento sexual.",
         "pt": "Porque ela quer proteger o amor. Uma pessoa não pode doar nada maior a outra do que a si mesma. \"Eu amo-te\" significa, para ambas, \"eu quero-te somente a ti, quero-te totalmente e quero-te para sempre!\" Porque assim é, não se pode dizer \"eu amo-te\" apenas por um período de tempo ou por uma prova, mesmo que seja apenas com o corpo. Muitos pensam que vivem seriamente as suas relações pré-matrimoniais. E, no entanto, confrontam-se com dois elementos incompatíveis com o amor, o medo de ser deixado e o medo de engravidar. Porque o amor é tão grande, tão santo e tão único, a Igreja pede insistentemente aos jovens que esperem pelo casamento para assumirem totalmente o relacionamento sexual."
+      },
+      "question": {
+        "en": "Por que razão a Igreja é contra as relações sexuais antes do Matrimônio?",
+        "pt": "Por que razão a Igreja é contra as relações sexuais antes do Matrimônio?"
       }
     },
     {
@@ -325,6 +341,10 @@ const deepDiveSources = {
       "body": {
         "en": "Não. O amor de Deus “nunca acaba” (1Cor 13,8). Deus segue-nos, procura-nos nas nossas cavernas e esconderijos, deseja entrar em contacto connosco. Ele deseja mostrar-nos quem Ele é.",
         "pt": "Não. O amor de Deus “nunca acaba” (1Cor 13,8). Deus segue-nos, procura-nos nas nossas cavernas e esconderijos, deseja entrar em contacto connosco. Ele deseja mostrar-nos quem Ele é."
+      },
+      "question": {
+        "en": "Deus deixa o Homem sozinho depois que o d’Ele se afastou?",
+        "pt": "Deus deixa o Homem sozinho depois que o d’Ele se afastou?"
       }
     }
   ],
@@ -349,6 +369,10 @@ const deepDiveSources = {
       "body": {
         "en": "O Matrimônio é indissolúvel por três razões. Primeiro, porque corresponde à essência do amor entregar-se mutuamente sem reservas. Depois, porque ele é imagem da incondicional fidelidade de Deus à Sua Criação. Finalmente, porque ele representa a entrega de Cristo à Sua Igreja até a morte na cruz. Num tempo em que, em muitos lugares, são dissolvidos 50% dos casamentos, o casamento que se mantém é, em última instância, um grande sinal de Deus. Neste mundo, em que tanta coisa é relativa, as pessoas precisam crer em Deus, o único que é absoluto. Assim, o que não é relativo torna-se tão importante, alguém que diz absolutamente a verdade ou é absolutamente fiel. A fidelidade absoluta no Matrimônio, mais do que ser um testemunho do esforço humano, remete para a fidelidade de Deus, que está sempre presente, mesmo quando nós, na questão da fidelidade, O traímos e esquecemos. Casar-se pela Igreja significa confiar mais na ajuda de Deus que nas próprias reservas de amor.",
         "pt": "O Matrimônio é indissolúvel por três razões. Primeiro, porque corresponde à essência do amor entregar-se mutuamente sem reservas. Depois, porque ele é imagem da incondicional fidelidade de Deus à Sua Criação. Finalmente, porque ele representa a entrega de Cristo à Sua Igreja até a morte na cruz. Num tempo em que, em muitos lugares, são dissolvidos 50% dos casamentos, o casamento que se mantém é, em última instância, um grande sinal de Deus. Neste mundo, em que tanta coisa é relativa, as pessoas precisam crer em Deus, o único que é absoluto. Assim, o que não é relativo torna-se tão importante, alguém que diz absolutamente a verdade ou é absolutamente fiel. A fidelidade absoluta no Matrimônio, mais do que ser um testemunho do esforço humano, remete para a fidelidade de Deus, que está sempre presente, mesmo quando nós, na questão da fidelidade, O traímos e esquecemos. Casar-se pela Igreja significa confiar mais na ajuda de Deus que nas próprias reservas de amor."
+      },
+      "question": {
+        "en": "Por que motivo o Matrimônio é indissolúvel?",
+        "pt": "Por que motivo o Matrimônio é indissolúvel?"
       }
     },
     {
@@ -453,6 +477,10 @@ const deepDiveSources = {
       "body": {
         "en": "Deus mostra-Se, no Antigo Testamento, como Aquele que criou o mundo por amor e permanece fiel ao ser humano, mesmo que este, pelo pecado, O renegue. Deus deixa-Se experimentar na história. Com Noé faz uma Aliança para salvar todos os seres vivos. Chama Abraão para fazer dele o «pai de um grande número de nações» (Gn 17,5) e nele abençoar «todas as nações da Terra» (Gn 12,3). O povo de Israel, descendente de Abraão, torna-se Sua especial propriedade. A Moisés apresenta-Se nominalmente, O Seu nome misterioso, muitas vezes pronunciado como \"Iahweh\", significa «Eu sou Aquele que sou» (Ex 3,14). Ele liberta Israel da escravidão no Egito, faz uma Aliança no Sinai e, através de Moisés, entrega-lhe a Lei. Repetidas vezes, Deus envia profetas ao Seu povo, para o chamar à conversão e à renovação da Aliança. Os profetas anunciam que Deus fará uma nova e eterna Aliança, que realizará uma radical renovação e uma definitiva redenção. Esta Aliança estará aberta a toda a humanidade.",
         "pt": "Deus mostra-Se, no Antigo Testamento, como Aquele que criou o mundo por amor e permanece fiel ao ser humano, mesmo que este, pelo pecado, O renegue. Deus deixa-Se experimentar na história. Com Noé faz uma Aliança para salvar todos os seres vivos. Chama Abraão para fazer dele o «pai de um grande número de nações» (Gn 17,5) e nele abençoar «todas as nações da Terra» (Gn 12,3). O povo de Israel, descendente de Abraão, torna-se Sua especial propriedade. A Moisés apresenta-Se nominalmente, O Seu nome misterioso, muitas vezes pronunciado como \"Iahweh\", significa «Eu sou Aquele que sou» (Ex 3,14). Ele liberta Israel da escravidão no Egito, faz uma Aliança no Sinai e, através de Moisés, entrega-lhe a Lei. Repetidas vezes, Deus envia profetas ao Seu povo, para o chamar à conversão e à renovação da Aliança. Os profetas anunciam que Deus fará uma nova e eterna Aliança, que realizará uma radical renovação e uma definitiva redenção. Esta Aliança estará aberta a toda a humanidade."
+      },
+      "question": {
+        "en": "Como Se revela Deus no Antigo Testamento?",
+        "pt": "Como Se revela Deus no Antigo Testamento?"
       }
     },
     {
@@ -464,6 +492,10 @@ const deepDiveSources = {
       "body": {
         "en": "Os Sacramentos são todos um encontro com Cristo, que é, no fundo, o sacramento original. Há sacramentos da Iniciação, que introduzem na fé, o Batismo, a Confirmação e a Eucaristia. Há sacramentos da cura, a Reconciliação e a Unção dos Enfermos. E há sacramentos da comunhão e do envio, o Matrimônio e a Ordem. O Batismo une a Cristo. A Confirmação concede-nos o Seu Espírito. A Eucaristia liga-nos a Ele. A Reconciliação reconcilia-nos com Cristo. Pela Unção dos Enfermos, Cristo cura, fortalece e consola. No sacramento do Matrimônio, Cristo promete o Seu amor no nosso amor e a Sua fidelidade na nossa fidelidade. Pelo sacramento da Ordem, os Sacerdotes podem perdoar pecados e celebrar a Santa Missa.",
         "pt": "Os Sacramentos são todos um encontro com Cristo, que é, no fundo, o sacramento original. Há sacramentos da Iniciação, que introduzem na fé, o Batismo, a Confirmação e a Eucaristia. Há sacramentos da cura, a Reconciliação e a Unção dos Enfermos. E há sacramentos da comunhão e do envio, o Matrimônio e a Ordem. O Batismo une a Cristo. A Confirmação concede-nos o Seu Espírito. A Eucaristia liga-nos a Ele. A Reconciliação reconcilia-nos com Cristo. Pela Unção dos Enfermos, Cristo cura, fortalece e consola. No sacramento do Matrimônio, Cristo promete o Seu amor no nosso amor e a Sua fidelidade na nossa fidelidade. Pelo sacramento da Ordem, os Sacerdotes podem perdoar pecados e celebrar a Santa Missa."
+      },
+      "question": {
+        "en": "Existe alguma lógica que une os sacramentos?",
+        "pt": "Existe alguma lógica que une os sacramentos?"
       }
     },
     {
@@ -475,6 +507,10 @@ const deepDiveSources = {
       "body": {
         "en": "O Matrimônio é indissolúvel por três razões. Primeiro, porque corresponde à essência do amor entregar-se mutuamente sem reservas. Depois, porque ele é imagem da incondicional fidelidade de Deus à Sua Criação. Finalmente, porque ele representa a entrega de Cristo à Sua Igreja até a morte na cruz. Num tempo em que, em muitos lugares, são dissolvidos 50% dos casamentos, o casamento que se mantém é, em última instância, um grande sinal de Deus. Neste mundo, em que tanta coisa é relativa, as pessoas precisam crer em Deus, o único que é absoluto. Assim, o que não é relativo torna-se tão importante, alguém que diz absolutamente a verdade ou é absolutamente fiel. A fidelidade absoluta no Matrimônio, mais do que ser um testemunho do esforço humano, remete para a fidelidade de Deus, que está sempre presente, mesmo quando nós, na questão da fidelidade, O traímos e esquecemos. Casar-se pela Igreja significa confiar mais na ajuda de Deus que nas próprias reservas de amor.",
         "pt": "O Matrimônio é indissolúvel por três razões. Primeiro, porque corresponde à essência do amor entregar-se mutuamente sem reservas. Depois, porque ele é imagem da incondicional fidelidade de Deus à Sua Criação. Finalmente, porque ele representa a entrega de Cristo à Sua Igreja até a morte na cruz. Num tempo em que, em muitos lugares, são dissolvidos 50% dos casamentos, o casamento que se mantém é, em última instância, um grande sinal de Deus. Neste mundo, em que tanta coisa é relativa, as pessoas precisam crer em Deus, o único que é absoluto. Assim, o que não é relativo torna-se tão importante, alguém que diz absolutamente a verdade ou é absolutamente fiel. A fidelidade absoluta no Matrimônio, mais do que ser um testemunho do esforço humano, remete para a fidelidade de Deus, que está sempre presente, mesmo quando nós, na questão da fidelidade, O traímos e esquecemos. Casar-se pela Igreja significa confiar mais na ajuda de Deus que nas próprias reservas de amor."
+      },
+      "question": {
+        "en": "Por que motivo o Matrimônio é indissolúvel?",
+        "pt": "Por que motivo o Matrimônio é indissolúvel?"
       }
     },
     {
