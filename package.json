@@ -1,0 +1,20 @@
+{
+  "name": "youcat-learning-platform-event-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "content": "node scripts/extract-official-content.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check-content.mjs"
+  },
+  "dependencies": {
+    "@fontsource/fira-sans": "^5.2.6",
+    "firebase": "^12.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
