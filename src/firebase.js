@@ -79,6 +79,8 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
       age,
       text,
       voters: [],
+      roomCode,
+      questionNumber: String(questionNumber),
       createdAt: { toMillis: () => Date.now() },
     };
   }
@@ -92,6 +94,8 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
     age,
     text,
     voters: [],
+    roomCode,
+    questionNumber: String(questionNumber),
     createdAt: services.serverTimestamp(),
   });
   return { id: answerId };
@@ -104,6 +108,38 @@ export async function giveHeart({ roomCode, questionNumber, reflectionId }) {
   const answerRef = services.doc(services.db, "rooms", roomCode, "questions", String(questionNumber), "reflections", reflectionId);
   await services.updateDoc(answerRef, { voters: services.arrayUnion(uid) });
   return uid;
+}
+
+export async function getQuestionReflectionCounts(questionNumbers) {
+  if (!configured) return new Map(questionNumbers.map((number) => [number, 0]));
+  const services = await getServices();
+  const entries = await Promise.all(questionNumbers.map(async (number) => {
+    const globalQuery = services.query(
+      services.collectionGroup(services.db, "reflections"),
+      services.where("questionNumber", "==", String(number)),
+    );
+    const snapshot = await services.getCountFromServer(globalQuery);
+    return [number, snapshot.data().count];
+  }));
+  return new Map(entries);
+}
+
+export async function getGlobalReflections(questionNumber, { after = null, pageSize = 50 } = {}) {
+  if (!configured) return { reflections: [], cursor: null, hasMore: false };
+  const services = await getServices();
+  const reflectionsRef = services.collectionGroup(services.db, "reflections");
+  const constraints = [
+    services.where("questionNumber", "==", String(questionNumber)),
+    services.orderBy("createdAt", "desc"),
+  ];
+  if (after) constraints.push(services.startAfter(after));
+  constraints.push(services.limit(pageSize));
+  const snapshot = await services.getDocs(services.query(reflectionsRef, ...constraints));
+  return {
+    reflections: snapshot.docs.map((item) => ({ id: item.id, questionNumber, ...item.data() })),
+    cursor: snapshot.docs[snapshot.docs.length - 1] || null,
+    hasMore: snapshot.size === pageSize,
+  };
 }
 
 export function participantUid() {

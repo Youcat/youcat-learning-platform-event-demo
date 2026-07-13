@@ -10,9 +10,12 @@ import {
 import {
   arrayUnion,
   collection,
+  collectionGroup,
   connectFirestoreEmulator,
   doc,
+  getCountFromServer,
   getFirestore,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -20,6 +23,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 
 const userCount = positiveInteger(process.env.LOAD_USERS, 200);
@@ -71,6 +75,7 @@ for (const questionNumber of questions) {
   samples.heartPropagation.push(performance.now() - heartStart);
 
   listeners.forEach((listener) => listener.unsubscribe());
+  await verifyGlobalOverview(users[0], questionNumber);
   console.log(`Question ${questionNumber}: complete.`);
 }
 
@@ -172,6 +177,8 @@ async function publishAnswer(user, questionNumber) {
       age: 24,
       text: `Load-test reflection for question ${questionNumber}.`,
       voters: [],
+      roomCode: user.roomCode,
+      questionNumber: String(questionNumber),
       createdAt: serverTimestamp(),
     });
     samples.answerWrites.push(performance.now() - start);
@@ -197,6 +204,24 @@ function publishHearts(user, questionNumber) {
       throw error;
     }
   });
+}
+
+async function verifyGlobalOverview(user, questionNumber) {
+  const globalReflections = collectionGroup(user.db, "reflections");
+  const questionFilter = where("questionNumber", "==", String(questionNumber));
+  const countSnapshot = await getCountFromServer(query(globalReflections, questionFilter));
+  if (countSnapshot.data().count !== userCount) {
+    throw new Error(`Global count for question ${questionNumber} was ${countSnapshot.data().count}, expected ${userCount}.`);
+  }
+  const overviewSnapshot = await getDocs(query(
+    globalReflections,
+    questionFilter,
+    orderBy("createdAt", "desc"),
+    limit(Math.min(50, userCount)),
+  ));
+  if (overviewSnapshot.size !== Math.min(50, userCount)) {
+    throw new Error(`Global overview for question ${questionNumber} returned ${overviewSnapshot.size} answers.`);
+  }
 }
 
 async function runMeasured(name, action) {

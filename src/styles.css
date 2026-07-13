@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Rockster";
+  src: url("./assets/fonts/Rockster-Black.otf") format("opentype");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 900;
+}
+
 :root {
   color: #1b1a17;
   background: #f5f1e7;
@@ -9,9 +17,8 @@
   --soft: #918b80;
   --border: #d9d2bf;
   --border-soft: #ece4cf;
-  --yellow-soft: #fff1c1;
-  --yellow: #ffd64d;
-  --yellow-dark: #dfad00;
+  --love-red: #d60056;
+  --love-red-35: rgba(214, 0, 86, .35);
   --error: #b3261e;
   --nav-height: 66px;
   --content-width: 420px;
@@ -52,7 +59,7 @@ button {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--yellow);
+  outline: 3px solid var(--love-red);
   outline-offset: 3px;
 }
 
@@ -78,7 +85,7 @@ textarea:focus-visible {
 }
 
 .brand-kicker {
-  color: var(--yellow-dark);
+  color: var(--love-red);
   letter-spacing: .03em;
 }
 
@@ -94,11 +101,13 @@ textarea:focus-visible {
 
 .welcome-content h1,
 .home-heading h1,
-.intro-section h1 {
+.intro-section h1,
+.global-heading h1 {
   margin: 6px 0 10px;
-  color: var(--yellow);
+  color: var(--love-red);
+  font-family: "Rockster", "Fira Sans", sans-serif;
   font-size: clamp(30px, 9vw, 42px);
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.02;
 }
 
@@ -112,74 +121,18 @@ textarea:focus-visible {
   line-height: 22px;
 }
 
-.welcome-mark {
-  position: relative;
-  height: 170px;
-  margin: 4px 0 30px;
+.welcome-logo {
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  justify-content: center;
+  margin: 2px 0 32px;
 }
 
-.welcome-mark::before {
-  content: "";
-  position: absolute;
-  inset: 24px 42px 18px;
-  border-radius: 48% 52% 45% 55%;
-  background: var(--yellow-soft);
-  transform: rotate(-2deg);
-}
-
-.mark-person {
-  position: absolute;
-  bottom: 28px;
-  width: 42px;
-  height: 76px;
-  border: 2px solid var(--graphite);
-  border-top: 0;
-  transform: skew(-3deg);
-}
-
-.mark-person::before {
-  content: "";
-  position: absolute;
-  top: -43px;
-  left: -1px;
-  width: 40px;
-  height: 46px;
-  border: 2px solid var(--graphite);
-  border-radius: 50%;
-  background: #fff;
-  transform: rotate(-8deg);
-}
-
-.mark-person::after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: -18px;
-  width: 74px;
-  height: 42px;
-  border-top: 2px solid var(--graphite);
-  transform: rotate(-8deg);
-}
-
-.mark-person-one {
-  left: 70px;
-  transform: rotate(-5deg) skew(-3deg);
-}
-
-.mark-person-two {
-  right: 70px;
-  height: 70px;
-  transform: rotate(6deg) skew(3deg);
-}
-
-.mark-question {
-  position: absolute;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%) rotate(-6deg);
-  color: var(--graphite);
-  font-size: 72px;
-  font-weight: 500;
+.welcome-logo img {
+  display: block;
+  width: min(100%, 242px);
+  height: auto;
 }
 
 .welcome-form {
@@ -205,14 +158,20 @@ textarea:focus-visible {
   border: 0;
   border-bottom: 1.5px solid var(--graphite);
   border-radius: 0;
-  background: transparent;
+  background-color: transparent;
+  background-image: linear-gradient(var(--love-red-35), var(--love-red-35));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 0 100%;
   color: var(--ink);
   font-size: 18px;
+  transition: background-size 420ms cubic-bezier(.22, 1, .36, 1), border-color 160ms ease;
 }
 
 .welcome-form input:focus {
-  background: var(--yellow-soft);
+  background-size: 100% 100%;
   outline: none;
+  border-bottom-color: var(--love-red);
   border-bottom-width: 2px;
 }
 
@@ -231,6 +190,7 @@ textarea:focus-visible {
 }
 
 .primary-action,
+.secondary-action,
 .text-action,
 .choice-option,
 .game-token {
@@ -250,16 +210,27 @@ textarea:focus-visible {
   isolation: isolate;
 }
 
+.secondary-action {
+  min-height: 48px;
+  padding: 11px 16px;
+  border: 1.5px solid var(--graphite);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .primary-action::before {
   content: "";
   position: absolute;
   z-index: -1;
   inset: 12px 12px 7px;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   transform: rotate(-1deg);
 }
 
 .primary-action:disabled,
+.secondary-action:disabled,
 .text-action:disabled,
 .choice-option:disabled,
 .game-token:disabled {
@@ -365,7 +336,7 @@ textarea:focus-visible {
   padding: 5px 9px;
   border: 1px solid var(--graphite);
   border-radius: 4px;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   font-size: 12px;
   font-weight: 700;
   transform: rotate(-1deg);
@@ -379,7 +350,7 @@ textarea:focus-visible {
 
 .question-card {
   position: relative;
-  padding: 26px 0 28px;
+  padding: 18px 0 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -391,16 +362,44 @@ textarea:focus-visible {
   left: calc((var(--card-index) % 3) * 6px);
   width: min(160px, 52vw);
   height: 16px;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   transform: rotate(calc((var(--card-index) % 2) * 2deg - 1deg));
 }
 
-.question-card-meta,
-.question-card h2,
-.question-card p,
-.question-card button {
+.question-card-main,
+.reflection-total {
   position: relative;
   z-index: 1;
+}
+
+.question-card-main {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 106px minmax(0, 1fr);
+  gap: 15px;
+  align-items: center;
+  padding: 4px 0 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.question-card-main:active {
+  transform: scale(.99);
+}
+
+.question-card-illustration {
+  display: block;
+  width: 106px;
+  height: 106px;
+  object-fit: contain;
+}
+
+.question-card-copy,
+.question-card-title,
+.question-card-question {
+  display: block;
 }
 
 .question-card-meta {
@@ -414,33 +413,43 @@ textarea:focus-visible {
 }
 
 .complete-mark {
-  color: var(--yellow-dark);
+  color: var(--love-red);
   text-transform: none;
 }
 
-.question-card h2 {
+.question-card-title {
   margin: 7px 0 8px;
+  color: var(--ink);
   font-size: 22px;
+  font-weight: 800;
   line-height: 28px;
 }
 
-.question-card p {
+.question-card-question {
   margin: 0;
   color: var(--graphite);
   font-size: 15px;
   line-height: 22px;
 }
 
-.text-action {
-  margin-top: 16px;
-  padding: 8px 13px;
-  background: transparent;
-  border-color: var(--border);
+.reflection-total {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 6px;
+  margin-left: 121px;
+  padding: 6px 10px;
+  border: 1px solid var(--love-red-35);
+  border-radius: 999px;
+  background: var(--love-red-35);
+  color: var(--love-red);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.text-action span {
-  margin-left: 8px;
-  font-size: 18px;
+.reflection-total strong {
+  font-size: 17px;
 }
 
 .question-screen {
@@ -500,15 +509,31 @@ textarea:focus-visible {
   justify-content: center;
 }
 
+.intro-illustration {
+  display: grid;
+  width: min(48vw, 190px);
+  aspect-ratio: 1;
+  align-self: center;
+  place-items: center;
+  margin: 4px 0 8px;
+}
+
+.intro-illustration img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .intro-section h1 {
-  margin-top: 12px;
+  margin-top: 4px;
   color: var(--ink);
-  font-size: clamp(31px, 9vw, 44px);
-  line-height: 1.05;
+  font-size: clamp(24px, 6.6vw, 34px);
+  line-height: 1.06;
 }
 
 .intro-section .section-kicker {
-  color: var(--yellow-dark);
+  color: var(--love-red);
 }
 
 .topic-marker {
@@ -585,7 +610,7 @@ textarea:focus-visible {
 
 .panel-label {
   min-height: 22px;
-  color: var(--yellow-dark);
+  color: var(--love-red);
   text-transform: uppercase;
 }
 
@@ -623,7 +648,7 @@ textarea:focus-visible {
   right: 22px;
   width: 42%;
   height: 20px;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   transform: rotate(2deg);
 }
 
@@ -650,7 +675,7 @@ textarea:focus-visible {
 }
 
 .carousel-dots button.is-active {
-  background: var(--yellow);
+  background: var(--love-red);
 }
 
 .game-help {
@@ -675,14 +700,14 @@ textarea:focus-visible {
 
 .game-token.is-selected,
 .game-token.is-active {
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   border-width: 2px;
 }
 
 .game-token.is-matched,
 .choice-option.is-correct {
-  background: var(--yellow-soft);
-  border-color: var(--yellow-dark);
+  background: var(--love-red-35);
+  border-color: var(--love-red);
 }
 
 .choice-option.is-wrong {
@@ -699,7 +724,7 @@ textarea:focus-visible {
   justify-content: center;
   border: 1.5px solid var(--graphite);
   border-radius: 50%;
-  background: var(--yellow);
+  background: var(--love-red);
   font-size: 12px;
 }
 
@@ -732,7 +757,7 @@ textarea:focus-visible {
 }
 
 .game-message.is-correct {
-  color: var(--yellow-dark);
+  color: var(--love-red);
 }
 
 .game-message.is-wrong {
@@ -749,7 +774,7 @@ textarea:focus-visible {
   position: absolute;
   z-index: -1;
   inset: 27% 28px 22%;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   clip-path: polygon(1% 7%, 20% 0, 43% 5%, 67% 1%, 99% 8%, 96% 92%, 73% 99%, 48% 94%, 23% 100%, 3% 90%);
 }
 
@@ -767,7 +792,7 @@ textarea:focus-visible {
 
 .quote-lock {
   margin-bottom: 18px;
-  color: var(--yellow-dark);
+  color: var(--love-red);
   font-size: 28px;
   letter-spacing: 9px;
 }
@@ -795,7 +820,7 @@ textarea:focus-visible {
   resize: none;
   border: 1.5px solid var(--graphite);
   border-radius: 6px;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
   color: var(--ink);
   font-size: 17px;
   line-height: 25px;
@@ -826,7 +851,7 @@ textarea:focus-visible {
 .feed-mode {
   margin: 12px 0 16px;
   border: 0;
-  background: var(--yellow-soft);
+  background: var(--love-red-35);
 }
 
 .feed-mode.is-live::before {
@@ -836,7 +861,7 @@ textarea:focus-visible {
   height: 7px;
   margin-right: 6px;
   border-radius: 50%;
-  background: var(--yellow-dark);
+  background: var(--love-red);
 }
 
 .reflections-list {
@@ -854,7 +879,7 @@ textarea:focus-visible {
 }
 
 .reflection-card.is-leading {
-  border-left: 7px solid var(--yellow-soft);
+  border-left: 7px solid var(--love-red-35);
   padding-left: 16px;
 }
 
@@ -871,8 +896,62 @@ textarea:focus-visible {
 }
 
 .reflection-author span {
-  color: var(--yellow-dark);
+  color: var(--love-red);
   font-weight: 600;
+}
+
+.reflection-author .reflection-room {
+  color: var(--muted);
+}
+
+.global-screen {
+  padding-bottom: calc(var(--nav-height) + 28px + env(safe-area-inset-bottom));
+}
+
+.global-heading {
+  padding: max(32px, env(safe-area-inset-top)) 28px 24px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.global-heading > img {
+  display: block;
+  width: min(46vw, 180px);
+  aspect-ratio: 1;
+  margin: 0 auto -8px;
+  object-fit: contain;
+}
+
+.global-heading h1 {
+  color: var(--ink);
+}
+
+.global-heading > p:not(.section-kicker),
+.global-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.global-total {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--love-red);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.global-reflections {
+  padding: 22px 28px;
+}
+
+.global-intro {
+  margin-bottom: 18px;
+}
+
+.load-more {
+  width: 100%;
+  margin-top: 20px;
 }
 
 .heart-button {
@@ -895,7 +974,7 @@ textarea:focus-visible {
 }
 
 .heart-button.is-hearted span {
-  color: var(--yellow-dark);
+  color: var(--love-red);
 }
 
 .heart-button:disabled {
@@ -928,6 +1007,20 @@ textarea:focus-visible {
   .carousel-panel {
     padding-left: 20px;
     padding-right: 20px;
+  }
+
+  .question-card-main {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .question-card-illustration {
+    width: 92px;
+    height: 92px;
+  }
+
+  .reflection-total {
+    margin-left: 104px;
   }
 }
 

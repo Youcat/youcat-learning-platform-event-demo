@@ -15,11 +15,12 @@ Date: 13 July 2026
 
 - Result: passed
 - Errors: 0
-- Total duration: 35.6 seconds
-- Authentication: 0.38 seconds for all 200 users
-- Answer propagation: median 1.81 seconds; maximum 3.52 seconds
-- Heart propagation: median 3.69 seconds; maximum 5.29 seconds
-- Snapshot callbacks handled: 14,760
+- Total duration: 21.2 seconds
+- Authentication: 0.16 seconds for all 200 users
+- Answer propagation: median 1.15 seconds; maximum 1.97 seconds
+- Heart propagation: median 2.24 seconds; maximum 2.95 seconds
+- Snapshot callbacks handled: 14,492
+- Global reflection totals and the cross-group overview query were verified after every question
 
 The emulator briefly retried some writes during the intentionally simultaneous bursts. All operations completed successfully. This is a conservative stress condition; real participants will naturally spread actions over several minutes.
 
