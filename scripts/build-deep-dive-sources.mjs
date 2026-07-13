@@ -97,14 +97,13 @@ const names = {
   CIC: "Código de Direito Canônico",
   YOUCAT: "YOUCAT",
   DOCAT: "DOCAT",
-  B: "Bíblia — fonte portuguesa atual do mapa",
+  B: "Bíblia",
 };
 
-const page = (source, title, body, editionNote = "", question = "") => ({
+const page = (source, title, body, question = "") => ({
   source,
   title: { en: title, pt: title },
   body: { en: body, pt: body },
-  ...(editionNote ? { editionNote } : {}),
   ...(question ? { question: { en: question, pt: question } } : {}),
 });
 const ref = (abbr, number, label = String(number)) => page(
@@ -114,18 +113,13 @@ const ref = (abbr, number, label = String(number)) => page(
 );
 const youcat = (number) => {
   const entry = qaEntry(youcatPath, number);
-  return page(`YOUCAT ${number}`, names.YOUCAT, entry.answer, "", entry.question);
+  return page(`YOUCAT ${number}`, names.YOUCAT, entry.answer, entry.question);
 };
 const docat = (number) => {
   const entry = qaEntry(docatPath, number);
-  return page(`DOCAT ${number}`, names.DOCAT, entry.answer, "", entry.question);
+  return page(`DOCAT ${number}`, names.DOCAT, entry.answer, entry.question);
 };
-const bible = (source, key, label) => page(
-  source,
-  names.B,
-  keyedPassage(key, label),
-  "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém.",
-);
+const bible = (source, key, label) => page(source, names.B, keyedPassage(key, label));
 
 const deepDiveSources = {
   3: [

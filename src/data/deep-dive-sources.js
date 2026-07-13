@@ -39,14 +39,13 @@ const deepDiveSources = {
     {
       "source": "Gn 2,24",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "24. Por isso, o homem deixa o seu pai e a sua mãe para se unir à sua mulher; e já não são mais que uma só carne.*",
         "pt": "24. Por isso, o homem deixa o seu pai e a sua mãe para se unir à sua mulher; e já não são mais que uma só carne.*"
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     }
   ],
   "14": [
@@ -125,28 +124,26 @@ const deepDiveSources = {
     {
       "source": "Lc 24,13–35",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "13. Nesse mesmo dia, dois discípulos caminhavam para uma aldeia chamada Emaús, distante de Jerusalém sessenta estádios.* 14. Iam falando um com o outro de tudo o que se tinha passado. 15. Enquanto iam conversando e discorrendo entre si, o mesmo Jesus aproximou-se deles e caminhava com eles. 16. Mas os olhos estavam-lhes como que vendados e não o reconheceram. 17. Perguntou-lhes, então: “De que estais falando pelo caminho, e por que estais tristes?” 18. Um deles, chamado Cléofas, respondeu-lhe: “És tu acaso o único forasteiro em Jerusalém que não sabe o que nela aconteceu estes dias?”. 19. Perguntou-lhes ele: “Que foi?”. Disseram: “A respeito de Jesus de Nazaré... Era um profeta poderoso em obras e palavras, diante de Deus e de todo o povo. 20. Os nossos sumos sacerdotes e os nossos magistrados o entregaram para ser condenado à morte e o crucificaram. 21. Nós esperávamos que fosse ele quem haveria de restaurar Israel e agora, além de tudo isso, é hoje o terceiro dia que essas coisas sucederam. 22. É verdade que algumas mulheres dentre nós nos alarmaram. Elas foram ao sepulcro, antes do nascer do sol; 23. e, não tendo achado o seu corpo, voltaram, dizendo que tiveram uma visão de anjos, os quais asseguravam que está vivo. 24. Alguns dos nossos foram ao sepulcro e acharam-no assim como as mulheres tinham dito, mas a ele mesmo não viram”. 25. Jesus lhes disse: “Ó gente sem inteligência! Como sois tardos de coração para crerdes em tudo o que anunciaram os profetas! 26. Porventura não era necessário que Cristo sofresse essas coisas e assim entrasse na sua glória?”. 27. E começando por Moisés, percorrendo todos os profetas, explicava-lhes o que dele se achava dito em todas as Escrituras. 28. Aproximaram-se da aldeia para onde iam e ele fez como se quisesse passar adiante. 29. Mas eles forçaram-no a parar: “Fica conosco, já é tarde e já declina o dia”. Entrou então com eles. 30. Aconteceu que, estando sentado conjuntamente à mesa, ele tomou o pão, abençoou-o, partiu-o e serviu-lho.* 31. Então, se lhes abriram os olhos e o reconheceram... mas ele desapareceu. 32. Diziam então um para o outro: “Não se nos abrasava o coração, quando ele nos falava pelo caminho e nos explicava as Escrituras?”. 33. Levantaram-se na mesma hora e voltaram a Jerusalém. Aí acharam reunidos os Onze e os que com eles estavam. 34. Todos diziam: “O Senhor ressuscitou verdadeiramente e apareceu a Simão”. 35. Eles, por sua parte, contaram o que lhes havia acontecido no caminho e como o tinham reconhecido ao partir o pão. (= Jo 20,19-23 )",
         "pt": "13. Nesse mesmo dia, dois discípulos caminhavam para uma aldeia chamada Emaús, distante de Jerusalém sessenta estádios.* 14. Iam falando um com o outro de tudo o que se tinha passado. 15. Enquanto iam conversando e discorrendo entre si, o mesmo Jesus aproximou-se deles e caminhava com eles. 16. Mas os olhos estavam-lhes como que vendados e não o reconheceram. 17. Perguntou-lhes, então: “De que estais falando pelo caminho, e por que estais tristes?” 18. Um deles, chamado Cléofas, respondeu-lhe: “És tu acaso o único forasteiro em Jerusalém que não sabe o que nela aconteceu estes dias?”. 19. Perguntou-lhes ele: “Que foi?”. Disseram: “A respeito de Jesus de Nazaré... Era um profeta poderoso em obras e palavras, diante de Deus e de todo o povo. 20. Os nossos sumos sacerdotes e os nossos magistrados o entregaram para ser condenado à morte e o crucificaram. 21. Nós esperávamos que fosse ele quem haveria de restaurar Israel e agora, além de tudo isso, é hoje o terceiro dia que essas coisas sucederam. 22. É verdade que algumas mulheres dentre nós nos alarmaram. Elas foram ao sepulcro, antes do nascer do sol; 23. e, não tendo achado o seu corpo, voltaram, dizendo que tiveram uma visão de anjos, os quais asseguravam que está vivo. 24. Alguns dos nossos foram ao sepulcro e acharam-no assim como as mulheres tinham dito, mas a ele mesmo não viram”. 25. Jesus lhes disse: “Ó gente sem inteligência! Como sois tardos de coração para crerdes em tudo o que anunciaram os profetas! 26. Porventura não era necessário que Cristo sofresse essas coisas e assim entrasse na sua glória?”. 27. E começando por Moisés, percorrendo todos os profetas, explicava-lhes o que dele se achava dito em todas as Escrituras. 28. Aproximaram-se da aldeia para onde iam e ele fez como se quisesse passar adiante. 29. Mas eles forçaram-no a parar: “Fica conosco, já é tarde e já declina o dia”. Entrou então com eles. 30. Aconteceu que, estando sentado conjuntamente à mesa, ele tomou o pão, abençoou-o, partiu-o e serviu-lho.* 31. Então, se lhes abriram os olhos e o reconheceram... mas ele desapareceu. 32. Diziam então um para o outro: “Não se nos abrasava o coração, quando ele nos falava pelo caminho e nos explicava as Escrituras?”. 33. Levantaram-se na mesma hora e voltaram a Jerusalém. Aí acharam reunidos os Onze e os que com eles estavam. 34. Todos diziam: “O Senhor ressuscitou verdadeiramente e apareceu a Simão”. 35. Eles, por sua parte, contaram o que lhes havia acontecido no caminho e como o tinham reconhecido ao partir o pão. (= Jo 20,19-23 )"
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     }
   ],
   "34": [
     {
       "source": "Mt 6,21–23",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "21. Porque onde está o teu tesouro, lá também está teu coração. 22. O olho é a luz do corpo. Se teu olho é são, todo o teu corpo será iluminado. 23. Se teu olho estiver em mau estado, todo o teu corpo estará nas trevas. Se a luz que está em ti são trevas, quão espessas deverão ser as trevas!”",
         "pt": "21. Porque onde está o teu tesouro, lá também está teu coração. 22. O olho é a luz do corpo. Se teu olho é são, todo o teu corpo será iluminado. 23. Se teu olho estiver em mau estado, todo o teu corpo estará nas trevas. Se a luz que está em ti são trevas, quão espessas deverão ser as trevas!”"
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     },
     {
       "source": "YOUCAT 412",
@@ -227,14 +224,13 @@ const deepDiveSources = {
     {
       "source": "Pr 2,11–17",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "11. a reflexão velará sobre ti, ela te amparará a razão, 12. para preservar-te do mau caminho, do homem de conversas tortuosas, 13. que abandona o caminho reto para percorrer caminhos tenebrosos; 14. que se compraz em praticar o mal e se alegra com a maldade; 15. do homem cujos caminhos são tortuosos e os trilhos sinuosos. 16. Ela te preservará da mulher alheia, da estranha que emprega palavras lisonjeiras, 17. que abandona o esposo de sua juventude e se esquece da aliança de seu Deus.",
         "pt": "11. a reflexão velará sobre ti, ela te amparará a razão, 12. para preservar-te do mau caminho, do homem de conversas tortuosas, 13. que abandona o caminho reto para percorrer caminhos tenebrosos; 14. que se compraz em praticar o mal e se alegra com a maldade; 15. do homem cujos caminhos são tortuosos e os trilhos sinuosos. 16. Ela te preservará da mulher alheia, da estranha que emprega palavras lisonjeiras, 17. que abandona o esposo de sua juventude e se esquece da aliança de seu Deus."
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     }
   ],
   "68": [
@@ -459,14 +455,13 @@ const deepDiveSources = {
     {
       "source": "1Cor 13,1–13",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "1. Ainda que eu falasse as línguas dos homens e dos anjos, se não tiver caridade, sou como o bronze que soa, ou como o címbalo que retine. 2. Mesmo que eu tivesse o dom da profecia, e conhecesse todos os mistérios e toda a ciência; mesmo que tivesse toda a fé, a ponto de transportar montanhas, se não tiver caridade, não sou nada. 3. Ainda que distribuísse todos os meus bens em sustento dos pobres, e ainda que entregasse o meu corpo para ser queimado, se não tiver caridade, de nada valeria! 4. A caridade é paciente, a caridade é bondosa. Não tem inveja. A caridade não é orgulhosa. Não é arrogante. 5. Nem escandalosa. Não busca os seus próprios interesses, não se irrita, não guarda rancor. 6. Não se alegra com a injustiça, mas se rejubila com a verdade. 7. Tudo desculpa, tudo crê, tudo espera, tudo suporta. 8. A caridade jamais acabará. As profecias desaparecerão, o dom das línguas cessará, o dom da ciência findará. 9. A nossa ciência é parcial, a nossa profecia é imperfeita. 10. Quando chegar o que é perfeito, o imperfeito desaparecerá. 11. Quando eu era criança, falava como criança, pensava como criança, raciocinava como criança. Desde que me tornei homem, eliminei as coisas de criança. 12. Hoje vemos como por um espelho, confusamente; mas então veremos face a face. Hoje conheço em parte; mas então conhecerei totalmente, como eu sou conhecido. 13. Por ora subsistem a fé, a esperança e a caridade – as três. Porém, a maior delas é a caridade.",
         "pt": "1. Ainda que eu falasse as línguas dos homens e dos anjos, se não tiver caridade, sou como o bronze que soa, ou como o címbalo que retine. 2. Mesmo que eu tivesse o dom da profecia, e conhecesse todos os mistérios e toda a ciência; mesmo que tivesse toda a fé, a ponto de transportar montanhas, se não tiver caridade, não sou nada. 3. Ainda que distribuísse todos os meus bens em sustento dos pobres, e ainda que entregasse o meu corpo para ser queimado, se não tiver caridade, de nada valeria! 4. A caridade é paciente, a caridade é bondosa. Não tem inveja. A caridade não é orgulhosa. Não é arrogante. 5. Nem escandalosa. Não busca os seus próprios interesses, não se irrita, não guarda rancor. 6. Não se alegra com a injustiça, mas se rejubila com a verdade. 7. Tudo desculpa, tudo crê, tudo espera, tudo suporta. 8. A caridade jamais acabará. As profecias desaparecerão, o dom das línguas cessará, o dom da ciência findará. 9. A nossa ciência é parcial, a nossa profecia é imperfeita. 10. Quando chegar o que é perfeito, o imperfeito desaparecerá. 11. Quando eu era criança, falava como criança, pensava como criança, raciocinava como criança. Desde que me tornei homem, eliminei as coisas de criança. 12. Hoje vemos como por um espelho, confusamente; mas então veremos face a face. Hoje conheço em parte; mas então conhecerei totalmente, como eu sou conhecido. 13. Por ora subsistem a fé, a esperança e a caridade – as três. Porém, a maior delas é a caridade."
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     },
     {
       "source": "YOUCAT 8",
@@ -560,14 +555,13 @@ const deepDiveSources = {
     {
       "source": "Jo 15,13",
       "title": {
-        "en": "Bíblia — fonte portuguesa atual do mapa",
-        "pt": "Bíblia — fonte portuguesa atual do mapa"
+        "en": "Bíblia",
+        "pt": "Bíblia"
       },
       "body": {
         "en": "13. Ninguém tem maior amor do que aquele que dá a sua vida por seus amigos.",
         "pt": "13. Ninguém tem maior amor do que aquele que dá a sua vida por seus amigos."
-      },
-      "editionNote": "A Theological Map identifica atualmente esta fonte como Bíblia Ave Maria, não Bíblia de Jerusalém."
+      }
     }
   ]
 };
