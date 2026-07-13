@@ -8,6 +8,8 @@ import officialContent from "./data/official-content.json";
 import learningContent from "./data/learning-content.js";
 import {
   ensureParticipantSession,
+  getGlobalReflections,
+  getQuestionReflectionCounts,
   giveHeart,
   isFirebaseConfigured,
   participantUid,
@@ -19,26 +21,29 @@ const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") === "en" ? "en" : "pt";
 const initialRoom = normalizeRoom(params.get("room") || "");
+const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 
 const copy = {
   en: {
     home: "Home",
-    welcomeTitle: "A first taste of the YOUCAT Learning Platform",
-    welcomeBody: "Choose one real question, learn together, and discuss your answer with your group.",
+    welcomeTitle: "YOUCAT Assis",
     name: "Your name",
     namePlaceholder: "How should the group call you?",
     age: "Your age",
     room: "Group code",
     roomPlaceholder: "For example: MESA-04",
     roomFromLink: "Your group is already connected",
-    enter: "Enter the experience",
-    adults: "For this event, participants must be 18 or older.",
-    privacy: "Your name, age, and answer will remain visible to people using this group code.",
+    enter: "Enter",
     choose: "Choose a question",
-    chooseBody: "Each path takes about eight minutes. You do not need to complete them all.",
     roomLabel: "Group",
     question: "Question",
-    start: "Open question",
+    answers: "answers",
+    allReflections: "All reflections",
+    allReflectionsBody: "Answers from every group, gathered around this question.",
+    globalEmpty: "No one has answered this question yet.",
+    globalLoading: "Loading all answers…",
+    loadMore: "Load more",
+    openAllReflections: "Open all answers",
     completed: "answer shared",
     introHint: "Scroll up to begin",
     reader: "Reader",
@@ -50,7 +55,7 @@ const copy = {
     quoteReady: "Quote revealed",
     quiz: "Check your understanding",
     answer: "In your own words",
-    answerBody: "Explain the heart of this question as you understand it. Your group will be able to read it.",
+    answerBody: "Explain the heart of this question as you understand it. It will appear in your group feed and in the all-answers overview.",
     answerPlaceholder: "Write your answer here…",
     submit: "Share with my group",
     submitted: "Your answer is now visible to the group.",
@@ -72,22 +77,24 @@ const copy = {
   },
   pt: {
     home: "Início",
-    welcomeTitle: "Uma primeira experiência da YOUCAT Learning Platform",
-    welcomeBody: "Escolha uma pergunta real, aprenda em conjunto e converse sobre a sua resposta com o seu grupo.",
+    welcomeTitle: "YOUCAT Assis",
     name: "Seu nome",
     namePlaceholder: "Como o grupo deve chamar você?",
     age: "Sua idade",
     room: "Código do grupo",
     roomPlaceholder: "Por exemplo: MESA-04",
     roomFromLink: "Seu grupo já está conectado",
-    enter: "Entrar na experiência",
-    adults: "Neste evento, todos os participantes devem ter 18 anos ou mais.",
-    privacy: "Seu nome, idade e resposta permanecerão visíveis para quem usar este código de grupo.",
+    enter: "Entrar",
     choose: "Escolha uma pergunta",
-    chooseBody: "Cada percurso dura cerca de oito minutos. Você não precisa completar todos.",
     roomLabel: "Grupo",
     question: "Pergunta",
-    start: "Abrir pergunta",
+    answers: "respostas",
+    allReflections: "Todas as reflexões",
+    allReflectionsBody: "Respostas de todos os grupos, reunidas em torno desta pergunta.",
+    globalEmpty: "Ninguém respondeu a esta pergunta ainda.",
+    globalLoading: "Carregando todas as respostas…",
+    loadMore: "Carregar mais",
+    openAllReflections: "Abrir todas as respostas",
     completed: "resposta compartilhada",
     introHint: "Role para cima e comece",
     reader: "Leitura",
@@ -99,7 +106,7 @@ const copy = {
     quoteReady: "Frase revelada",
     quiz: "Verifique a compreensão",
     answer: "Com suas próprias palavras",
-    answerBody: "Explique o centro desta pergunta como você o compreende. Seu grupo poderá ler a resposta.",
+    answerBody: "Explique o centro desta pergunta como você o compreende. Ela aparecerá no mural do grupo e na visão geral de todas as respostas.",
     answerPlaceholder: "Escreva sua resposta aqui…",
     submit: "Compartilhar com meu grupo",
     submitted: "Sua resposta agora está visível para o grupo.",
@@ -134,6 +141,19 @@ const topics = {
   140: t("When love changes", "Quando o amor muda"),
 };
 
+const questionIllustrations = {
+  3: new URL("./assets/illustrations/questions/question-003-love-remains.png", import.meta.url).href,
+  14: new URL("./assets/illustrations/questions/question-014-self-gift.png", import.meta.url).href,
+  25: new URL("./assets/illustrations/questions/question-025-spiritual-direction.png", import.meta.url).href,
+  34: new URL("./assets/illustrations/questions/question-034-freedom-from-images.png", import.meta.url).href,
+  59: new URL("./assets/illustrations/questions/question-059-friendship.png", import.meta.url).href,
+  68: new URL("./assets/illustrations/questions/question-068-trust-before-marriage.png", import.meta.url).href,
+  83: new URL("./assets/illustrations/questions/question-083-commitment-foundation.png", import.meta.url).href,
+  126: new URL("./assets/illustrations/questions/question-126-lifelong-fidelity.png", import.meta.url).href,
+  127: new URL("./assets/illustrations/questions/question-127-fidelity-in-crisis.png", import.meta.url).href,
+  140: new URL("./assets/illustrations/questions/question-140-love-matures.png", import.meta.url).href,
+};
+
 const officialByNumber = new Map(officialContent.questions.map((item) => [item.number, item]));
 const learningByNumber = new Map(learningContent.map((item) => [item.number, item]));
 
@@ -144,6 +164,12 @@ const state = {
   currentQuestion: null,
   interactions: new Map(),
   reflections: new Map(),
+  reflectionCounts: new Map(),
+  globalReflections: [],
+  globalCursor: null,
+  globalHasMore: false,
+  globalStatus: "idle",
+  globalError: "",
   feedStatus: "idle",
   feedError: "",
   unsubscribe: null,
@@ -219,14 +245,10 @@ function renderWelcome() {
   app.innerHTML = `
     <main class="app-shell welcome-screen">
       <section class="welcome-content">
-        <div class="welcome-mark" aria-hidden="true">
-          <span class="mark-person mark-person-one"></span>
-          <span class="mark-person mark-person-two"></span>
-          <span class="mark-question">?</span>
+        <div class="welcome-logo">
+          <img src="${youcatLoveLogo}" alt="YOUCAT" />
         </div>
-        <p class="brand-kicker">YOUCAT</p>
         <h1>${c("welcomeTitle")}</h1>
-        <p class="lead">${c("welcomeBody")}</p>
         <form id="welcome-form" class="welcome-form">
           <label>
             <span>${c("name")}</span>
@@ -241,7 +263,6 @@ function renderWelcome() {
             <input name="room" type="text" autocomplete="off" maxlength="16" value="${escapeHtml(state.room)}" placeholder="${c("roomPlaceholder")}" required ${initialRoom ? "readonly" : ""} />
             ${initialRoom ? `<small>${c("roomFromLink")}: <strong>${escapeHtml(initialRoom)}</strong></small>` : ""}
           </label>
-          <p class="form-note">${c("adults")} ${c("privacy")}</p>
           <button class="primary-action" type="submit">${c("enter")}</button>
           <p id="welcome-error" class="form-error" role="alert"></p>
         </form>
@@ -258,15 +279,24 @@ function renderHome() {
   const cards = officialContent.questions.map((item, index) => {
     const official = item.official[language];
     const interaction = interactionFor(item.number);
+    const count = state.reflectionCounts.get(item.number);
     return `
       <article class="question-card" style="--card-index:${index}">
-        <div class="question-card-meta">
-          <span>${c("question")} ${item.number}</span>
-          ${interaction.submitted ? `<span class="complete-mark">✓ ${c("completed")}</span>` : ""}
-        </div>
-        <h2>${escapeHtml(tr(topics[item.number]))}</h2>
-        <p>${escapeHtml(official.question)}</p>
-        <button type="button" class="text-action" data-action="open-question" data-question="${item.number}">${c("start")} <span aria-hidden="true">→</span></button>
+        <button type="button" class="question-card-main" data-action="open-question" data-question="${item.number}" aria-label="${escapeHtml(official.question)}">
+          <img class="question-card-illustration" src="${questionIllustrations[item.number]}" alt="" />
+          <span class="question-card-copy">
+            <span class="question-card-meta">
+              <span>${c("question")} ${item.number}</span>
+              ${interaction.submitted ? `<span class="complete-mark">✓ ${c("completed")}</span>` : ""}
+            </span>
+            <span class="question-card-title">${escapeHtml(tr(topics[item.number]))}</span>
+            <span class="question-card-question">${escapeHtml(official.question)}</span>
+          </span>
+        </button>
+        <button type="button" class="reflection-total" data-action="open-global-reflections" data-question="${item.number}" aria-label="${c("openAllReflections")}: ${c("question")} ${item.number}">
+          <strong data-reflection-count="${item.number}">${count ?? "…"}</strong>
+          <span>${c("answers")}</span>
+        </button>
       </article>
     `;
   }).join("");
@@ -276,7 +306,6 @@ function renderHome() {
       <header class="home-heading">
         <p class="brand-kicker">YOUCAT</p>
         <h1>${c("choose")}</h1>
-        <p>${c("chooseBody")}</p>
         <span class="room-chip">${c("roomLabel")} ${escapeHtml(state.room)}</span>
       </header>
       <section class="question-list" aria-label="${c("choose")}">${cards}</section>
@@ -284,6 +313,97 @@ function renderHome() {
     </main>
   `;
   window.scrollTo({ top: 0, behavior: "auto" });
+  void refreshReflectionCounts();
+}
+
+async function refreshReflectionCounts() {
+  const questionNumbers = officialContent.questions.map((item) => item.number);
+  try {
+    const counts = isFirebaseConfigured()
+      ? await getQuestionReflectionCounts(questionNumbers)
+      : new Map(questionNumbers.map((number) => [number, (state.reflections.get(number) || []).length]));
+    state.reflectionCounts = counts;
+    if (state.view !== "home") return;
+    questionNumbers.forEach((number) => {
+      const counter = document.querySelector(`[data-reflection-count="${number}"]`);
+      if (counter) counter.textContent = String(counts.get(number) || 0);
+    });
+  } catch (error) {
+    console.error("Unable to load reflection counts", error);
+    if (state.view !== "home") return;
+    document.querySelectorAll("[data-reflection-count]").forEach((counter) => { counter.textContent = "–"; });
+  }
+}
+
+function renderGlobalOverview(number) {
+  const official = officialByNumber.get(number).official[language];
+  app.innerHTML = `
+    <main class="app-shell global-screen">
+      <header class="global-heading">
+        <p class="section-kicker">${c("question")} ${number}</p>
+        <img src="${questionIllustrations[number]}" alt="" />
+        <h1>${c("allReflections")}</h1>
+        <p>${escapeHtml(official.question)}</p>
+        <span class="global-total">${state.reflectionCounts.get(number) ?? state.globalReflections.length} ${c("answers")}</span>
+      </header>
+      <section class="global-reflections" aria-live="polite">
+        <p class="global-intro">${c("allReflectionsBody")}</p>
+        <div id="global-reflections-list" class="reflections-list">${renderGlobalReflectionsList(number)}</div>
+        ${state.globalStatus === "ready" && state.globalHasMore ? `<button type="button" class="secondary-action load-more" data-action="load-global-more" data-question="${number}">${c("loadMore")}</button>` : ""}
+      </section>
+      ${bottomNavigation(false)}
+    </main>
+  `;
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+
+function renderGlobalReflectionsList(number) {
+  if (state.globalStatus === "loading" && !state.globalReflections.length) return `<p class="empty-state">${c("globalLoading")}</p>`;
+  if (state.globalError) return `<p class="empty-state form-error">${escapeHtml(state.globalError)}</p>`;
+  if (!state.globalReflections.length) return `<p class="empty-state">${c("globalEmpty")}</p>`;
+  const sorted = [...state.globalReflections]
+    .sort((a, b) => (b.voters?.length || 0) - (a.voters?.length || 0) || createdAt(b) - createdAt(a));
+  return renderReflectionCards(sorted, number, true);
+}
+
+async function openGlobalOverview(number) {
+  cleanupSubscription();
+  state.view = "global";
+  state.currentQuestion = number;
+  state.globalReflections = [];
+  state.globalCursor = null;
+  state.globalHasMore = false;
+  state.globalError = "";
+  state.globalStatus = isFirebaseConfigured() ? "loading" : "ready";
+
+  if (!isFirebaseConfigured()) {
+    state.globalReflections = (state.reflections.get(number) || []).map((item) => ({ ...item, roomCode: item.roomCode || state.room }));
+    state.globalHasMore = false;
+    renderGlobalOverview(number);
+    return;
+  }
+
+  renderGlobalOverview(number);
+  await loadGlobalPage(number);
+}
+
+async function loadGlobalPage(number) {
+  if (state.globalStatus === "loading" && state.globalReflections.length) return;
+  state.globalStatus = "loading";
+  state.globalError = "";
+  try {
+    const page = await getGlobalReflections(number, { after: state.globalCursor, pageSize: 50 });
+    const seen = new Set(state.globalReflections.map((item) => item.id));
+    state.globalReflections.push(...page.reflections.filter((item) => !seen.has(item.id)));
+    state.globalCursor = page.cursor;
+    state.globalHasMore = page.hasMore;
+    state.globalStatus = "ready";
+  } catch (error) {
+    console.error("Unable to load global reflections", error);
+    state.globalStatus = "error";
+    state.globalError = c("tryAgain");
+  }
+  if (state.view === "global" && state.currentQuestion === number) renderGlobalOverview(number);
 }
 
 function renderQuestion(number, positions = null) {
@@ -300,6 +420,7 @@ function renderQuestion(number, positions = null) {
         <section class="feed-section intro-section" data-section="intro">
           <div class="section-inner">
             <p class="section-kicker">YOUCAT Love Forever ${number}</p>
+            <div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
             <h1>${escapeHtml(official.question)}</h1>
             <div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
             <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
@@ -367,19 +488,49 @@ function renderReaderCarousel(number, official, learning) {
       <article class="carousel-panel reader-panel">
         <div class="panel-label">${c("loveForever")} · ${number}</div>
         <h2>${escapeHtml(official.question)}</h2>
-        <div class="panel-scroll"><p>${escapeHtml(official.answer)}</p></div>
+        <div class="panel-scroll source-text official-text">${renderParagraphs(official.answer, { initial: true })}</div>
       </article>
     `,
     ...learning.deepDive.map((deepDive, index) => `
       <article class="carousel-panel reader-panel deep-dive-panel">
         <div class="panel-label">${c("deepDive")} ${index + 1}</div>
         <p class="source-line">${escapeHtml(deepDive.source)}</p>
-        <h2>${escapeHtml(tr(deepDive.title))}</h2>
-        <div class="panel-scroll"><p>${escapeHtml(tr(deepDive.body))}</p></div>
+        <h2 class="source-document-title ${sourceTitleClass(deepDive.source)}">${escapeHtml(tr(deepDive.title))}</h2>
+        <div class="panel-scroll source-text official-text">
+          ${deepDive.question ? `<h3 class="source-question">${escapeHtml(tr(deepDive.question))}</h3>` : ""}
+          ${renderParagraphs(tr(deepDive.body), { initial: true, stripLeadingNumber: true })}
+        </div>
       </article>
     `),
   ];
   return carousel("reader-carousel", panels, `${c("reader")} ${number}`);
+}
+
+function sourceTitleClass(source) {
+  if (/^YOUCAT\b/.test(source)) return "is-youcat";
+  if (/^DOCAT\b/.test(source)) return "is-docat";
+  return "is-magisterium";
+}
+
+function renderParagraphs(text, { initial = false, stripLeadingNumber = false } = {}) {
+  return String(text)
+    .split(/\n{2,}/)
+    .map((paragraph, index) => {
+      const displayText = stripLeadingNumber ? stripReferenceNumber(paragraph) : paragraph.trim();
+      if (!initial || index !== 0) return `<p>${escapeHtml(displayText)}</p>`;
+      const firstLetter = displayText.match(/\p{L}/u);
+      if (!firstLetter) return `<p>${escapeHtml(displayText)}</p>`;
+      const letterIndex = firstLetter.index;
+      return `<p class="has-initial">${escapeHtml(displayText.slice(0, letterIndex))}<span class="source-initial">${escapeHtml(firstLetter[0])}</span>${escapeHtml(displayText.slice(letterIndex + firstLetter[0].length))}</p>`;
+    })
+    .join("");
+}
+
+function stripReferenceNumber(text) {
+  return String(text)
+    .trim()
+    .replace(/^(?:Cân\.\s*)?\d+(?:[–-]\d+)?\s*(?:[.—-]\s*)?/u, "")
+    .trim();
 }
 
 function renderGamesCarousel(number, learning, interaction, allGamesDone) {
@@ -485,22 +636,29 @@ function carousel(id, panels, label) {
 function renderReflectionsList(number) {
   if (state.feedStatus === "loading") return `<p class="empty-state">${c("loading")}</p>`;
   if (state.feedError) return `<p class="empty-state form-error">${escapeHtml(state.feedError)}</p>`;
-  const uid = participantUid();
   const reflections = [...(state.reflections.get(number) || [])]
     .sort((a, b) => (b.voters?.length || 0) - (a.voters?.length || 0) || createdAt(b) - createdAt(a));
   if (!reflections.length) return `<p class="empty-state">${c("empty")}</p>`;
 
+  return renderReflectionCards(reflections, number, false);
+}
+
+function renderReflectionCards(reflections, number, showRoom) {
+  const uid = participantUid();
   return reflections.map((reflection, index) => {
     const voters = reflection.voters || [];
     const isOwn = reflection.authorUid === uid;
     const hasHearted = voters.includes(uid);
+    const room = showRoom && reflection.roomCode
+      ? `<span class="reflection-room">· ${c("roomLabel")} ${escapeHtml(reflection.roomCode)}</span>`
+      : "";
     return `
       <article class="reflection-card ${index === 0 && voters.length ? "is-leading" : ""}">
         <div class="reflection-copy">
-          <p class="reflection-author">${escapeHtml(reflection.name)}, ${Number(reflection.age)} ${isOwn ? `<span>· ${c("ownAnswer")}</span>` : ""}</p>
+          <p class="reflection-author">${escapeHtml(reflection.name)}, ${Number(reflection.age)} ${room} ${isOwn ? `<span>· ${c("ownAnswer")}</span>` : ""}</p>
           <p>${escapeHtml(reflection.text)}</p>
         </div>
-        <button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" ${hasHearted || isOwn ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
+        <button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" data-room="${escapeHtml(reflection.roomCode || "")}" data-scope="${showRoom ? "global" : "room"}" ${hasHearted || isOwn ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
           <span aria-hidden="true">♡</span><strong>${voters.length}</strong>
         </button>
       </article>
@@ -697,6 +855,17 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
+  if (action === "open-global-reflections") {
+    await openGlobalOverview(Number(target.dataset.question));
+    return;
+  }
+
+  if (action === "load-global-more") {
+    target.disabled = true;
+    await loadGlobalPage(Number(target.dataset.question));
+    return;
+  }
+
   if (action === "carousel-dot") {
     const carouselEl = document.getElementById(target.dataset.carousel);
     carouselEl?.scrollTo({ left: Number(target.dataset.index) * carouselEl.clientWidth, behavior: "smooth" });
@@ -725,11 +894,15 @@ app.addEventListener("click", async (event) => {
     target.disabled = true;
     try {
       const uid = await giveHeart({
-        roomCode: state.room,
+        roomCode: target.dataset.room || state.room,
         questionNumber: number,
         reflectionId: target.dataset.reflection,
       });
-      if (!isFirebaseConfigured()) {
+      if (target.dataset.scope === "global") {
+        const reflection = state.globalReflections.find((item) => item.id === target.dataset.reflection);
+        if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
+        if (state.view === "global") renderGlobalOverview(number);
+      } else if (!isFirebaseConfigured()) {
         const reflections = state.reflections.get(number) || [];
         const reflection = reflections.find((item) => item.id === target.dataset.reflection);
         if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);

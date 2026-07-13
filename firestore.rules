@@ -14,6 +14,10 @@ service cloud.firestore {
       return roomId.matches("^[A-Z0-9-]{3,16}$");
     }
 
+    match /{path=**}/reflections/{answerId} {
+      allow read: if signedIn();
+    }
+
     match /rooms/{roomId}/questions/{questionId}/reflections/{answerId} {
       allow read: if signedIn();
 
@@ -22,7 +26,7 @@ service cloud.firestore {
         && validQuestion(questionId)
         && answerId == request.auth.uid
         && request.resource.data.keys().hasOnly([
-          "authorUid", "name", "age", "text", "voters", "createdAt"
+          "authorUid", "name", "age", "text", "voters", "roomCode", "questionNumber", "createdAt"
         ])
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.name is string
@@ -36,6 +40,9 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 1200
         && request.resource.data.voters is list
         && request.resource.data.voters.size() == 0
+        && request.resource.data.roomCode is string
+        && request.resource.data.roomCode == roomId
+        && request.resource.data.questionNumber == questionId
         && request.resource.data.createdAt == request.time;
 
       allow update: if signedIn()

@@ -1,3 +1,5 @@
+import deepDiveSources from "./deep-dive-sources.js";
+
 const t = (en, pt) => ({ en, pt });
 
 const learning = [
@@ -752,5 +754,9 @@ const learning = [
     reflectionPrompt: t("How can love become deeper when the first intensity changes?", "Como o amor pode se tornar mais profundo quando a intensidade inicial muda?"),
   },
 ];
+
+for (const item of learning) {
+  if (deepDiveSources[item.number]) item.deepDive = deepDiveSources[item.number];
+}
 
 export default learning;

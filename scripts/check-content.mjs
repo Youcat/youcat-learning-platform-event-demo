@@ -11,6 +11,13 @@ for (const number of expected) {
 }
 
 for (const item of learning) {
+  if (!item.deepDive.length) throw new Error(`Q${item.number} needs verbatim source pages`);
+  for (const source of item.deepDive) {
+    if (!source.source || !source.body?.pt) throw new Error(`Q${item.number} has an incomplete source page`);
+    if (/^(YOUCAT|DOCAT)\b/.test(source.source) && !source.question?.pt) {
+      throw new Error(`${source.source} needs its authenticated question`);
+    }
+  }
   if (item.games.length !== 3) throw new Error(`Q${item.number} must have three games`);
   if (item.quiz.length < 2) throw new Error(`Q${item.number} must have at least two quiz items`);
   if (!item.saintQuote?.text || !item.saintQuote?.author) throw new Error(`Q${item.number} needs a saint quote`);
