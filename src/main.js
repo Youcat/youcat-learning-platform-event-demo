@@ -496,11 +496,19 @@ function renderReaderCarousel(number, official, learning) {
         <div class="panel-label">${c("deepDive")} ${index + 1}</div>
         <p class="source-line">${escapeHtml(deepDive.source)}</p>
         <h2>${escapeHtml(tr(deepDive.title))}</h2>
-        <div class="panel-scroll"><p>${escapeHtml(tr(deepDive.body))}</p></div>
+        ${deepDive.editionNote ? `<p class="source-warning">${escapeHtml(deepDive.editionNote)}</p>` : ""}
+        <div class="panel-scroll source-text">${renderParagraphs(tr(deepDive.body))}</div>
       </article>
     `),
   ];
   return carousel("reader-carousel", panels, `${c("reader")} ${number}`);
+}
+
+function renderParagraphs(text) {
+  return String(text)
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+    .join("");
 }
 
 function renderGamesCarousel(number, learning, interaction, allGamesDone) {

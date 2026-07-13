@@ -637,6 +637,20 @@ textarea:focus-visible {
   line-height: 27px;
 }
 
+.source-text p {
+  margin-bottom: 20px;
+}
+
+.source-warning {
+  margin: -4px 0 12px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--love-red);
+  background: var(--love-red-35);
+  color: var(--graphite);
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .deep-dive-panel {
   position: relative;
 }
