@@ -20,11 +20,13 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
+import { GROUPS } from "../src/groups.js";
 
 const userCount = positiveInteger(process.env.LOAD_USERS, 200);
 const roomSize = positiveInteger(process.env.LOAD_ROOM_SIZE, 10);
@@ -48,6 +50,8 @@ const samples = {
   heartWrites: [],
   answerPropagation: [],
   heartPropagation: [],
+  leaderboardWrites: [],
+  leaderboardPropagation: [],
 };
 const errors = [];
 let snapshotCallbacks = 0;
@@ -58,6 +62,16 @@ console.log(`${questions.length} questions per user, ${heartsPerQuestion * quest
 
 const users = await Promise.all(Array.from({ length: userCount }, (_, index) => createUser(index)));
 await runMeasured("authentication", () => Promise.all(users.map(authenticateUser)));
+
+console.log(`Leaderboard: syncing ${userCount} participants across ${GROUPS.length} groups.`);
+const leaderboardListeners = openLeaderboardViews(users[0]);
+await withTimeout(leaderboardListeners.initial, "initial leaderboard views");
+const leaderboardStart = performance.now();
+await Promise.all(users.map(publishLeaderboard));
+await withTimeout(leaderboardListeners.ready, "leaderboard propagation");
+samples.leaderboardPropagation.push(performance.now() - leaderboardStart);
+leaderboardListeners.unsubscribe();
+console.log("Leaderboard: complete.");
 
 for (const questionNumber of questions) {
   console.log(`Question ${questionNumber}: opening ${userCount} live feeds.`);
@@ -89,7 +103,7 @@ const result = {
     roomSize,
     questionsPerUser: questions.length,
     heartsPerUser: heartsPerQuestion * questions.length,
-    totalWrites: userCount * questions.length * (1 + heartsPerQuestion),
+    totalWrites: userCount * questions.length * (1 + heartsPerQuestion) + userCount * 3,
     maximumConcurrentListeners: userCount,
   },
   elapsedSeconds: round(elapsedMs / 1000),
@@ -118,8 +132,93 @@ async function createUser(index) {
     auth,
     db,
     index,
-    roomCode: `LOAD-${String(Math.floor(index / roomSize) + 1).padStart(2, "0")}`,
+    roomCode: GROUPS[Math.floor(index / roomSize)].code,
   };
+}
+
+function openLeaderboardViews(user) {
+  const initial = deferred();
+  const ready = deferred();
+  let initialSnapshots = 0;
+  const readyGroups = new Set();
+  const unsubs = GROUPS.map((group) => {
+    const memberQuery = query(
+      collection(user.db, "leaderboardGroups", group.code, "members"),
+      where("active", "==", true),
+      limit(100),
+    );
+    return onSnapshot(memberQuery, (snapshot) => {
+      snapshotCallbacks += 1;
+      initialSnapshots += 1;
+      if (initialSnapshots === GROUPS.length + 1) initial.resolve();
+      if (snapshot.size === roomSize) readyGroups.add(group.code);
+      checkReady();
+    }, ready.reject);
+  });
+  let summaries = [];
+  const summaryUnsub = onSnapshot(
+    query(collection(user.db, "leaderboardGroupSummaries"), limit(20)),
+    (snapshot) => {
+      snapshotCallbacks += 1;
+      summaries = snapshot.docs.map((item) => item.data());
+      initialSnapshots += 1;
+      if (initialSnapshots === GROUPS.length + 1) initial.resolve();
+      checkReady();
+    },
+    ready.reject,
+  );
+  function checkReady() {
+    if (readyGroups.size === GROUPS.length && summaries.length === GROUPS.length && summaries.reduce((sum, item) => sum + item.participants, 0) === userCount) ready.resolve();
+  }
+  return { initial: initial.promise, ready: ready.promise, unsubscribe: () => { unsubs.forEach((fn) => fn()); summaryUnsub(); } };
+}
+
+async function publishLeaderboard(user) {
+  const start = performance.now();
+  const xp = 10 + (user.index % 20) * 5;
+  try {
+    const participantRef = doc(user.db, "leaderboardParticipants", user.uid);
+    const memberRef = doc(user.db, "leaderboardGroups", user.roomCode, "members", user.uid);
+    const summaryRef = doc(user.db, "leaderboardGroupSummaries", user.roomCode);
+    await runTransaction(user.db, async (transaction) => {
+      const [memberSnapshot, summarySnapshot] = await Promise.all([
+        transaction.get(memberRef),
+        transaction.get(summaryRef),
+      ]);
+      const previousXp = Number(memberSnapshot.data()?.groupXp || 0);
+      const summary = summarySnapshot.data() || {};
+      const totalXp = Number(summary.totalXp || 0) + xp - previousXp;
+      const participants = Number(summary.participants || 0) + (previousXp < 1 ? 1 : 0);
+      transaction.set(participantRef, {
+        uid: user.uid,
+        displayName: `Load User ${String(user.index + 1).padStart(3, "0")}`,
+        currentGroup: user.roomCode,
+        personalXp: xp,
+        updatedAt: serverTimestamp(),
+      });
+      transaction.set(memberRef, {
+        uid: user.uid,
+        groupCode: user.roomCode,
+        displayName: `Load User ${String(user.index + 1).padStart(3, "0")}`,
+        personalXp: xp,
+        groupXp: xp,
+        questionXp: {},
+        active: true,
+        updatedAt: serverTimestamp(),
+      });
+      transaction.set(summaryRef, {
+        groupCode: user.roomCode,
+        totalXp,
+        participants,
+        averageXp: totalXp / participants,
+        updatedAt: serverTimestamp(),
+      });
+    });
+    samples.leaderboardWrites.push(performance.now() - start);
+  } catch (error) {
+    recordError("leaderboard", user.index, error);
+    throw error;
+  }
 }
 
 async function authenticateUser(user) {

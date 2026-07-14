@@ -6,22 +6,38 @@ import "@fontsource/fira-sans/latin-800.css";
 import "./styles.css";
 import officialContent from "./data/official-content.json";
 import learningContent from "./data/learning-content.js";
+import { GROUPS, displayNameForLeaderboard, groupByCode, normalizeGroup } from "./groups.js";
+import { rankGroupSummaries, rankMembers } from "./leaderboard.js";
+import { ACHIEVEMENTS, createProgressStore, readingReward } from "./progress.js";
 import {
   ensureParticipantSession,
+  claimRandomMission,
+  completeSharedMission,
+  finishPersonalMission,
   getGlobalReflections,
   getQuestionReflectionCounts,
   giveHeart,
   isFirebaseConfigured,
   participantUid,
   publishReflection,
-  subscribeToRoom,
+  releaseActiveMission,
+  renewMission,
+  resetParticipantSession,
+  subscribeToGlobalQuestion,
+  subscribeToHeartRewards,
+  subscribeToLeaderboards,
+  subscribeToMissionGroup,
+  subscribeToQuestionGroupTotal,
+  syncLeaderboard,
 } from "./firebase.js";
 
 const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") === "en" ? "en" : "pt";
-const initialRoom = normalizeRoom(params.get("room") || "");
+const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
+const progress = createProgressStore();
+const CONTENT_VERSION = 3;
 
 const copy = {
   en: {
@@ -31,7 +47,7 @@ const copy = {
     namePlaceholder: "How should the group call you?",
     age: "Your age",
     room: "Group code",
-    roomPlaceholder: "For example: MESA-04",
+    roomPlaceholder: "Choose your group",
     roomFromLink: "Your group is already connected",
     enter: "Enter",
     choose: "Choose a question",
@@ -49,19 +65,17 @@ const copy = {
     reader: "Reader",
     loveForever: "YOUCAT Love Forever",
     deepDive: "Deep Dive",
-    games: "Three games",
+    games: "Four games",
     game: "Game",
-    quoteLocked: "Complete the three games to reveal the quote.",
-    quoteReady: "Quote revealed",
-    quiz: "Check your understanding",
-    answer: "In your own words",
-    answerBody: "Explain the heart of this question as you understand it. It will appear in your group feed and in the all-answers overview.",
+    quiz: "One question to discuss",
+    answer: "Personal reflection",
+    answerBody: "Answer without sharing anything too personal.",
     answerPlaceholder: "Write your answer here…",
-    submit: "Share with my group",
-    submitted: "Your answer is now visible to the group.",
-    reflections: "Your group’s reflections",
-    reflectionsBody: "Give one heart to the answers that help your discussion most.",
-    empty: "No one in this group has answered this question yet.",
+    submit: "Share anonymously",
+    submitted: "Your anonymous reflection has been shared.",
+    reflections: "Reflections from everyone",
+    reflectionsBody: "No names or groups are shown. A heart gives the author +5 XP.",
+    empty: "No one has answered this question yet.",
     loading: "Connecting to the group…",
     localMode: "Local preview: Firebase is not connected yet.",
     liveMode: "Live group feed",
@@ -74,6 +88,35 @@ const copy = {
     of: "of",
     hearts: "hearts",
     ownAnswer: "your answer",
+    xp: "XP",
+    changeGroup: "Change group",
+    continueAs: "Continue as",
+    newPerson: "New person on this device",
+    leaderboard: "Leaderboard",
+    yourGroup: "Your group",
+    eventGroups: "Event groups",
+    practiceAgain: "Practice again",
+    missedXp: "No XP this time",
+    solution: "Correct solution",
+    sound: "Reward sound",
+    groupGoal: "Group goal",
+    overview: "Overview",
+    yourContribution: "Your contribution to the group",
+    groupQuestionTotal: "Your group’s total for this question",
+    nextQuestion: "Continue to the next question",
+    backToQuestions: "Choose another question",
+    anonymousReflection: "Anonymous reflection",
+    nextChallenge: "Are you ready for the next challenge?",
+    getChallenge: "Get a random challenge",
+    waitingChallenge: "Your teammates are working on the available challenges. The next one will appear automatically.",
+    teamProgress: "Team progress",
+    challenge: "Team challenge",
+    oneAttempt: "This challenge is completed for your team after this attempt—right or wrong.",
+    missionXp: "XP earned in this mission",
+    declineReflection: "I prefer not to answer",
+    notNow: "Not now",
+    finishBoard: "Finish this reflection board",
+    allComplete: "Your group has completed all challenges.",
   },
   pt: {
     home: "Início",
@@ -82,7 +125,7 @@ const copy = {
     namePlaceholder: "Como o grupo deve chamar você?",
     age: "Sua idade",
     room: "Código do grupo",
-    roomPlaceholder: "Por exemplo: MESA-04",
+    roomPlaceholder: "Escolha o seu grupo",
     roomFromLink: "Seu grupo já está conectado",
     enter: "Entrar",
     choose: "Escolha uma pergunta",
@@ -100,19 +143,17 @@ const copy = {
     reader: "Leitura",
     loveForever: "YOUCAT Love Forever",
     deepDive: "Aprofundamento",
-    games: "Três jogos",
+    games: "Quatro jogos",
     game: "Jogo",
-    quoteLocked: "Complete os três jogos para revelar a frase.",
-    quoteReady: "Frase revelada",
-    quiz: "Verifique a compreensão",
-    answer: "Com suas próprias palavras",
-    answerBody: "Explique o centro desta pergunta como você o compreende. Ela aparecerá no mural do grupo e na visão geral de todas as respostas.",
+    quiz: "Uma pergunta para discutir",
+    answer: "Reflexão pessoal",
+    answerBody: "Responda sem contar nada íntimo demais.",
     answerPlaceholder: "Escreva sua resposta aqui…",
-    submit: "Compartilhar com meu grupo",
-    submitted: "Sua resposta agora está visível para o grupo.",
-    reflections: "Reflexões do seu grupo",
-    reflectionsBody: "Dê um coração às respostas que mais ajudam a conversa do grupo.",
-    empty: "Ninguém neste grupo respondeu a esta pergunta ainda.",
+    submit: "Compartilhar anonimamente",
+    submitted: "Sua reflexão anônima foi compartilhada.",
+    reflections: "Reflexões de todos",
+    reflectionsBody: "Nenhum nome ou grupo é exibido. Um coração dá +5 XP ao autor.",
+    empty: "Ninguém respondeu a esta pergunta ainda.",
     loading: "Conectando ao grupo…",
     localMode: "Prévia local: o Firebase ainda não está conectado.",
     liveMode: "Mural do grupo ao vivo",
@@ -125,6 +166,35 @@ const copy = {
     of: "de",
     hearts: "corações",
     ownAnswer: "sua resposta",
+    xp: "XP",
+    changeGroup: "Mudar de grupo",
+    continueAs: "Continuar como",
+    newPerson: "Nova pessoa neste dispositivo",
+    leaderboard: "Classificação",
+    yourGroup: "Seu grupo",
+    eventGroups: "Grupos do evento",
+    practiceAgain: "Praticar novamente",
+    missedXp: "Sem XP desta vez",
+    solution: "Solução correta",
+    sound: "Som das recompensas",
+    groupGoal: "Meta do grupo",
+    overview: "Visão geral",
+    yourContribution: "Sua contribuição para o grupo",
+    groupQuestionTotal: "Total do seu grupo nesta pergunta",
+    nextQuestion: "Continuar para a próxima pergunta",
+    backToQuestions: "Escolher outra pergunta",
+    anonymousReflection: "Reflexão anônima",
+    nextChallenge: "Você está pronto para o próximo desafio?",
+    getChallenge: "Receber um desafio aleatório",
+    waitingChallenge: "Seus companheiros estão trabalhando nos desafios disponíveis. O próximo aparecerá automaticamente.",
+    teamProgress: "Progresso da equipe",
+    challenge: "Desafio da equipe",
+    oneAttempt: "Este desafio será concluído para sua equipe depois desta tentativa — certa ou errada.",
+    missionXp: "XP conquistado nesta missão",
+    declineReflection: "Prefiro não responder",
+    notNow: "Agora não",
+    finishBoard: "Concluir este mural de reflexões",
+    allComplete: "Seu grupo concluiu todos os desafios.",
   },
 };
 
@@ -154,13 +224,73 @@ const questionIllustrations = {
   140: new URL("./assets/illustrations/questions/question-140-love-matures.png", import.meta.url).href,
 };
 
+const gameIllustrations = {
+  "25:0": new URL("./assets/illustrations/games/question-025-emmaus-guide.png", import.meta.url).href,
+  "34:3": new URL("./assets/illustrations/games/question-034-freedom-plan.png", import.meta.url).href,
+  "59:1": new URL("./assets/illustrations/games/question-059-transparent-friendship.png", import.meta.url).href,
+  "68:3": new URL("./assets/illustrations/games/question-068-definitive-yes.png", import.meta.url).href,
+  "83:0": new URL("./assets/illustrations/games/question-083-choosing-not-drifting.png", import.meta.url).href,
+  "126:2": new URL("./assets/illustrations/games/question-126-prayer-fidelity.png", import.meta.url).href,
+  "140:1": new URL("./assets/illustrations/games/question-140-mature-love.png", import.meta.url).href,
+};
+
+const achievementIllustrations = {
+  "first-steps": new URL("./assets/illustrations/achievements/achievement-first-steps.png", import.meta.url).href,
+  curious: new URL("./assets/illustrations/achievements/achievement-curious.png", import.meta.url).href,
+  explorer: new URL("./assets/illustrations/achievements/achievement-explorer.png", import.meta.url).href,
+  persevering: new URL("./assets/illustrations/achievements/achievement-persevering.png", import.meta.url).href,
+};
+
+const groupIllustrations = {
+  "Assis-Sao-Jose": new URL("./assets/illustrations/groups/saint-sao-jose.png", import.meta.url).href,
+  "Assis-Sao-Francisco": new URL("./assets/illustrations/groups/saint-sao-francisco.png", import.meta.url).href,
+  "Assis-Santa-Clara": new URL("./assets/illustrations/groups/saint-santa-clara.png", import.meta.url).href,
+  "Assis-Santo-Antonio": new URL("./assets/illustrations/groups/saint-santo-antonio.png", import.meta.url).href,
+  "Assis-Sao-Joao-Paulo": new URL("./assets/illustrations/groups/saint-sao-joao-paulo-ii.png", import.meta.url).href,
+  "Assis-Santa-Teresa-de-Calcuta": new URL("./assets/illustrations/groups/saint-santa-teresa-de-calcuta.png", import.meta.url).href,
+  "Assis-Sao-Pedro": new URL("./assets/illustrations/groups/saint-sao-pedro.png", import.meta.url).href,
+  "Assis-Sao-Paulo": new URL("./assets/illustrations/groups/saint-sao-paulo.png", import.meta.url).href,
+  "Assis-Santa-Rita": new URL("./assets/illustrations/groups/saint-santa-rita.png", import.meta.url).href,
+  "Assis-Sao-Bento": new URL("./assets/illustrations/groups/saint-sao-bento.png", import.meta.url).href,
+  "Assis-Santa-Teresinha": new URL("./assets/illustrations/groups/saint-santa-teresinha.png", import.meta.url).href,
+  "Assis-Sao-Joao-Bosco": new URL("./assets/illustrations/groups/saint-sao-joao-bosco.png", import.meta.url).href,
+  "Assis-Santa-Faustina": new URL("./assets/illustrations/groups/saint-santa-faustina.png", import.meta.url).href,
+  "Assis-Santo-Agostinho": new URL("./assets/illustrations/groups/saint-santo-agostinho.png", import.meta.url).href,
+  "Assis-Santa-Monica": new URL("./assets/illustrations/groups/saint-santa-monica.png", import.meta.url).href,
+  "Assis-Sao-Padre-Pio": new URL("./assets/illustrations/groups/saint-sao-padre-pio.png", import.meta.url).href,
+  "Assis-Santa-Catarina": new URL("./assets/illustrations/groups/saint-santa-catarina-de-sena.png", import.meta.url).href,
+  "Assis-Sao-Domingos": new URL("./assets/illustrations/groups/saint-sao-domingos.png", import.meta.url).href,
+  "Assis-Santa-Gianna": new URL("./assets/illustrations/groups/saint-santa-gianna.png", import.meta.url).href,
+  "Assis-Sao-Maximiliano-Kolbe": new URL("./assets/illustrations/groups/saint-sao-maximiliano-kolbe.png", import.meta.url).href,
+};
+
+function gameIllustration(number, gameIndex) {
+  return gameIllustrations[`${number}:${gameIndex}`] || questionIllustrations[number];
+}
+
 const officialByNumber = new Map(officialContent.questions.map((item) => [item.number, item]));
 const learningByNumber = new Map(learningContent.map((item) => [item.number, item]));
 
+function gameXp(game) {
+  if (game.xp) return game.xp;
+  if (game.type === "match") return 4;
+  if (game.type === "order") return 6;
+  if (game.type === "move") return Math.min(9, 4 + (game.answer?.length || 3));
+  if (game.type === "reveal") return Math.min(9, 3 + (game.cards?.length || 3));
+  if (game.type === "crossword") return Math.min(10, 4 + (game.clues?.length || 4));
+  return 5;
+}
+
+const sharedChallenges = learningContent.flatMap((item) => [
+  { id: `${item.number}__quiz`, questionNumber: item.number, challengeKind: "quiz", challengeIndex: 0, xp: 10 },
+  ...item.games.map((game, index) => ({ id: `${item.number}__game-${index}`, questionNumber: item.number, challengeKind: "game", challengeIndex: index, xp: gameXp(game) })),
+]);
+const questionNumbers = officialContent.questions.map((item) => item.number);
+
 const state = {
   view: "welcome",
-  profile: null,
-  room: initialRoom,
+  profile: progress.profile(),
+  room: initialRoom || progress.profile()?.room || GROUPS[0].code,
   currentQuestion: null,
   interactions: new Map(),
   reflections: new Map(),
@@ -173,6 +303,26 @@ const state = {
   feedStatus: "idle",
   feedError: "",
   unsubscribe: null,
+  questionTotalUnsubscribe: null,
+  questionGroupTotal: 0,
+  missionDashboardUnsubscribe: null,
+  heartRewardsUnsubscribe: null,
+  activeMission: null,
+  completedMission: null,
+  missionInteraction: null,
+  missionStartXp: 0,
+  missionGroupState: { challenges: {}, progress: {} },
+  missionClaiming: false,
+  missionWaitTimer: null,
+  lastMissionActivity: Date.now(),
+  missionRenewTimer: null,
+  leaderboardUnsubscribe: null,
+  leaderboardMembers: [],
+  leaderboardContributions: [],
+  leaderboardStatus: "idle",
+  groupGoalCelebrated: false,
+  readingCleanup: null,
+  syncTimer: null,
   submitting: false,
 };
 
@@ -189,14 +339,6 @@ function c(key) {
   return copy[language][key];
 }
 
-function normalizeRoom(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9-]/g, "")
-    .slice(0, 16);
-}
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -209,21 +351,158 @@ function escapeHtml(value) {
 function interactionFor(number) {
   if (!state.interactions.has(number)) {
     const learning = learningByNumber.get(number);
-    state.interactions.set(number, {
+    const fresh = {
+      contentVersion: CONTENT_VERSION,
       games: learning.games.map((game) => ({
-        done: false,
+        attempted: false,
+        succeeded: false,
+        practice: false,
+        finished: false,
         selected: null,
         sequence: [],
         activeLeft: null,
         matched: [],
+        start: game.start || [],
         message: "",
       })),
-      quiz: learning.quiz.map(() => ({ selected: null, correct: false })),
+      quiz: learning.quiz.map(() => ({ selected: null, correct: false, attempted: false, practice: false })),
       answer: "",
       submitted: false,
-    });
+    };
+    const saved = progress.interaction(number);
+    if (saved?.contentVersion === CONTENT_VERSION) {
+      fresh.answer = saved.answer || "";
+      fresh.submitted = Boolean(saved.submitted);
+      fresh.games = fresh.games.map((item, index) => ({ ...item, ...(saved.games?.[index] || {}) }));
+      fresh.quiz = fresh.quiz.map((item, index) => ({ ...item, ...(saved.quiz?.[index] || {}) }));
+    }
+    state.interactions.set(number, fresh);
   }
   return state.interactions.get(number);
+}
+
+function saveInteraction(number) {
+  progress.saveInteraction(number, interactionFor(number));
+}
+
+function scheduleLeaderboardSync(previousRoom = "", immediate = false) {
+  if (!state.profile) return;
+  clearTimeout(state.syncTimer);
+  state.syncTimer = setTimeout(async () => {
+    try {
+      await syncLeaderboard({
+        profile: {
+          ...state.profile,
+          room: state.room,
+          displayName: displayNameForLeaderboard(state.profile.name),
+        },
+        totalXp: progress.totalXp(),
+        groupXp: progress.allGroupXp(),
+        questionXp: progress.allGroupQuestionXp(),
+        previousRoom,
+      });
+    } catch (error) {
+      console.warn("Leaderboard sync will retry later", error);
+    }
+  }, immediate ? 0 : 10_000);
+}
+
+function playRewardSound() {
+  if (!progress.soundEnabled()) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const context = new AudioContext();
+    [660, 880].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, context.currentTime + index * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + index * 0.08 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + index * 0.08 + 0.12);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(context.currentTime + index * 0.08);
+      oscillator.stop(context.currentTime + index * 0.08 + 0.14);
+    });
+    setTimeout(() => context.close(), 500);
+  } catch {}
+}
+
+function showReward(xp, unlocked = []) {
+  document.querySelector(".reward-pop")?.remove();
+  const pop = document.createElement("div");
+  pop.className = "reward-pop";
+  pop.setAttribute("role", "status");
+  pop.innerHTML = `<span>+${xp} XP</span><i></i><i></i><i></i>`;
+  document.body.append(pop);
+  playRewardSound();
+  setTimeout(() => pop.remove(), 1700);
+  if (unlocked.length) setTimeout(() => showAchievement(unlocked[unlocked.length - 1]), 500);
+}
+
+function showAchievement(item) {
+  const overlay = document.createElement("button");
+  overlay.type = "button";
+  overlay.className = "achievement-celebration";
+  overlay.dataset.action = "dismiss-achievement";
+  overlay.innerHTML = `<span>Conquista desbloqueada</span><img src="${achievementIllustrations[item.id]}" alt="" /><strong>${escapeHtml(item[language])}</strong><small>${item.xp} XP</small>`;
+  document.body.append(overlay);
+  progress.clearPendingAchievement();
+  setTimeout(() => overlay.remove(), 3000);
+}
+
+function showGroupGoalCelebration() {
+  if (state.groupGoalCelebrated) return;
+  state.groupGoalCelebrated = true;
+  const group = groupByCode(state.room);
+  const overlay = document.createElement("button");
+  overlay.type = "button";
+  overlay.className = "achievement-celebration group-celebration";
+  overlay.dataset.action = "dismiss-achievement";
+  overlay.innerHTML = `<span>${c("groupGoal")}</span>${groupMark(group)}<strong>500 XP</strong><small>${escapeHtml(group.saint)}</small>`;
+  document.body.append(overlay);
+  playRewardSound();
+  setTimeout(() => overlay.remove(), 3000);
+}
+
+function grantReward(id, xp, meta = {}) {
+  const group = meta.groupCode || state.room;
+  const result = progress.awardOnce(id, xp, group, meta);
+  if (!result.awarded) return false;
+  showReward(xp, result.unlocked);
+  if (state.currentQuestion && Number(meta.question) === Number(state.currentQuestion)) {
+    const personal = document.querySelector("[data-question-personal-xp]");
+    if (personal) personal.textContent = `${questionXp(state.currentQuestion, state.room)} XP`;
+    if (!isFirebaseConfigured()) {
+      state.questionGroupTotal = progress.questionGroupXp(state.room, state.currentQuestion);
+      const total = document.querySelector("[data-question-group-total]");
+      if (total) total.textContent = `${state.questionGroupTotal} XP`;
+    }
+  }
+  scheduleLeaderboardSync();
+  return true;
+}
+
+function questionXp(number, group = null) {
+  return Object.entries(progress.awards()).reduce((sum, [id, item]) => (
+    (id.includes(`:${number}:`) || id.endsWith(`:${number}`)) && (!group || item.group === group) ? sum + item.xp : sum
+  ), 0);
+}
+
+function renderAchievementShelf() {
+  const total = progress.totalXp();
+  return `<section class="achievement-shelf" aria-label="Conquistas">
+    <div class="shelf-heading"><h2>Conquistas</h2><span>${total} XP</span></div>
+    <div class="achievement-carousel">
+      ${ACHIEVEMENTS.map((item, index) => {
+        const unlocked = total >= item.xp;
+        const illustration = achievementIllustrations[item.id];
+        return `<article class="achievement-card ${unlocked ? "is-unlocked" : "is-locked"}">
+          <img src="${illustration}" alt="" />
+          <strong>${escapeHtml(item[language])}</strong><span>${item.xp} XP</span>
+        </article>`;
+      }).join("")}
+    </div>
+  </section>`;
 }
 
 function homeIcon() {
@@ -238,6 +517,34 @@ function bottomNavigation(disabled = false) {
         <span>${c("home")}</span>
       </button>
     </nav>
+  `;
+}
+
+function groupOptions(selected = state.room) {
+  return GROUPS.map((group) => `<option value="${group.code}" ${group.code === selected ? "selected" : ""}>${escapeHtml(group.code)}</option>`).join("");
+}
+
+function groupMark(group, compact = false) {
+  const illustration = groupIllustrations[group.code];
+  return `<span class="group-mark ${compact ? "is-compact" : ""}" aria-hidden="true">${illustration ? `<img src="${illustration}" alt="" />` : `<span>${escapeHtml(group.saint.slice(0, 1))}</span><i>${escapeHtml(group.symbol)}</i>`}</span>`;
+}
+
+function renderReturning() {
+  const profile = state.profile;
+  const group = groupByCode(profile.room);
+  app.innerHTML = `
+    <main class="app-shell welcome-screen returning-screen">
+      <section class="welcome-content">
+        <div class="welcome-logo"><img src="${youcatLoveLogo}" alt="YOUCAT" /></div>
+        ${groupMark(group)}
+        <h1>${c("continueAs")} ${escapeHtml(profile.name)}?</h1>
+        <p class="returning-group">${escapeHtml(profile.room)} · ${progress.totalXp()} XP</p>
+        <button type="button" class="primary-action" data-action="continue-profile">${c("enter")}</button>
+        <button type="button" class="secondary-action" data-action="change-group">${c("changeGroup")}</button>
+        <button type="button" class="quiet-action" data-action="new-person">${c("newPerson")}</button>
+      </section>
+      ${bottomNavigation(true)}
+    </main>
   `;
 }
 
@@ -260,7 +567,7 @@ function renderWelcome() {
           </label>
           <label>
             <span>${c("room")}</span>
-            <input name="room" type="text" autocomplete="off" maxlength="16" value="${escapeHtml(state.room)}" placeholder="${c("roomPlaceholder")}" required ${initialRoom ? "readonly" : ""} />
+            <select name="room" required>${groupOptions(initialRoom || state.room)}</select>
             ${initialRoom ? `<small>${c("roomFromLink")}: <strong>${escapeHtml(initialRoom)}</strong></small>` : ""}
           </label>
           <button class="primary-action" type="submit">${c("enter")}</button>
@@ -274,29 +581,30 @@ function renderWelcome() {
 
 function renderHome() {
   cleanupSubscription();
+  cleanupLeaderboardSubscription();
+  cleanupMissionDashboard();
   state.view = "home";
   state.currentQuestion = null;
   const cards = officialContent.questions.map((item, index) => {
     const official = item.official[language];
-    const interaction = interactionFor(item.number);
-    const count = state.reflectionCounts.get(item.number);
+    const completed = Number(state.missionGroupState.progress?.[item.number] || 0);
+    const ratio = Math.min(1, completed / 5);
     return `
       <article class="question-card" style="--card-index:${index}">
-        <button type="button" class="question-card-main" data-action="open-question" data-question="${item.number}" aria-label="${escapeHtml(official.question)}">
+        <div class="question-card-main mission-question-card" aria-label="${escapeHtml(official.question)}">
           <img class="question-card-illustration" src="${questionIllustrations[item.number]}" alt="" />
           <span class="question-card-copy">
             <span class="question-card-meta">
               <span>${c("question")} ${item.number}</span>
-              ${interaction.submitted ? `<span class="complete-mark">✓ ${c("completed")}</span>` : ""}
             </span>
             <span class="question-card-title">${escapeHtml(tr(topics[item.number]))}</span>
             <span class="question-card-question">${escapeHtml(official.question)}</span>
           </span>
-        </button>
-        <button type="button" class="reflection-total" data-action="open-global-reflections" data-question="${item.number}" aria-label="${c("openAllReflections")}: ${c("question")} ${item.number}">
-          <strong data-reflection-count="${item.number}">${count ?? "…"}</strong>
-          <span>${c("answers")}</span>
-        </button>
+        </div>
+        <div class="team-progress-ring" data-team-progress="${item.number}" style="--team-progress:${ratio}">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><circle class="team-progress-value" cx="24" cy="24" r="20"></circle></svg>
+          <strong>${completed}/5</strong><small>${c("teamProgress")}</small>
+        </div>
       </article>
     `;
   }).join("");
@@ -305,15 +613,76 @@ function renderHome() {
     <main class="app-shell home-screen">
       <header class="home-heading">
         <p class="brand-kicker">YOUCAT</p>
-        <h1>${c("choose")}</h1>
-        <span class="room-chip">${c("roomLabel")} ${escapeHtml(state.room)}</span>
+        <h1>${c("teamProgress")}</h1>
+        <button type="button" class="room-chip" data-action="change-group">${c("roomLabel")} ${escapeHtml(state.room)}</button>
+        <strong class="home-xp">${progress.totalXp()} XP</strong>
       </header>
-      <section class="question-list" aria-label="${c("choose")}">${cards}</section>
+      <section class="group-home-card">
+        ${groupMark(groupByCode(state.room), true)}
+        <div><span>${c("yourGroup")}</span><strong>${escapeHtml(groupByCode(state.room).saint)}</strong></div>
+        <button type="button" data-action="open-leaderboard">${c("leaderboard")} →</button>
+      </section>
+      ${renderAchievementShelf()}
+      <section class="mission-launch">
+        <p>${language === "pt" ? "Cada missão é escolhida aleatoriamente entre os desafios ainda disponíveis." : "Each mission is chosen randomly from the challenges still available."}</p>
+        <button type="button" class="primary-action" data-action="next-mission" ${state.missionClaiming ? "disabled" : ""}>${c("getChallenge")}</button>
+        <p class="mission-waiting" role="status">${state.missionStatus === "waiting" ? c("waitingChallenge") : ""}</p>
+      </section>
+      <section class="question-list" aria-label="${c("teamProgress")}">${cards}</section>
       ${bottomNavigation(false)}
     </main>
   `;
   window.scrollTo({ top: 0, behavior: "auto" });
-  void refreshReflectionCounts();
+  void connectMissionDashboard();
+  clearTimeout(state.missionWaitTimer);
+  if (state.missionStatus === "waiting") {
+    state.missionWaitTimer = setTimeout(() => { void requestNextMission(); }, 15_000);
+  }
+}
+
+function cleanupMissionDashboard() {
+  if (state.missionDashboardUnsubscribe) state.missionDashboardUnsubscribe();
+  state.missionDashboardUnsubscribe = null;
+  clearTimeout(state.missionWaitTimer);
+  state.missionWaitTimer = null;
+}
+
+function cleanupHeartRewards() {
+  if (state.heartRewardsUnsubscribe) state.heartRewardsUnsubscribe();
+  state.heartRewardsUnsubscribe = null;
+}
+
+async function connectHeartRewards() {
+  cleanupHeartRewards();
+  const uid = participantUid();
+  if (!uid || !isFirebaseConfigured()) return;
+  state.heartRewardsUnsubscribe = await subscribeToHeartRewards(uid, (rewards) => {
+    rewards.forEach((reward) => {
+      grantReward(`heart-received:${reward.id}`, Number(reward.xp || 5), {
+        type: "heart-received",
+        question: Number(reward.questionNumber),
+      });
+    });
+  }, () => {});
+}
+
+async function connectMissionDashboard() {
+  cleanupMissionDashboard();
+  state.missionDashboardUnsubscribe = await subscribeToMissionGroup(state.room, (group) => {
+    state.missionGroupState = group;
+    questionNumbers.forEach((number) => {
+      const completed = Number(group.progress?.[number] || 0);
+      const ring = document.querySelector(`[data-team-progress="${number}"]`);
+      if (!ring) return;
+      ring.style.setProperty("--team-progress", Math.min(1, completed / 5));
+      const value = ring.querySelector("strong");
+      if (value) value.textContent = `${completed}/5`;
+    });
+    if (state.view === "home" && state.missionStatus === "waiting") {
+      const button = document.querySelector('[data-action="next-mission"]');
+      if (button) button.disabled = false;
+    }
+  }, () => {});
 }
 
 async function refreshReflectionCounts() {
@@ -333,6 +702,100 @@ async function refreshReflectionCounts() {
     if (state.view !== "home") return;
     document.querySelectorAll("[data-reflection-count]").forEach((counter) => { counter.textContent = "–"; });
   }
+}
+
+function cleanupLeaderboardSubscription() {
+  if (state.leaderboardUnsubscribe) state.leaderboardUnsubscribe();
+  state.leaderboardUnsubscribe = null;
+}
+
+function groupRankings() {
+  return rankGroupSummaries(state.leaderboardContributions, 3);
+}
+
+function currentGroupTotal() {
+  return Number(state.leaderboardContributions.find((item) => item.groupCode === state.room)?.totalXp || progress.groupXp(state.room));
+}
+
+async function connectLeaderboards(rerender = false) {
+  cleanupLeaderboardSubscription();
+  if (!isFirebaseConfigured()) {
+    const local = {
+      uid: participantUid() || "local",
+      displayName: displayNameForLeaderboard(state.profile.name),
+      groupCode: state.room,
+      personalXp: progress.totalXp(),
+      totalXp: progress.groupXp(state.room),
+      participants: progress.groupXp(state.room) ? 1 : 0,
+      averageXp: progress.groupXp(state.room),
+      active: true,
+    };
+    state.leaderboardMembers = [local];
+    state.leaderboardContributions = progress.totalXp() ? [local] : [];
+    state.leaderboardStatus = "ready";
+    if (rerender && state.view === "leaderboard") renderLeaderboard();
+    return;
+  }
+  state.leaderboardStatus = "loading";
+  try {
+    state.leaderboardUnsubscribe = await subscribeToLeaderboards(state.room, ({ members, groups }) => {
+      const previousTotal = currentGroupTotal();
+      state.leaderboardMembers = rankMembers(members);
+      state.leaderboardContributions = groups;
+      if (previousTotal < 500 && currentGroupTotal() >= 500) showGroupGoalCelebration();
+      state.leaderboardStatus = "ready";
+      if (state.view === "leaderboard") renderLeaderboard(false);
+    }, () => {
+      state.leaderboardStatus = "error";
+      if (state.view === "leaderboard") renderLeaderboard(false);
+    });
+  } catch {
+    state.leaderboardStatus = "error";
+  }
+}
+
+function renderLeaderboard(resetScroll = true) {
+  state.view = "leaderboard";
+  const groupTotal = currentGroupTotal();
+  const members = state.leaderboardMembers;
+  const groups = groupRankings();
+  app.innerHTML = `
+    <main class="app-shell leaderboard-screen">
+      <header class="leaderboard-heading">
+        <p class="brand-kicker">YOUCAT</p><h1>${c("leaderboard")}</h1>
+        <div class="group-goal"><span>${c("groupGoal")}: ${Math.min(groupTotal, 500)}/500 XP</span><i style="--goal:${Math.min(100, groupTotal / 5)}%"></i></div>
+      </header>
+      <section class="ranking-section">
+        <h2>${c("yourGroup")} · ${escapeHtml(state.room)}</h2>
+        ${state.leaderboardStatus === "loading" ? `<p>${c("loading")}</p>` : ""}
+        <ol class="ranking-list">${members.map((member, index) => `<li><b>${index + 1}</b><span>${escapeHtml(member.displayName)}</span><strong>${member.personalXp} XP</strong></li>`).join("") || `<li class="ranking-empty">Ainda não há XP neste grupo.</li>`}</ol>
+      </section>
+      <section class="ranking-section event-ranking">
+        <h2>${c("eventGroups")}</h2>
+        <p class="ranking-note">Média por participante ativo · mínimo de 3 participantes</p>
+        <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.average.toFixed(1)} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão após três participantes ganharem XP.</li>`}</ol>
+      </section>
+      ${bottomNavigation(false)}
+    </main>`;
+  if (resetScroll) window.scrollTo({ top: 0, behavior: "auto" });
+}
+
+function renderGroupChooser() {
+  state.view = "groups";
+  app.innerHTML = `
+    <main class="app-shell group-screen">
+      <header class="group-heading"><p class="brand-kicker">YOUCAT</p><h1>${c("changeGroup")}</h1><p>Seu XP pessoal permanece com você.</p></header>
+      <form id="group-form" class="group-grid">
+        ${GROUPS.map((group) => `<label class="group-choice ${group.code === state.room ? "is-selected" : ""}">
+          <input type="radio" name="room" value="${group.code}" ${group.code === state.room ? "checked" : ""} />
+          ${groupMark(group)}<span><strong>${escapeHtml(group.saint)}</strong><small>${escapeHtml(group.code)}</small></span>
+        </label>`).join("")}
+        <label class="sound-setting"><input type="checkbox" name="sound" ${progress.soundEnabled() ? "checked" : ""} /><span>${c("sound")}</span></label>
+        <button class="primary-action" type="submit">${c("enter")}</button>
+      </form>
+      ${bottomNavigation(false)}
+    </main>`;
+  window.scrollTo({ top: 0, behavior: "auto" });
 }
 
 function renderGlobalOverview(number) {
@@ -406,104 +869,276 @@ async function loadGlobalPage(number) {
   if (state.view === "global" && state.currentQuestion === number) renderGlobalOverview(number);
 }
 
+function reflectionXp(length) {
+  if (length < 1) return 0;
+  if (length < 50) return 3;
+  if (length < 100) return 5;
+  if (length < 200) return 7;
+  return 10;
+}
+
 function renderQuestion(number, positions = null) {
+  const mission = state.activeMission || state.completedMission;
+  if (!mission) return renderHome();
   state.view = "question";
   state.currentQuestion = number;
   const official = officialByNumber.get(number).official[language];
   const learning = learningByNumber.get(number);
-  const interaction = interactionFor(number);
-  const allGamesDone = interaction.games.every((item) => item.done);
-
-  app.innerHTML = `
-    <main class="app-shell question-screen">
-      <div id="question-feed" class="question-feed">
-        <section class="feed-section intro-section" data-section="intro">
-          <div class="section-inner">
-            <p class="section-kicker">YOUCAT Love Forever ${number}</p>
-            <div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
-            <h1>${escapeHtml(official.question)}</h1>
-            <div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
-            <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
-          </div>
-        </section>
-
-        <section class="feed-section" data-section="reader">
-          <div class="section-inner section-with-carousel">
-            <p class="section-kicker">1 · ${c("reader")}</p>
-            ${renderReaderCarousel(number, official, learning)}
-          </div>
-        </section>
-
-        <section class="feed-section" data-section="games">
-          <div class="section-inner section-with-carousel">
-            <p class="section-kicker">2 · ${c("games")}</p>
-            ${renderGamesCarousel(number, learning, interaction, allGamesDone)}
-          </div>
-        </section>
-
-        <section class="feed-section" data-section="quiz">
-          <div class="section-inner section-with-carousel">
-            <p class="section-kicker">3 · ${c("quiz")}</p>
-            ${renderQuizCarousel(number, learning, interaction)}
-          </div>
-        </section>
-
-        <section class="feed-section answer-section" data-section="answer">
-          <div class="section-inner">
-            <p class="section-kicker">4 · ${c("answer")}</p>
-            <h2>${escapeHtml(tr(learning.reflectionPrompt))}</h2>
-            <p>${c("answerBody")}</p>
-            <form id="answer-form" class="answer-form">
-              <textarea name="answer" maxlength="1200" placeholder="${c("answerPlaceholder")}" ${interaction.submitted ? "disabled" : ""}>${escapeHtml(interaction.answer)}</textarea>
-              <div class="answer-form-foot">
-                <span id="answer-count">${interaction.answer.length}/1200</span>
-                <button class="primary-action" type="submit" ${interaction.submitted || state.submitting ? "disabled" : ""}>${interaction.submitted ? c("submitted") : c("submit")}</button>
-              </div>
-              <p id="answer-message" class="form-note" role="status">${interaction.submitted ? c("submitted") : ""}</p>
-            </form>
-          </div>
-        </section>
-
-        <section class="feed-section reflections-section" data-section="reflections">
-          <div class="section-inner reflections-inner">
-            <p class="section-kicker">5 · ${c("reflections")}</p>
-            <h2>${c("reflections")}</h2>
-            <p>${c("reflectionsBody")}</p>
-            <div class="feed-mode ${isFirebaseConfigured() ? "is-live" : "is-local"}">${isFirebaseConfigured() ? c("liveMode") : c("localMode")}</div>
-            <div id="reflections-list" class="reflections-list" aria-live="polite">${renderReflectionsList(number)}</div>
-          </div>
-        </section>
-      </div>
-      ${bottomNavigation(false)}
-    </main>
-  `;
-
+  const finished = Boolean(state.completedMission);
+  app.innerHTML = `<main class="app-shell question-screen"><div id="question-feed" class="question-feed">
+    <section class="feed-section intro-section" data-section="intro"><div class="section-inner">
+      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
+      <h1>${escapeHtml(official.question)}</h1><div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
+      <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
+    </div></section>
+    <section class="feed-section" data-section="reader"><div class="section-inner section-with-carousel"><p class="section-kicker">1 · ${c("reader")}</p>${renderReaderCarousel(number, official, learning)}</div></section>
+    ${renderMissionElement(mission, learning, finished)}
+    ${finished ? renderMissionOverview(number) : ""}
+  </div>${bottomNavigation(false)}</main>`;
   bindCarouselState();
+  bindReadingTimers();
+  bindMissionLease();
   restorePositions(positions);
 }
 
+function renderMissionElement(mission, learning, finished) {
+  if (mission.type === "reflection") {
+    const interaction = interactionFor(mission.questionNumber);
+    const xp = reflectionXp(interaction.answer.trim().length);
+    return `<section class="feed-section answer-section" data-section="reflection"><div class="section-inner">
+      <p class="section-kicker">2 · ${c("answer")}</p><h2>${escapeHtml(tr(learning.reflectionPrompt))}</h2><p>${c("answerBody")}</p>
+      <form id="answer-form" class="answer-form"><textarea name="answer" maxlength="300" placeholder="${c("answerPlaceholder")}" ${finished ? "disabled" : ""}>${escapeHtml(interaction.answer)}</textarea>
+        <div class="answer-form-foot"><span id="answer-count">${interaction.answer.length}/300 · +${xp} XP</span><button class="primary-action" type="submit" ${finished || state.submitting ? "disabled" : ""}>${c("submit")}</button></div>
+        <div class="reflection-skip-actions"><button type="button" class="quiet-action" data-action="reflection-decline" ${finished ? "disabled" : ""}>${c("declineReflection")}</button></div>
+        <p id="answer-message" class="form-note" role="status"></p>
+      </form></div></section>`;
+  }
+  if (mission.type === "board") {
+    const reflections = state.reflections.get(mission.questionNumber) || [];
+    const uid = participantUid();
+    const heartsGiven = reflections.filter((item) => (item.voters || []).includes(uid)).length;
+    return `<section class="feed-section reflections-section" data-section="board"><div class="section-inner reflections-inner">
+      <p class="section-kicker">2 · ${c("reflections")}</p><h2>${c("reflections")}</h2><p>${c("reflectionsBody")}</p>
+      <div class="board-heart-counter">♡ ${heartsGiven}/3</div><div class="feed-mode is-live">${c("liveMode")}</div><div id="reflections-list" class="reflections-list" aria-live="polite">${renderReflectionsList(mission.questionNumber)}</div>
+      <button type="button" class="primary-action finish-board-action" data-action="finish-board" ${finished ? "disabled" : ""}>${c("finishBoard")}</button>
+    </div></section>`;
+  }
+  if (mission.challengeKind === "quiz") {
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
+  }
+  const game = learning.games[mission.challengeIndex];
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
+}
+
+function renderMissionQuiz(mission, item) {
+  const quizState = state.missionInteraction;
+  return `<article class="carousel-panel quiz-panel mission-quiz-panel"><h2>${escapeHtml(tr(item.prompt))}</h2><div class="choice-board">
+    ${item.options.map((option, index) => `<button type="button" class="choice-option ${quizState.selected === index ? (index === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && index === item.correct ? "is-correct-solution" : ""}" data-action="mission-quiz-choice" data-option="${index}" ${quizState.attempted ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}</div>
+    ${quizState.selected === null ? "" : `<div class="answer-explanation ${quizState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${quizState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${escapeHtml(tr(item.feedback))}</p><p>${c("solution")}: ${escapeHtml(tr(item.options[item.correct]))}</p></div>`}</article>`;
+}
+
+function renderMissionOverview(number) {
+  const missionXp = Math.max(0, progress.totalXp() - state.missionStartXp);
+  return `<section class="feed-section overview-section" data-section="overview"><div class="section-inner overview-inner"><p class="section-kicker">3 · ${c("overview")}</p><h2>${c("overview")}</h2>
+    <div class="question-xp-summary"><div><span>${c("missionXp")}</span><strong>${missionXp} XP</strong></div><div><span>${c("yourContribution")}</span><strong data-question-personal-xp>${questionXp(number, state.room)} XP</strong></div><div><span>${c("groupQuestionTotal")}</span><strong data-question-group-total>${state.questionGroupTotal} XP</strong></div></div>
+    <button type="button" class="primary-action next-question-action" data-action="next-mission">${c("nextChallenge")}</button>
+  </div></section>`;
+}
+
+function freshMissionInteraction() {
+  return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], currentCorrect: null, message: "" };
+}
+
+function missionStorageKey(mission) {
+  return `mission-v1:${mission.groupCode}:${mission.id}`;
+}
+
+function loadMissionInteraction(mission) {
+  return { ...freshMissionInteraction(), ...(progress.interaction(missionStorageKey(mission)) || {}) };
+}
+
+function saveMissionInteraction() {
+  if (state.activeMission && state.missionInteraction) progress.saveInteraction(missionStorageKey(state.activeMission), state.missionInteraction);
+}
+
+async function requestNextMission() {
+  if (state.missionClaiming) return;
+  state.missionClaiming = true;
+  state.missionStatus = "loading";
+  try {
+    const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers });
+    if (mission?.type === "complete") {
+      state.missionStatus = "complete";
+      showJourneyComplete();
+      return;
+    }
+    if (!mission) {
+      state.missionStatus = "waiting";
+      renderHome();
+      return;
+    }
+    await startMission(mission);
+  } catch (error) {
+    console.error("Unable to assign mission", error);
+    state.missionStatus = "waiting";
+    renderHome();
+  } finally {
+    state.missionClaiming = false;
+  }
+}
+
+function showJourneyComplete() {
+  const overlay = document.createElement("button");
+  overlay.type = "button";
+  overlay.className = "achievement-celebration group-celebration";
+  overlay.dataset.action = "open-leaderboard";
+  overlay.innerHTML = `${groupMark(groupByCode(state.room))}<strong>${c("allComplete")}</strong><small>${c("leaderboard")} →</small>`;
+  document.body.append(overlay);
+  playRewardSound();
+  setTimeout(() => { if (overlay.isConnected) { overlay.remove(); renderLeaderboard(); void connectLeaderboards(true); } }, 3500);
+}
+
+async function startMission(mission) {
+  cleanupMissionDashboard();
+  cleanupSubscription();
+  state.activeMission = mission;
+  state.completedMission = null;
+  state.missionStartXp = progress.totalXp();
+  state.missionInteraction = mission.type === "shared" ? loadMissionInteraction(mission) : null;
+  state.feedStatus = mission.type === "board" && isFirebaseConfigured() ? "loading" : "ready";
+  state.feedError = "";
+  state.questionGroupTotal = progress.questionGroupXp(state.room, mission.questionNumber);
+  renderQuestion(mission.questionNumber);
+  if (isFirebaseConfigured()) {
+    state.questionTotalUnsubscribe = await subscribeToQuestionGroupTotal(state.room, mission.questionNumber, (total) => {
+      state.questionGroupTotal = total;
+      const value = document.querySelector("[data-question-group-total]");
+      if (value) value.textContent = `${total} XP`;
+    }, () => {});
+  }
+  if (mission.type === "board") {
+    state.unsubscribe = await subscribeToGlobalQuestion(mission.questionNumber, (reflections) => {
+      state.reflections.set(mission.questionNumber, reflections);
+      state.feedStatus = "ready";
+      updateReflections(mission.questionNumber);
+    }, () => {
+      state.feedStatus = "error";
+      state.feedError = c("tryAgain");
+      updateReflections(mission.questionNumber);
+    });
+  }
+}
+
+function bindMissionLease() {
+  clearInterval(state.missionRenewTimer);
+  if (!state.activeMission) return;
+  state.lastMissionActivity = Date.now();
+  state.missionRenewTimer = setInterval(async () => {
+    if (!state.activeMission || document.visibilityState !== "visible") return;
+    if (Date.now() - state.lastMissionActivity >= 5 * 60 * 1000) return;
+    try {
+      const renewed = await renewMission(state.activeMission);
+      if (renewed) state.activeMission = renewed;
+    } catch {}
+  }, 60_000);
+}
+
+function noteMissionActivity() {
+  if (state.activeMission) state.lastMissionActivity = Date.now();
+}
+
+async function completeTeamAttempt(correct) {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared") return;
+  const xp = correct ? mission.xp : 0;
+  try {
+    await completeSharedMission({ mission, correct, xpAwarded: xp });
+    if (xp) grantReward(`team:${mission.groupCode}:${mission.id}`, xp, { type: "team-challenge", question: mission.questionNumber });
+    saveMissionInteraction();
+    state.completedMission = mission;
+    state.activeMission = null;
+    clearInterval(state.missionRenewTimer);
+    renderQuestion(mission.questionNumber);
+    // Leave the result in view first. The overview is already available below for
+    // anyone who wants to continue immediately, then opens itself after feedback.
+    setTimeout(() => {
+      if (state.completedMission?.id === mission.id && state.view === "question") {
+        document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 3000);
+  } catch (error) {
+    console.error("Unable to complete team challenge", error);
+    state.missionInteraction = loadMissionInteraction(mission);
+    renderQuestion(mission.questionNumber);
+  }
+}
+
+async function finishReflectionMission(status) {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "reflection") return;
+  await finishPersonalMission({ mission, reflectionStatus: status });
+  state.completedMission = mission;
+  state.activeMission = null;
+  clearInterval(state.missionRenewTimer);
+  renderQuestion(mission.questionNumber);
+  requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+}
+
+async function finishBoardMission() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "board") return;
+  await finishPersonalMission({ mission });
+  state.completedMission = mission;
+  state.activeMission = null;
+  clearInterval(state.missionRenewTimer);
+  renderQuestion(mission.questionNumber);
+  requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+}
+
 function renderReaderCarousel(number, official, learning) {
+  const loveReadingId = `read:${number}:0`;
   const panels = [
     `
-      <article class="carousel-panel reader-panel">
+      <article class="carousel-panel reader-panel" ${readingAttributes(loveReadingId, `${official.question} ${official.answer}`)}>
         <div class="panel-label">${c("loveForever")} · ${number}</div>
+        ${renderReadingRing(loveReadingId, `${official.question} ${official.answer}`)}
         <h2>${escapeHtml(official.question)}</h2>
-        <div class="panel-scroll source-text official-text">${renderParagraphs(official.answer, { initial: true })}</div>
+        <div class="panel-scroll source-text official-text" data-reading-scroll>${renderParagraphs(official.answer, { initial: true })}</div>
       </article>
     `,
-    ...learning.deepDive.map((deepDive, index) => `
-      <article class="carousel-panel reader-panel deep-dive-panel">
+    ...learning.deepDive.map((deepDive, index) => {
+      const id = `read:${number}:${index + 1}`;
+      const text = `${tr(deepDive.question || "")} ${tr(deepDive.body)}`;
+      return `
+      <article class="carousel-panel reader-panel deep-dive-panel" ${readingAttributes(id, text)}>
         <div class="panel-label">${c("deepDive")} ${index + 1}</div>
+        ${renderReadingRing(id, text)}
         <p class="source-line">${escapeHtml(deepDive.source)}</p>
         <h2 class="source-document-title ${sourceTitleClass(deepDive.source)}">${escapeHtml(tr(deepDive.title))}</h2>
-        <div class="panel-scroll source-text official-text">
+        <div class="panel-scroll source-text official-text" data-reading-scroll>
           ${deepDive.question ? `<h3 class="source-question">${escapeHtml(tr(deepDive.question))}</h3>` : ""}
           ${renderParagraphs(tr(deepDive.body), { initial: true, stripLeadingNumber: true })}
         </div>
       </article>
-    `),
+    `}),
   ];
   return carousel("reader-carousel", panels, `${c("reader")} ${number}`);
+}
+
+function readingAttributes(id, text) {
+  const reward = readingReward(text);
+  return `data-reading-id="${id}" data-reading-xp="${reward.xp}" data-reading-ms="${reward.requiredMs}"`;
+}
+
+function renderReadingRing(id, text) {
+  const reward = readingReward(text);
+  const reading = progress.reading(id);
+  const awarded = progress.hasAward(id);
+  const ratio = awarded ? 1 : Math.min(1, reading.elapsedMs / reward.requiredMs);
+  return `<div class="reading-reward ${awarded ? "is-earned" : ""}" data-reading-ring="${id}" style="--reading-progress:${ratio}">
+    <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19"></circle><circle class="reading-progress" cx="22" cy="22" r="19"></circle></svg>
+    <strong>${awarded ? "✓" : reward.xp}</strong><small>${awarded ? "XP" : "XP"}</small>
+  </div>`;
 }
 
 function sourceTitleClass(source) {
@@ -533,74 +1168,76 @@ function stripReferenceNumber(text) {
     .trim();
 }
 
-function renderGamesCarousel(number, learning, interaction, allGamesDone) {
+function renderGamesCarousel(number, learning, interaction) {
   const panels = learning.games.map((game, index) => `
     <article class="carousel-panel game-panel">
-      <div class="panel-label">${c("game")} ${index + 1} ${interaction.games[index].done ? `<span class="done-label">✓ ${c("done")}</span>` : ""}</div>
-      <h2>${escapeHtml(tr(game.prompt))}</h2>
+      <div class="panel-label">${c("game")} ${index + 1} <span class="panel-xp">+3 XP</span> ${interaction.games[index].attempted ? `<span class="done-label ${interaction.games[index].succeeded ? "" : "is-missed"}">${interaction.games[index].succeeded ? "✓ +3 XP" : `× ${c("missedXp")}`}</span>` : ""}</div>
+      <h2>${escapeHtml(tr(game.title || game.prompt))}</h2>
+      ${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}
       ${renderGame(number, game, index, interaction.games[index])}
     </article>
   `);
-
-  panels.push(`
-    <article class="carousel-panel quote-panel ${allGamesDone ? "is-revealed" : "is-locked"}">
-      <div class="panel-label">${allGamesDone ? c("quoteReady") : `${interaction.games.filter((item) => item.done).length} ${c("of")} 3`}</div>
-      ${allGamesDone ? `
-        <blockquote>“${escapeHtml(tr(learning.saintQuote.text))}”</blockquote>
-        <p class="quote-author">${escapeHtml(tr(learning.saintQuote.author))}</p>
-        <p class="source-line">${escapeHtml(tr(learning.saintQuote.source))}</p>
-      ` : `
-        <div class="quote-lock" aria-hidden="true">○ ○ ○</div>
-        <h2>${c("quoteLocked")}</h2>
-      `}
-    </article>
-  `);
-
   return carousel("games-carousel", panels, `${c("games")} ${number}`);
 }
 
 function renderGame(number, game, gameIndex, gameState) {
-  if (game.type === "sequence") {
-    return `
-      <p class="game-help">${c("sequenceHelp")}</p>
-      <div class="sequence-board">
-        ${game.items.map((item) => {
-          const selectedIndex = gameState.sequence.indexOf(item.id);
-          return `<button type="button" data-action="sequence" data-question="${number}" data-game="${gameIndex}" data-item="${item.id}" class="game-token ${selectedIndex >= 0 ? "is-selected" : ""}" ${gameState.done ? "disabled" : ""}>
-            ${selectedIndex >= 0 ? `<span class="token-order">${selectedIndex + 1}</span>` : ""}${escapeHtml(tr(item.label))}
-          </button>`;
-        }).join("")}
-      </div>
-      ${gameMessage(gameState)}
-    `;
+  const disabled = gameState.attempted || gameState.finished;
+  if (["sequence", "order"].includes(game.type)) {
+    const displayItems = (game.start || game.items.map((item) => item.id)).map((id) => game.items.find((item) => item.id === id));
+    return `<p class="game-help">${c("sequenceHelp")}</p><div class="sequence-board">
+      ${displayItems.map((item) => {
+        const selectedIndex = gameState.sequence.indexOf(item.id);
+        return `<button type="button" data-action="sequence" data-question="${number}" data-game="${gameIndex}" data-item="${item.id}" class="game-token ${selectedIndex >= 0 ? "is-selected" : ""}" ${disabled ? "disabled" : ""}>${selectedIndex >= 0 ? `<span class="token-order">${selectedIndex + 1}</span>` : ""}${escapeHtml(tr(item.label))}</button>`;
+      }).join("")}</div>${gameMessage(gameState, game)}`;
   }
 
   if (game.type === "match") {
-    const rightOrder = [1, 2, 0];
-    return `
-      <p class="game-help">${c("matchHelp")}</p>
-      <div class="match-board">
-        <div class="match-column">
-          ${game.pairs.map((pair, index) => `<button type="button" class="game-token ${gameState.activeLeft === index ? "is-active" : ""} ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-left" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(pair[0]))}</button>`).join("")}
-        </div>
-        <div class="match-column">
-          ${rightOrder.map((index) => `<button type="button" class="game-token ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-right" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(game.pairs[index][1]))}</button>`).join("")}
-        </div>
-      </div>
-      ${gameMessage(gameState)}
-    `;
+    const rightOrder = game.pairs.length === 3 ? [1, 2, 0] : game.pairs.map((_, index) => (index + 1) % game.pairs.length);
+    return `<p class="game-help">${c("matchHelp")}</p><div class="match-board"><div class="match-column">
+      ${game.pairs.map((pair, index) => `<button type="button" class="game-token ${gameState.activeLeft === index ? "is-active" : ""} ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-left" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${disabled || gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(pair[0]))}</button>`).join("")}
+      </div><div class="match-column">${rightOrder.map((index) => `<button type="button" class="game-token ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-right" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${disabled || gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(game.pairs[index][1]))}</button>`).join("")}</div></div>${gameMessage(gameState, game)}`;
   }
 
-  return `
-    <div class="choice-board">
-      ${game.options.map((option, index) => `<button type="button" class="choice-option ${gameState.selected === index ? (index === game.correct ? "is-correct" : "is-wrong") : ""}" data-action="game-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${gameState.done ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}
-    </div>
-    ${gameMessage(gameState)}
-  `;
+  if (game.type === "reveal") {
+    const cardIndex = gameState.sequence.length;
+    const card = game.cards[Math.min(cardIndex, game.cards.length - 1)];
+    return `<div class="reveal-progress">${Math.min(cardIndex + 1, game.cards.length)} ${c("of")} ${game.cards.length}</div><div class="reveal-card">${escapeHtml(tr(card.text))}</div><div class="choice-board compact-choice-board">
+      ${game.categories.map((category, index) => `<button type="button" class="choice-option" data-action="reveal-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled ? "disabled" : ""}>${escapeHtml(tr(category))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
+  }
+
+  if (game.type === "crossword") {
+    const clueIndex = gameState.sequence.length;
+    const clue = game.clues[Math.min(clueIndex, game.clues.length - 1)];
+    return `<div class="crossword-clue"><span>${Math.min(clueIndex + 1, game.clues.length)}/${game.clues.length}</span><p>${escapeHtml(tr(clue.clue))}</p></div><div class="word-bank">
+      ${game.words.map((word, index) => `<button type="button" class="game-token ${gameState.sequence.includes(index) ? "is-matched" : ""}" data-action="crossword-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled || gameState.sequence.includes(index) ? "disabled" : ""}>${escapeHtml(tr(word))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
+  }
+
+  if (game.type === "move") {
+    const blockIds = game.start || game.blocks?.map((item) => item.id) || game.answer;
+    const illustration = gameIllustration(number, gameIndex);
+    const solved = gameState.finished;
+    const board = solved ? "" : `<div class="move-board ${game.mode === "image" ? "is-image-puzzle" : ""}">
+      ${blockIds.map((id) => {
+        const selectedIndex = gameState.sequence.indexOf(id);
+        const block = game.blocks?.find((item) => item.id === id);
+        return `<button type="button" class="move-block ${selectedIndex >= 0 ? "is-selected" : ""}" data-action="move-block" data-question="${number}" data-game="${gameIndex}" data-item="${id}" ${disabled ? "disabled" : ""} ${game.mode === "image" ? `style="--tile-image:url('${illustration}');--tile-x:${(Number(id) - 1) % 2};--tile-y:${Math.floor((Number(id) - 1) / 2)}"` : ""}>${selectedIndex >= 0 ? `<span class="token-order">${selectedIndex + 1}</span>` : ""}${game.mode === "image" ? `<span class="image-tile" aria-hidden="true"></span><span class="sr-only">${id}</span>` : escapeHtml(tr(block?.label || id))}</button>`;
+      }).join("")}</div>`;
+    return `${board}${solved ? `<div class="move-reveal">${game.mode !== "quote" ? `<img src="${illustration}" alt="" />` : ""}<blockquote>“${escapeHtml(tr(game.reveal))}”</blockquote>${game.source ? `<p class="source-line">${escapeHtml(tr(game.source))}</p>` : ""}</div>` : ""}${gameMessage(gameState, game)}`;
+  }
+  return "";
 }
 
-function gameMessage(gameState) {
-  if (gameState.done) return `<p class="game-message is-correct">✓ ${c("correct")}</p>`;
+function gameSolution(game) {
+  if (["sequence", "order"].includes(game.type)) return game.answer.map((id) => tr(game.items.find((item) => item.id === id).label)).join(" → ");
+  if (game.type === "match") return game.pairs.map((pair) => `${tr(pair[0])} — ${tr(pair[1])}`).join(" · ");
+  if (game.type === "reveal") return game.cards.map((card) => `${tr(card.text)} — ${tr(game.categories[card.correct])}`).join(" · ");
+  if (game.type === "crossword") return game.clues.map((clue) => tr(game.words[clue.correct])).join(" · ");
+  if (game.type === "move") return tr(game.reveal);
+  return "";
+}
+
+function gameMessage(gameState, game) {
+  if (gameState.finished) return `<div class="answer-explanation ${gameState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${gameState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${c("solution")}: ${escapeHtml(gameSolution(game))}</p>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`;
   if (gameState.message) return `<p class="game-message is-wrong">${escapeHtml(gameState.message)}</p>`;
   return '<p class="game-message" aria-hidden="true">&nbsp;</p>';
 }
@@ -608,16 +1245,9 @@ function gameMessage(gameState) {
 function renderQuizCarousel(number, learning, interaction) {
   const panels = learning.quiz.map((item, quizIndex) => {
     const quizState = interaction.quiz[quizIndex];
-    return `
-      <article class="carousel-panel quiz-panel">
-        <div class="panel-label">${quizIndex + 1} ${c("of")} ${learning.quiz.length} ${quizState.correct ? `<span class="done-label">✓ ${c("correct")}</span>` : ""}</div>
-        <h2>${escapeHtml(tr(item.prompt))}</h2>
-        <div class="choice-board">
-          ${item.options.map((option, optionIndex) => `<button type="button" class="choice-option ${quizState.selected === optionIndex ? (optionIndex === item.correct ? "is-correct" : "is-wrong") : ""}" data-action="quiz-choice" data-question="${number}" data-quiz="${quizIndex}" data-option="${optionIndex}" ${quizState.correct ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}
-        </div>
-        ${quizState.selected === null ? "" : `<p class="game-message ${quizState.correct ? "is-correct" : "is-wrong"}">${quizState.correct ? `✓ ${c("correct")}` : c("incorrect")}</p>`}
-      </article>
-    `;
+    return `<article class="carousel-panel quiz-panel"><div class="panel-label"><span class="panel-xp">+10 XP</span> ${quizState.attempted ? `<span class="done-label ${quizState.correct ? "" : "is-missed"}">${quizState.correct ? "✓ +10 XP" : `× ${c("missedXp")}`}</span>` : ""}</div><h2>${escapeHtml(tr(item.prompt))}</h2><div class="choice-board">
+      ${item.options.map((option, optionIndex) => `<button type="button" class="choice-option ${quizState.selected === optionIndex ? (optionIndex === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && optionIndex === item.correct ? "is-correct-solution" : ""}" data-action="quiz-choice" data-question="${number}" data-quiz="${quizIndex}" data-option="${optionIndex}" ${quizState.attempted || quizState.selected !== null ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}</div>
+      ${quizState.selected === null ? "" : `<div class="answer-explanation ${quizState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${quizState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${escapeHtml(tr(item.feedback))}</p><p>${c("solution")}: ${escapeHtml(tr(item.options[item.correct]))}</p></div>`}</article>`;
   });
   return carousel("quiz-carousel", panels, `${c("quiz")} ${number}`);
 }
@@ -645,20 +1275,18 @@ function renderReflectionsList(number) {
 
 function renderReflectionCards(reflections, number, showRoom) {
   const uid = participantUid();
+  const heartsGiven = reflections.filter((reflection) => (reflection.voters || []).includes(uid)).length;
   return reflections.map((reflection, index) => {
     const voters = reflection.voters || [];
     const isOwn = reflection.authorUid === uid;
     const hasHearted = voters.includes(uid);
-    const room = showRoom && reflection.roomCode
-      ? `<span class="reflection-room">· ${c("roomLabel")} ${escapeHtml(reflection.roomCode)}</span>`
-      : "";
     return `
       <article class="reflection-card ${index === 0 && voters.length ? "is-leading" : ""}">
         <div class="reflection-copy">
-          <p class="reflection-author">${escapeHtml(reflection.name)}, ${Number(reflection.age)} ${room} ${isOwn ? `<span>· ${c("ownAnswer")}</span>` : ""}</p>
+          <p class="reflection-author">${c("anonymousReflection")} ${isOwn ? `<span>· ${c("ownAnswer")}</span>` : ""}</p>
           <p>${escapeHtml(reflection.text)}</p>
         </div>
-        <button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" data-room="${escapeHtml(reflection.roomCode || "")}" data-scope="${showRoom ? "global" : "room"}" ${hasHearted || isOwn ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
+        <button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" data-room="${escapeHtml(reflection.roomCode || "")}" data-scope="${showRoom ? "global" : "room"}" ${hasHearted || isOwn || heartsGiven >= 3 ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
           <span aria-hidden="true">♡</span><strong>${voters.length}</strong>
         </button>
       </article>
@@ -683,6 +1311,77 @@ function bindCarouselState() {
       });
     }, { passive: true });
   });
+}
+
+function cleanupReadingTimers() {
+  if (state.readingCleanup) state.readingCleanup();
+  state.readingCleanup = null;
+}
+
+function bindReadingTimers() {
+  cleanupReadingTimers();
+  const panels = [...document.querySelectorAll("[data-reading-id]")];
+  if (!panels.length) return;
+  const cleanups = [];
+
+  panels.forEach((panel) => {
+    const id = panel.dataset.readingId;
+    const scroller = panel.querySelector("[data-reading-scroll]");
+    let scrollTimer = null;
+    const recordScroll = () => {
+      const ratio = !scroller || scroller.scrollHeight <= scroller.clientHeight + 4
+        ? 1
+        : Math.min(1, scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight));
+      const reading = progress.reading(id);
+      if (ratio > reading.maxScrollRatio) progress.updateReading(id, { maxScrollRatio: ratio });
+    };
+    recordScroll();
+    const onScroll = () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(recordScroll, 120);
+    };
+    scroller?.addEventListener("scroll", onScroll, { passive: true });
+    cleanups.push(() => { clearTimeout(scrollTimer); scroller?.removeEventListener("scroll", onScroll); });
+  });
+
+  let last = performance.now();
+  const interval = setInterval(() => {
+    const now = performance.now();
+    const delta = Math.min(500, now - last);
+    last = now;
+    if (document.visibilityState !== "visible") return;
+    const active = panels.find((panel) => {
+      const carouselEl = panel.closest(".carousel");
+      const section = panel.closest(".feed-section");
+      if (!carouselEl || !section) return false;
+      const siblings = [...carouselEl.children].filter((item) => item.hasAttribute("data-reading-id"));
+      const panelIndex = siblings.indexOf(panel);
+      const activeIndex = Math.round(carouselEl.scrollLeft / Math.max(1, carouselEl.clientWidth));
+      if (panelIndex !== activeIndex) return false;
+      const rect = section.getBoundingClientRect();
+      const heightVisible = Math.max(0, Math.min(rect.bottom, window.innerHeight - 58) - Math.max(rect.top, 0));
+      return heightVisible / Math.max(1, rect.height) > 0.55;
+    });
+    if (!active) return;
+    const id = active.dataset.readingId;
+    if (progress.hasAward(id)) return;
+    const requiredMs = Number(active.dataset.readingMs);
+    const reading = progress.reading(id);
+    const elapsedMs = Math.min(requiredMs, reading.elapsedMs + delta);
+    const updated = progress.updateReading(id, { elapsedMs });
+    const ring = active.querySelector("[data-reading-ring]");
+    if (ring) ring.style.setProperty("--reading-progress", Math.min(1, elapsedMs / requiredMs));
+    if (elapsedMs >= requiredMs && updated.maxScrollRatio >= 0.85) {
+      const xp = Number(active.dataset.readingXp);
+      if (grantReward(id, xp, { type: "reading", question: state.currentQuestion })) {
+        ring?.classList.add("is-earned");
+        const value = ring?.querySelector("strong");
+        if (value) value.textContent = "✓";
+      }
+    }
+  }, 250);
+  cleanups.push(() => clearInterval(interval));
+  state.readingCleanup = () => cleanups.forEach((cleanup) => cleanup());
 }
 
 function capturePositions() {
@@ -725,21 +1424,23 @@ async function openQuestion(number) {
   cleanupSubscription();
   state.feedStatus = isFirebaseConfigured() ? "loading" : "ready";
   state.feedError = "";
+  state.questionGroupTotal = progress.questionGroupXp(state.room, number);
   renderQuestion(number);
 
   if (isFirebaseConfigured()) {
-    const unsubscribe = await subscribeToRoom(
-      state.room,
+    const unsubscribe = await subscribeToGlobalQuestion(
       number,
       (reflections) => {
         state.reflections.set(number, reflections);
         state.feedStatus = "ready";
+        rewardReceivedHearts(number, reflections);
         const ownReflection = reflections.find((reflection) => reflection.authorUid === participantUid());
         const interaction = interactionFor(number);
         if (ownReflection && !interaction.submitted) {
           const positions = capturePositions();
           interaction.answer = ownReflection.text;
           interaction.submitted = true;
+          saveInteraction(number);
           renderQuestion(number, positions);
         } else {
           updateReflections(number);
@@ -753,18 +1454,48 @@ async function openQuestion(number) {
     );
     if (state.currentQuestion === number) state.unsubscribe = unsubscribe;
     else unsubscribe();
+
+    const totalUnsubscribe = await subscribeToQuestionGroupTotal(state.room, number, (total) => {
+      state.questionGroupTotal = total;
+      const value = document.querySelector("[data-question-group-total]");
+      if (value) value.textContent = `${total} XP`;
+    }, () => {});
+    if (state.currentQuestion === number) state.questionTotalUnsubscribe = totalUnsubscribe;
+    else totalUnsubscribe();
   }
+}
+
+function rewardReceivedHearts(number, reflections) {
+  const uid = participantUid();
+  reflections.filter((reflection) => reflection.authorUid === uid).forEach((reflection) => {
+    (reflection.voters || []).forEach((voterUid) => {
+      grantReward(`heart-received:${number}:${reflection.id}:${voterUid}`, 5, {
+        type: "heart-received",
+        question: number,
+        groupCode: reflection.roomCode || state.room,
+      });
+    });
+  });
 }
 
 function updateReflections(number) {
   if (state.currentQuestion !== number) return;
   const list = document.querySelector("#reflections-list");
   if (list) list.innerHTML = renderReflectionsList(number);
+  const uid = participantUid();
+  const heartsGiven = (state.reflections.get(number) || []).filter((item) => (item.voters || []).includes(uid)).length;
+  const counter = document.querySelector(".board-heart-counter");
+  if (counter) counter.textContent = `♡ ${heartsGiven}/3`;
 }
 
 function cleanupSubscription() {
+  cleanupReadingTimers();
+  clearInterval(state.missionRenewTimer);
+  state.missionRenewTimer = null;
   if (state.unsubscribe) state.unsubscribe();
+  if (state.questionTotalUnsubscribe) state.questionTotalUnsubscribe();
   state.unsubscribe = null;
+  state.questionTotalUnsubscribe = null;
 }
 
 app.addEventListener("submit", async (event) => {
@@ -774,17 +1505,20 @@ app.addEventListener("submit", async (event) => {
     const form = new FormData(event.target);
     const name = String(form.get("name") || "").trim();
     const age = Number(form.get("age"));
-    const room = normalizeRoom(form.get("room"));
+    const room = normalizeGroup(form.get("room"));
     const welcomeError = document.querySelector("#welcome-error");
-    if (!name || age < 18 || age > 120 || room.length < 3) {
+    if (!name || age < 18 || age > 120 || !room) {
       welcomeError.textContent = language === "pt" ? "Preencha nome, idade (18+) e um código de grupo válido." : "Enter a name, an age of 18+, and a valid group code.";
       return;
     }
 
     try {
       await ensureParticipantSession();
-      state.profile = { name, age };
+      state.profile = { name, age, room };
       state.room = room;
+      progress.setProfile(state.profile);
+      scheduleLeaderboardSync("", true);
+      void connectHeartRewards();
       renderHome();
     } catch (error) {
       console.error("Unable to join Firebase group", error);
@@ -793,7 +1527,29 @@ app.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (event.target.id === "group-form") {
+    const form = new FormData(event.target);
+    const room = normalizeGroup(form.get("room"));
+    if (!room) return;
+    const previousRoom = state.room;
+    if (state.activeMission) await releaseActiveMission(state.activeMission);
+    state.activeMission = null;
+    state.completedMission = null;
+    state.missionInteraction = null;
+    progress.transferAwardsToGroup(room);
+    state.room = room;
+    state.groupGoalCelebrated = false;
+    state.profile = { ...state.profile, room };
+    progress.setProfile(state.profile);
+    progress.setSound(form.get("sound") === "on");
+    scheduleLeaderboardSync(previousRoom, true);
+    renderHome();
+    return;
+  }
+
   if (event.target.id === "answer-form") {
+    const mission = state.activeMission;
+    if (!mission || mission.type !== "reflection") return;
     const number = state.currentQuestion;
     const interaction = interactionFor(number);
     const positions = capturePositions();
@@ -816,28 +1572,39 @@ app.addEventListener("submit", async (event) => {
         text,
       });
       interaction.submitted = true;
+      saveInteraction(number);
+      const xpAwarded = reflectionXp(text.length);
+      const rewarded = grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
       if (!isFirebaseConfigured()) {
         const local = state.reflections.get(number) || [];
         state.reflections.set(number, [{ ...result, id: result.id }, ...local]);
       }
+      if (rewarded) await new Promise((resolve) => setTimeout(resolve, 900));
+      await finishReflectionMission("submitted");
     } catch (error) {
       console.error("Unable to publish reflection", error);
       interaction.submitted = false;
       interaction.answer = text;
+      saveInteraction(number);
       state.feedError = c("tryAgain");
     } finally {
       state.submitting = false;
-      renderQuestion(number, positions);
+      if (state.activeMission) renderQuestion(number, positions);
     }
   }
 });
 
 app.addEventListener("input", (event) => {
+  if (event.target.name === "room" && event.target.closest("#group-form")) {
+    document.querySelectorAll(".group-choice").forEach((label) => label.classList.toggle("is-selected", label.contains(event.target)));
+    return;
+  }
   if (event.target.name !== "answer" || !state.currentQuestion) return;
   const interaction = interactionFor(state.currentQuestion);
   interaction.answer = event.target.value;
+  saveInteraction(state.currentQuestion);
   const counter = document.querySelector("#answer-count");
-  if (counter) counter.textContent = `${event.target.value.length}/1200`;
+  if (counter) counter.textContent = `${event.target.value.length}/300 · +${reflectionXp(event.target.value.trim().length)} XP`;
 });
 
 app.addEventListener("click", async (event) => {
@@ -845,8 +1612,79 @@ app.addEventListener("click", async (event) => {
   if (!target) return;
   const action = target.dataset.action;
 
+  if (action === "continue-profile") {
+    try {
+      await ensureParticipantSession();
+      state.room = state.profile.room;
+      scheduleLeaderboardSync("", true);
+      void connectHeartRewards();
+      renderHome();
+    } catch {
+      renderWelcome();
+    }
+    return;
+  }
+
+  if (action === "new-person") {
+    const confirmed = window.confirm(language === "pt" ? "Apagar o perfil e o progresso deste dispositivo?" : "Clear the profile and progress on this device?");
+    if (!confirmed) return;
+    cleanupSubscription();
+    cleanupLeaderboardSubscription();
+    cleanupHeartRewards();
+    if (state.activeMission) await releaseActiveMission(state.activeMission);
+    progress.reset();
+    await resetParticipantSession();
+    state.profile = null;
+    state.room = initialRoom || GROUPS[0].code;
+    state.interactions.clear();
+    renderWelcome();
+    return;
+  }
+
+  if (action === "change-group") {
+    cleanupMissionDashboard();
+    renderGroupChooser();
+    return;
+  }
+
+  if (action === "open-leaderboard") {
+    cleanupSubscription();
+    cleanupMissionDashboard();
+    scheduleLeaderboardSync("", true);
+    renderLeaderboard();
+    await connectLeaderboards(true);
+    return;
+  }
+
+  if (action === "dismiss-achievement") {
+    target.remove();
+    return;
+  }
+
   if (action === "home") {
     if (state.profile) renderHome();
+    return;
+  }
+
+  if (action === "next-mission") {
+    state.completedMission = null;
+    state.missionInteraction = null;
+    await requestNextMission();
+    return;
+  }
+
+  if (action === "reflection-not-now") {
+    await finishReflectionMission("");
+    return;
+  }
+
+  if (action === "reflection-decline") {
+    await finishReflectionMission("declined");
+    return;
+  }
+
+  if (action === "finish-board") {
+    await finishBoardMission();
     return;
   }
 
@@ -872,8 +1710,23 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
-  if (["sequence", "match-left", "match-right", "game-choice"].includes(action)) {
-    handleGameAction(target, action);
+  if (["sequence", "match-left", "match-right", "reveal-choice", "crossword-choice", "move-block"].includes(action)) {
+    await handleGameAction(target, action);
+    return;
+  }
+
+  if (action === "mission-quiz-choice") {
+    const mission = state.activeMission;
+    if (!mission || mission.type !== "shared" || mission.challengeKind !== "quiz" || state.missionInteraction.attempted) return;
+    const optionIndex = Number(target.dataset.option);
+    const item = learningByNumber.get(mission.questionNumber).quiz[0];
+    state.missionInteraction.selected = optionIndex;
+    state.missionInteraction.currentCorrect = optionIndex === item.correct;
+    state.missionInteraction.attempted = true;
+    state.missionInteraction.finished = true;
+    state.missionInteraction.succeeded = state.missionInteraction.currentCorrect;
+    saveMissionInteraction();
+    await completeTeamAttempt(state.missionInteraction.currentCorrect);
     return;
   }
 
@@ -883,8 +1736,15 @@ app.addEventListener("click", async (event) => {
     const optionIndex = Number(target.dataset.option);
     const learning = learningByNumber.get(number);
     const quizState = interactionFor(number).quiz[quizIndex];
+    if (quizState.attempted) return;
     quizState.selected = optionIndex;
-    quizState.correct = optionIndex === learning.quiz[quizIndex].correct;
+    quizState.currentCorrect = optionIndex === learning.quiz[quizIndex].correct;
+    if (!quizState.attempted) {
+      quizState.attempted = true;
+      quizState.correct = quizState.currentCorrect;
+      if (quizState.correct) grantReward(`quiz:${number}:${quizIndex}`, 10, { type: "quiz", question: number });
+    }
+    saveInteraction(number);
     rerenderQuestion();
     return;
   }
@@ -893,11 +1753,13 @@ app.addEventListener("click", async (event) => {
     const number = Number(target.dataset.question);
     target.disabled = true;
     try {
-      const uid = await giveHeart({
+      const result = await giveHeart({
         roomCode: target.dataset.room || state.room,
         questionNumber: number,
         reflectionId: target.dataset.reflection,
       });
+      const uid = result.uid;
+      if (result.bonus) grantReward(`heart-giver:${number}`, 2, { type: "heart-giver", question: number });
       if (target.dataset.scope === "global") {
         const reflection = state.globalReflections.find((item) => item.id === target.dataset.reflection);
         if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
@@ -914,12 +1776,25 @@ app.addEventListener("click", async (event) => {
   }
 });
 
-function handleGameAction(target, action) {
-  const number = Number(target.dataset.question);
-  const gameIndex = Number(target.dataset.game);
+async function handleGameAction(target, action) {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
+  const number = mission.questionNumber;
+  const gameIndex = mission.challengeIndex;
   const learning = learningByNumber.get(number);
   const game = learning.games[gameIndex];
-  const gameState = interactionFor(number).games[gameIndex];
+  const gameState = state.missionInteraction;
+  if (gameState.finished || gameState.attempted) return;
+
+  const finish = (correct) => {
+    gameState.finished = true;
+    gameState.currentCorrect = correct;
+    if (!gameState.attempted) {
+      gameState.attempted = true;
+      gameState.succeeded = correct;
+    }
+    saveMissionInteraction();
+  };
 
   if (action === "sequence") {
     const itemId = target.dataset.item;
@@ -927,10 +1802,9 @@ function handleGameAction(target, action) {
     if (itemId === expected) {
       gameState.sequence.push(itemId);
       gameState.message = "";
-      if (gameState.sequence.length === game.answer.length) gameState.done = true;
+      if (gameState.sequence.length === game.answer.length) finish(true);
     } else {
-      gameState.sequence = [];
-      gameState.message = c("incorrect");
+      finish(false);
     }
   }
 
@@ -945,22 +1819,51 @@ function handleGameAction(target, action) {
       gameState.matched.push(right);
       gameState.activeLeft = null;
       gameState.message = "";
-      if (gameState.matched.length === game.pairs.length) gameState.done = true;
+      if (gameState.matched.length === game.pairs.length) finish(true);
     } else {
       gameState.activeLeft = null;
-      gameState.message = c("incorrect");
+      finish(false);
     }
   }
 
-  if (action === "game-choice") {
+  if (action === "reveal-choice") {
     const option = Number(target.dataset.option);
-    gameState.selected = option;
-    gameState.done = option === game.correct;
-    gameState.message = gameState.done ? "" : c("incorrect");
+    const card = game.cards[gameState.sequence.length];
+    if (option !== card.correct) finish(false);
+    else {
+      gameState.sequence.push(option);
+      if (gameState.sequence.length === game.cards.length) finish(true);
+    }
   }
 
-  rerenderQuestion();
+  if (action === "crossword-choice") {
+    const option = Number(target.dataset.option);
+    const clue = game.clues[gameState.sequence.length];
+    if (option !== clue.correct) finish(false);
+    else {
+      gameState.sequence.push(option);
+      if (gameState.sequence.length === game.clues.length) finish(true);
+    }
+  }
+
+  if (action === "move-block") {
+    const itemId = target.dataset.item;
+    const expected = game.answer[gameState.sequence.length];
+    if (itemId !== expected) finish(false);
+    else {
+      gameState.sequence.push(itemId);
+      if (gameState.sequence.length === game.answer.length) finish(true);
+    }
+  }
+
+  saveMissionInteraction();
+  if (gameState.finished) await completeTeamAttempt(gameState.currentCorrect);
+  else rerenderQuestion();
 }
 
+document.addEventListener("pointerdown", noteMissionActivity, { passive: true });
+document.addEventListener("keydown", noteMissionActivity);
+document.addEventListener("scroll", noteMissionActivity, { passive: true, capture: true });
 window.addEventListener("beforeunload", cleanupSubscription);
-renderWelcome();
+if (state.profile) renderReturning();
+else renderWelcome();

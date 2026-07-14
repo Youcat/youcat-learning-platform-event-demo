@@ -1,0 +1,21 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { rankGroupSummaries, rankMembers } from "../src/leaderboard.js";
+
+test("event groups require three contributors and rank by average", () => {
+  const ranked = rankGroupSummaries([
+    { groupCode: "A", totalXp: 120, participants: 3, averageXp: 40 },
+    { groupCode: "B", totalXp: 100, participants: 2, averageXp: 50 },
+    { groupCode: "C", totalXp: 150, participants: 3, averageXp: 50 },
+  ]);
+  assert.deepEqual(ranked.map((item) => item.code), ["C", "A"]);
+});
+
+test("member ties are stable by display name", () => {
+  const ranked = rankMembers([
+    { displayName: "Bia S.", personalXp: 20 },
+    { displayName: "Ana M.", personalXp: 20 },
+    { displayName: "Caio P.", personalXp: 10 },
+  ]);
+  assert.deepEqual(ranked.map((item) => item.displayName), ["Ana M.", "Bia S.", "Caio P."]);
+});

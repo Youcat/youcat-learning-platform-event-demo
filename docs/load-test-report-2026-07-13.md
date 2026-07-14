@@ -1,6 +1,6 @@
 # 200-user load-test report
 
-Date: 13 July 2026
+Updated: 14 July 2026
 
 ## Event scenario
 
@@ -8,19 +8,23 @@ Date: 13 July 2026
 - 20 rooms with 10 participants each
 - 5 questions per participant
 - 5 reflections and 10 hearts per participant
+- persistent personal XP and one group-XP contribution per participant
+- two live leaderboard layers: members within the current group and 20 group summaries
 - 200 maximum concurrent Firestore listeners
-- 1,000 reflection writes and 2,000 heart writes
+- 1,000 reflection writes, 2,000 heart writes, and 600 leaderboard document writes
 
 ## Local Firebase emulator result
 
 - Result: passed
 - Errors: 0
-- Total duration: 21.2 seconds
+- Total duration: 23.9 seconds
 - Authentication: 0.16 seconds for all 200 users
-- Answer propagation: median 1.15 seconds; maximum 1.97 seconds
-- Heart propagation: median 2.24 seconds; maximum 2.95 seconds
-- Snapshot callbacks handled: 14,492
+- Answer propagation: median 1.06 seconds; maximum 1.12 seconds
+- Heart propagation: median 1.95 seconds; maximum 2.17 seconds
+- Leaderboard convergence after 200 simultaneous transactions: 7.23 seconds
+- Snapshot callbacks handled: 14,704
 - Global reflection totals and the cross-group overview query were verified after every question
+- All 20 group leaderboards reached 10 active members and all 20 group summaries reached the correct totals
 
 The emulator briefly retried some writes during the intentionally simultaneous bursts. All operations completed successfully. This is a conservative stress condition; real participants will naturally spread actions over several minutes.
 
@@ -35,7 +39,7 @@ Two tests used 200 simultaneous connections:
 
 ## Spark-plan budget estimate
 
-The test scenario uses about 3,000 Firestore writes and an estimated 31,000–40,000 reads. This fits the daily Spark allowance if the demo is the project's primary activity that day. Repeated reconnects or additional rehearsals on the same day increase read usage.
+The test scenario uses about 3,600 Firestore document writes. The event leaderboard reads 20 summary documents instead of all 200 participant-contribution documents, and listeners are opened only on the dedicated leaderboard screen. The estimated event usage remains within the daily Spark allowance if this demo is the project's primary activity that day. Repeated reconnects or additional rehearsals on the same day increase read usage.
 
 ## Scheduled live-event quota
 

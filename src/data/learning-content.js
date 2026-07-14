@@ -1,4 +1,5 @@
 import deepDiveSources from "./deep-dive-sources.js";
+import approvedActivities from "./approved-activities.js";
 
 const t = (en, pt) => ({ en, pt });
 
@@ -757,6 +758,7 @@ const learning = [
 
 for (const item of learning) {
   if (deepDiveSources[item.number]) item.deepDive = deepDiveSources[item.number];
+  if (approvedActivities[item.number]) Object.assign(item, approvedActivities[item.number]);
 }
 
 export default learning;
