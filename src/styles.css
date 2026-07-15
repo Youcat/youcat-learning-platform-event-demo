@@ -218,92 +218,26 @@ textarea:focus-visible {
   display: none;
 }
 
-.minigame-access-panel {
-  padding: 10px 20px 8px;
-  border-bottom: 1px solid var(--border-soft);
-}
-
-.minigame-access-panel h2 {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-}
-
-.minigame-access-actions {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.minigame-stage-shell[data-minigame-engine="B9"] .minigame-access-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.minigame-access-status {
-  min-height: 18px;
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.minigame-access-actions button,
-.minigame-secondary-controls button {
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--graphite);
-  border-radius: 6px;
-  background: #fff;
-  color: var(--graphite);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: normal;
-}
-
-.minigame-engine-status {
-  min-height: 18px;
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-[data-engine-id="B13"] .minigame-access-actions button {
-  padding-inline: 8px;
-  font-size: 12px;
-  line-height: 16px;
-}
-
 .minigame-stage-controls {
-  padding: 12px 20px max(16px, env(safe-area-inset-bottom));
-}
-
-.minigame-secondary-controls {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  overflow-x: auto;
+  padding: 16px 20px max(20px, env(safe-area-inset-bottom));
 }
 
 .minigame-check {
   width: 100%;
   min-height: 48px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: 1.5px solid var(--graphite);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--love-red);
   color: #fff;
   cursor: pointer;
   font-size: 15px;
   font-weight: 700;
+  line-height: 22px;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
 }
 
-.minigame-check:disabled,
-.minigame-access-actions button:disabled,
-.minigame-secondary-controls button:disabled {
+.minigame-check:disabled {
   border-color: var(--border);
   background: #fff;
   color: var(--soft);
@@ -391,14 +325,6 @@ textarea:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 18px;
-}
-
-.minigame-stage-shell[data-minigame-engine="A2"] .minigame-access-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.minigame-stage-shell[data-minigame-engine="A2"] .minigame-access-actions button {
-  padding: 6px 10px;
 }
 
 .minigame-lab-error {
@@ -576,8 +502,6 @@ a.minigame-index-row:focus-visible,
 
 @media (max-width: 374px) {
   .minigame-stage-copy { padding-right: 20px; padding-left: 20px; }
-  .minigame-access-actions { gap: 6px; }
-  .minigame-access-actions button { padding-right: 7px; padding-left: 7px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -86,7 +86,7 @@ test("state serialization is JSON-safe and resumes meaningful partial play", () 
   assert.deepEqual(a4Engine.serializeState(resumed), roundTrip);
 });
 
-test("Reset and Replay restore the same clean seeded state", () => {
+test("a clean restore returns to the same seeded state", () => {
   const { scene } = makeScene();
   scene.placeObject("ear", "story");
   a4Engine.showHint(scene, 0, a4Fixture);
@@ -116,8 +116,17 @@ test("hints escalate from reflection to an exact remaining pair", () => {
   assert.ok(scene.a4State.selectedId);
   const selected = scene.a4State.selectedId;
   const second = a4Engine.showHint(scene, 1, a4Fixture);
-  assert.match(second.en, new RegExp(a4Fixture.payload.solution[selected] === "story" ? "life shared" : ".+"));
+  assert.match(second.en, new RegExp(a4Fixture.payload.solution[selected] === "story" ? "Sharing" : ".+"));
   assert.equal(scene.a4State.hintLevel, 2);
+});
+
+test("tapping an already selected symbol returns it to the tray", () => {
+  const { scene } = makeScene();
+  scene.selectObject("ear");
+  scene.returnToDock("ear");
+  assert.equal(scene.a4State.placements.ear, null);
+  assert.equal(scene.a4State.selectedId, null);
+  assert.match(scene.accessibleFeedback.en, /returned to the tray/);
 });
 
 test("evaluation distinguishes incomplete, partial, and completed states without XP side effects", () => {

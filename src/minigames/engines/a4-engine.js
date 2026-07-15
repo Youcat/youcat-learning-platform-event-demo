@@ -10,7 +10,7 @@ const OBJECT_COPY = Object.freeze({
 });
 
 const ZONE_COPY = Object.freeze({
-  story: { en: "A life shared", pt: "Uma vida partilhada" },
+  story: { en: "Sharing", pt: "Partilha" },
   light: { en: "Gospel light", pt: "Luz do Evangelho" },
   path: { en: "Freedom to respond", pt: "Liberdade para responder" },
   crossroads: { en: "A call to discern", pt: "Um chamado a discernir" },
@@ -190,7 +190,8 @@ export const a4Engine = Object.freeze({
           sprite.setData("objectId", id);
           sprite.on("pointerdown", () => {
             if (this.a4State.locked || this.dragging) return;
-            this.selectObject(this.a4State.selectedId === id ? null : id);
+            if (this.a4State.selectedId === id) this.returnToDock(id);
+            else this.selectObject(id);
           });
           sprite.on("dragstart", () => { if (!this.a4State.locked) this.dragging = true; });
           sprite.on("drag", (_pointer, x, y) => {
@@ -273,7 +274,7 @@ export const a4Engine = Object.freeze({
         if (this.a4State.locked) return;
         this.a4State.placements[id] = null;
         this.a4State.completed = false;
-        this.a4State.selectedId = id;
+        this.a4State.selectedId = null;
         this.a4State.lastInvalid = null;
         this.accessibleFeedback = localized(`${OBJECT_COPY[id].en} returned to the tray.`, `${OBJECT_COPY[id].pt} voltou para a bandeja.`);
         this.accessibleFeedbackTone = "";

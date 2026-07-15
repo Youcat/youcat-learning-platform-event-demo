@@ -4,8 +4,8 @@ import { createResultAdapter } from "./result-adapter.js";
 import { loadPhaserRuntime } from "./runtime.js";
 
 const copy = {
-  en: { back: "Back", lab: "Game Lab", hint: "Hint", hintLeft: "hint left", hintsLeft: "hints left", check: "Check", reset: "Reset", replay: "Replay", controls: "Accessible controls", loading: "Loading game…", submitted: "Mission submitted", locked: "This mission already has its one submission.", invalid: "That move is not available. Your progress is unchanged.", ringMoved: "Band moved to the selected mark." },
-  pt: { back: "Voltar", lab: "Laboratório de Jogos", hint: "Dica", hintLeft: "dica restante", hintsLeft: "dicas restantes", check: "Verificar", reset: "Reiniciar", replay: "Jogar novamente", controls: "Controles acessíveis", loading: "Carregando jogo…", submitted: "Missão enviada", locked: "Esta missão já recebeu sua única resposta.", invalid: "Esse movimento não está disponível. Seu progresso não mudou.", ringMoved: "Faixa movida para a marca escolhida." },
+  en: { back: "Back", lab: "Game Lab", check: "Check", loading: "Loading game…", submitted: "Mission submitted", locked: "This mission already has its one submission.", invalid: "That move is not available. Your progress is unchanged.", ringMoved: "Band moved to the selected mark." },
+  pt: { back: "Voltar", lab: "Laboratório de Jogos", check: "Verificar", loading: "Carregando jogo…", submitted: "Missão enviada", locked: "Esta missão já recebeu sua única resposta.", invalid: "Esse movimento não está disponível. Seu progresso não mudou.", ringMoved: "Faixa movida para a marca escolhida." },
 };
 
 function tr(value, language) {
@@ -65,7 +65,7 @@ export async function launchGameStage({
   const engine = registry.resolve(instance, { allowNonProduction: instance.mode === "lab" });
   validateEnginePayload(engine, instance);
   const saved = persistence.load(instance);
-  let hintsUsed = Math.max(0, Math.min(2, Number(saved?.hintsUsed) || 0));
+  const hintsUsed = 0;
   let submitted = Boolean(saved?.submitted);
   let resultShown = instance.mode === "mission" && submitted;
   let scene = null;
@@ -89,16 +89,7 @@ export async function launchGameStage({
       <div class="minigame-loading" data-stage-loading role="status">${copy[locale].loading}</div>
       <div class="minigame-canvas-host" data-stage-canvas></div>
     </section>
-    <section class="minigame-access-panel" aria-labelledby="minigame-access-title">
-      <h2 id="minigame-access-title">${copy[locale].controls}</h2>
-      <div class="minigame-access-actions" data-stage-access></div>
-      <p class="minigame-engine-status" data-stage-engine-status role="status" aria-live="polite"></p>
-    </section>
     <footer class="minigame-stage-controls">
-      <div class="minigame-secondary-controls">
-        ${instance.mode === "lab" ? `<button type="button" data-stage-action="reset">↺ ${copy[locale].reset}</button><button type="button" data-stage-action="replay">${copy[locale].replay}</button>` : ""}
-        <button type="button" data-stage-action="hint">${copy[locale].hint} · <span data-stage-hints>${2 - hintsUsed}</span> <span data-stage-hint-label>${2 - hintsUsed === 1 ? copy[locale].hintLeft : copy[locale].hintsLeft}</span></button>
-      </div>
       <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : copy[locale].check}</button>
       <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].locked : ""}</p>
       <p class="minigame-insight" data-stage-insight ${resultShown ? "" : "hidden"}>${escapeHtml(tr(instance.insight, locale))}</p>
@@ -108,12 +99,6 @@ export async function launchGameStage({
   const canvasHost = mount.querySelector("[data-stage-canvas]");
   const loading = mount.querySelector("[data-stage-loading]");
   const feedback = mount.querySelector("[data-stage-feedback]");
-  const engineStatus = mount.querySelector("[data-stage-engine-status]");
-  const accessPanel = mount.querySelector(".minigame-access-panel");
-  const access = mount.querySelector("[data-stage-access]");
-  const hintButton = mount.querySelector('[data-stage-action="hint"]');
-  const hintCount = mount.querySelector("[data-stage-hints]");
-  const hintLabel = mount.querySelector("[data-stage-hint-label]");
   const checkButton = mount.querySelector('[data-stage-action="check"]');
   const insight = mount.querySelector("[data-stage-insight]");
 
@@ -122,42 +107,16 @@ export async function launchGameStage({
     persistence.save(instance, { hintsUsed, submitted, engineState: engine.serializeState(scene, instance) });
   }
 
-  function updateHintControl() {
-    const remaining = Math.max(0, 2 - hintsUsed);
-    hintCount.textContent = String(remaining);
-    hintLabel.textContent = remaining === 1 ? copy[locale].hintLeft : copy[locale].hintsLeft;
-    hintButton.disabled = remaining === 0 || (instance.mode === "mission" && submitted);
-  }
-
   function renderEngineStatus() {
     if (resultShown) return;
-    engineStatus.textContent = currentEngineStatus(scene, locale);
-    engineStatus.dataset.state = currentEngineTone(scene);
+    feedback.textContent = currentEngineStatus(scene, locale);
+    feedback.dataset.state = currentEngineTone(scene);
   }
 
   function reportEngineFeedback(message) {
     resultShown = false;
-    engineStatus.textContent = tr(message, locale);
-    engineStatus.dataset.state = "";
-  }
-
-  function renderAccessibleActions() {
-    access.replaceChildren();
-    const actions = engine.getAccessibleActions(scene, instance) || [];
-    accessPanel.hidden = actions.length === 0;
-    actions.forEach((action) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = tr(action.label, locale);
-      button.disabled = Boolean(action.disabled) || (instance.mode === "mission" && submitted);
-      button.addEventListener("click", () => {
-        action.run();
-        persist();
-        renderAccessibleActions();
-        renderEngineStatus();
-      });
-      access.append(button);
-    });
+    feedback.textContent = tr(message, locale);
+    feedback.dataset.state = "";
   }
 
   const Phaser = await loadPhaserRuntime();
@@ -170,7 +129,6 @@ export async function launchGameStage({
     onStateChange: (changedScene) => {
       if (changedScene) scene = changedScene;
       persist();
-      renderAccessibleActions();
       renderEngineStatus();
     },
     onReady: (readyScene) => {
@@ -178,7 +136,6 @@ export async function launchGameStage({
       loading.hidden = true;
       scene.setLocked?.(instance.mode === "mission" && submitted);
       if (instance.mode === "mission" && submitted) scene.revealSolution?.();
-      renderAccessibleActions();
       renderEngineStatus();
       persist();
     },
@@ -223,31 +180,8 @@ export async function launchGameStage({
       checkButton.disabled = true;
       checkButton.textContent = copy[locale].submitted;
     }
-    renderAccessibleActions();
-    updateHintControl();
     persist();
     await adaptResult(instance, evaluation, { hintsUsed });
-  }
-
-  function reset() {
-    if (instance.mode !== "lab") return;
-    persistence.clear(instance);
-    hintsUsed = 0;
-    submitted = false;
-    resultShown = false;
-    engine.restoreState(scene, null, instance);
-    scene.setLocked?.(false);
-    feedback.textContent = "";
-    feedback.dataset.state = "";
-    engineStatus.textContent = "";
-    engineStatus.dataset.state = "";
-    insight.hidden = true;
-    checkButton.disabled = false;
-    checkButton.textContent = copy[locale].check;
-    updateHintControl();
-    renderAccessibleActions();
-    renderEngineStatus();
-    persist();
   }
 
   async function handleStageClick(event) {
@@ -255,22 +189,10 @@ export async function launchGameStage({
     if (!button) return;
     const action = button.dataset.stageAction;
     if (action === "check") await submit();
-    if (action === "hint" && hintsUsed < 2 && !(instance.mode === "mission" && submitted)) {
-      resultShown = false;
-      const message = engine.showHint(scene, hintsUsed, instance);
-      hintsUsed += 1;
-      feedback.textContent = tr(message, locale);
-      feedback.dataset.state = "";
-      updateHintControl();
-      renderAccessibleActions();
-      persist();
-    }
-    if (action === "reset" || action === "replay") reset();
     if (action === "close") onClose?.();
   }
 
   mount.addEventListener("click", handleStageClick);
-  updateHintControl();
 
   return {
     destroy() {
