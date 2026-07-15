@@ -7,13 +7,11 @@ const activities = {
   3: {
     games: [
       {
-        type: "minigame",
-        engineId: "B9",
-        engineVersion: "1.0.0",
-        fixtureId: "B9",
-        xp: 6,
-        title: t("Bridge of Fidelity", "Ponte da Fidelidade"),
-        prompt: t("Arrange every bridge stone freely, revise your path, then check it.", "Organize livremente todas as pedras da ponte, revise o caminho e depois verifique."),
+        type: "order", title: t("From attraction to mature love", "Da atração ao amor maduro"),
+        prompt: t("A relationship begins with strong attraction. Put the next stages of mature love in the most coherent order.", "Um relacionamento começa com forte atração. Coloque as etapas seguintes do amor maduro na ordem mais coerente."),
+        items: [step("attraction", "Notice attraction and the desire for closeness.", "Perceber a atração e o desejo de proximidade."), step("reality", "See the real person beyond idealization.", "Ver a pessoa real para além da idealização."), step("good", "Choose the other person’s good in concrete decisions.", "Escolher o bem da outra pessoa em decisões concretas."), step("fidelity", "Build patterns of fidelity that can survive changing feelings.", "Criar hábitos de fidelidade capazes de atravessar a mudança dos sentimentos.")],
+        answer: ["attraction", "reality", "good", "fidelity"], start: ["good", "attraction", "fidelity", "reality"],
+        insight: t("Feelings can begin love’s movement, but mature love requires reality, decision, and repeated fidelity.", "Os sentimentos podem iniciar o movimento do amor, mas o amor maduro exige realidade, decisão e fidelidade repetida."),
       },
       {
         type: "minigame",
@@ -61,7 +59,13 @@ const activities = {
         [t("Consent", "Consentimento"), t("Is indispensable, but by itself does not create permanence or a shared future.", "É indispensável, mas sozinho não cria permanência nem um futuro comum.")],
         [t("Marriage covenant", "Aliança matrimonial"), t("Gives a public and lasting form to the complete mutual gift.", "Dá forma pública e duradoura ao dom mútuo completo.")],
       ] },
-      { type: "minigame", engineId: "B13", engineVersion: "2.0.0", fixtureId: "B13", xp: 9, title: t("Words that belong together", "Palavras que pertencem uma à outra"), prompt: t("Match body with soul, dignity with freedom, and gift with covenant.", "Associe corpo e alma, dignidade e liberdade, dom e aliança.") },
+      { type: "crossword", title: t("The language of the body", "A linguagem do corpo"), prompt: t("Choose the word that solves each clue.", "Escolha a palavra que resolve cada pista."), words: [t("BODY", "CORPO"), t("SOUL", "ALMA"), t("DIGNITY", "DIGNIDADE"), t("GIFT", "DOM"), t("COVENANT", "ALIANÇA")], clues: [
+        { clue: t("The visible part of the person that can express an invisible intention.", "A parte visível da pessoa que pode expressar uma intenção invisível."), correct: 0 },
+        { clue: t("The spiritual dimension showing why a person is never only physical.", "A dimensão espiritual que mostra por que uma pessoa nunca é apenas física."), correct: 1 },
+        { clue: t("What prevents another person from becoming a means to an end.", "O que impede que outra pessoa se torne um meio para um fim."), correct: 2 },
+        { clue: t("Something freely given that cannot be reduced to a transaction.", "Algo livremente dado que não pode ser reduzido a uma transação."), correct: 3 },
+        { clue: t("The lasting promise that gives total self-gift a truthful home.", "A promessa duradoura que oferece um lar verdadeiro ao dom total de si."), correct: 4 },
+      ] },
       { type: "reveal", title: t("What does this action communicate?", "O que esta ação comunica?"), prompt: t("Classify the meaning communicated by each action.", "Classifique o significado comunicado por cada ação."), categories: [t("Partial closeness", "Proximidade parcial"), t("Total self-gift", "Dom total de si"), t("Contradiction", "Contradição")], cards: [
         { text: t("Mutual attraction without a lasting promise", "Atração mútua sem uma promessa duradoura"), correct: 0 },
         { text: t("Free consent and genuine care, but an explicit refusal of permanence", "Consentimento livre e cuidado verdadeiro, mas recusa explícita da permanência"), correct: 0 },
@@ -77,7 +81,7 @@ const activities = {
   25: {
     games: [
       { type: "image-shuffle", title: t("Reveal an Emmaus-style illustration", "Revele uma ilustração inspirada em Emaús"), prompt: t("Reconstruct the image of a wise companion who listens and points toward the Gospel.", "Reconstrua a imagem de um companheiro sábio que escuta e aponta para o Evangelho."), answer: ["1", "2", "3", "4"], start: ["3", "1", "4", "2"], reveal: t("A good guide listens, liberates, and encourages.", "Um bom orientador escuta, liberta e encoraja."), insight: t("The guide accompanies the path without taking ownership of another person’s vocation.", "O orientador acompanha o caminho sem se apropriar da vocação da outra pessoa.") },
-      { type: "minigame", definitionId: "C23", engineId: "C23", engineVersion: "1.0.0", title: t("Compass of Discernment", "Bússola do Discernimento"), prompt: t("Arrange experience, Gospel, counsel, freedom, responsibility, and fruits so the whole compass points forward.", "Organize experiência, Evangelho, conselho, liberdade, responsabilidade e frutos para que toda a bússola aponte para a frente.") },
+      { type: "order", title: t("A healthy discernment process", "Um processo saudável de discernimento"), prompt: t("Put these parts of a spiritual-direction conversation in order.", "Coloque estas partes de uma conversa de orientação espiritual na ordem."), items: [step("bring", "Bring concrete experience, desires, fears, and decisions honestly.", "Apresentar com sinceridade experiências, desejos, medos e decisões concretas."), step("listen", "Interpret them in the light of prayer and the Gospel.", "Interpretá-los à luz da oração e do Evangelho."), step("test", "Test possible paths without surrendering personal responsibility.", "Examinar caminhos possíveis sem entregar a responsabilidade pessoal."), step("decide", "Decide freely and later review the fruits.", "Decidir livremente e depois rever os frutos.")], answer: ["bring", "listen", "test", "decide"], start: ["test", "bring", "decide", "listen"] },
       { type: "match", title: t("Similar actions, different effects", "Ações parecidas, efeitos diferentes"), prompt: t("Match each action with its effect.", "Associe cada ação ao seu efeito."), pairs: [[t("Wise challenge", "Desafio sábio"), t("Names something difficult while respecting freedom.", "Nomeia algo difícil respeitando a liberdade.")], [t("Manipulation", "Manipulação"), t("Uses pressure, fear, or authority to control a decision.", "Usa pressão, medo ou autoridade para controlar uma decisão.")], [t("Healthy accompaniment", "Acompanhamento saudável"), t("Helps the person become more truthful, prayerful, and responsible.", "Ajuda a pessoa a tornar-se mais verdadeira, orante e responsável.")]] },
       { type: "minigame", engineId: "A4", engineVersion: "1.0.0", title: t("Living Symbols", "Símbolos vivos"), prompt: t("Place five signs where they become part of healthy spiritual accompaniment.", "Coloque cinco sinais onde eles se tornam parte de um acompanhamento espiritual saudável."), insight: t("A good guide listens, opens life to the Gospel, protects freedom, serves a person’s vocation, and helps test the fruits over time.", "Um bom orientador escuta, abre a vida ao Evangelho, protege a liberdade, serve à vocação da pessoa e ajuda a reconhecer os frutos ao longo do tempo.") },
     ],
@@ -100,7 +104,11 @@ const activities = {
 
   59: {
     games: [
-      { type: "minigame", engineId: "C22", engineVersion: "1.0.0", fixtureId: "C22", xp: 8, title: t("Magnetic Field", "Campo Magnético"), prompt: t("Move both friends within a symbolic field, then choose the principle that guided your arrangement.", "Mova os dois amigos dentro de um campo simbólico e depois escolha o princípio que orientou sua disposição.") },
+      { type: "match", title: t("What does this behavior communicate?", "O que este comportamento comunica?"), prompt: t("Match each behavior with what it communicates.", "Associe cada comportamento ao que ele comunica."), pairs: [
+        [t("Warm, transparent friendship", "Amizade calorosa e transparente"), t("Seeks the other’s good without creating a hidden claim.", "Procura o bem do outro sem criar uma pretensão escondida.")],
+        [t("Repeated ambiguous flirting", "Flerte ambíguo repetido"), t("Enjoys closeness while leaving expectations unclear.", "Aproveita a proximidade mantendo as expectativas pouco claras.")],
+        [t("A truthful boundary", "Um limite verdadeiro"), t("May limit closeness to protect both people’s freedom.", "Pode limitar a proximidade para proteger a liberdade de ambos.")],
+      ] },
       { type: "image-shuffle", title: t("Reveal an illustration about transparency", "Revele uma ilustração sobre transparência"), prompt: t("Reconstruct a friendship scene in an open, ordinary setting.", "Reconstrua uma cena de amizade num ambiente aberto e cotidiano."), answer: ["1", "2", "3", "4"], start: ["4", "2", "1", "3"], reveal: t("Would this friendship still feel truthful if someone else walked into the room?", "Esta amizade ainda pareceria verdadeira se outra pessoa entrasse na sala?"), insight: t("Privacy can be healthy; secrecy that protects ambiguity is a warning sign.", "A privacidade pode ser saudável; o segredo que protege a ambiguidade é um sinal de alerta.") },
       { type: "reveal", title: t("Transparent, ambiguous, or boundary needed?", "Transparente, ambíguo ou precisa de limite?"), prompt: t("Classify each behavior.", "Classifique cada comportamento."), categories: [t("Transparent", "Transparente"), t("Ambiguous", "Ambíguo"), t("Boundary needed", "Precisa de limite")], cards: [
         { text: t("Warm friendship that can be discussed openly with others", "Amizade calorosa que pode ser discutida abertamente com outros"), correct: 0 }, { text: t("Repeated flirting while insisting that it means nothing", "Flerte repetido enquanto se insiste que não significa nada"), correct: 1 }, { text: t("Private late-night closeness competing with an existing commitment", "Proximidade privada tarde da noite que compete com um compromisso existente"), correct: 2 }, { text: t("Acknowledging attraction and reducing intimacy to avoid false hope", "Reconhecer a atração e reduzir a intimidade para evitar falsas esperanças"), correct: 0 }, { text: t("Enjoying attention while avoiding a clear answer", "Aproveitar a atenção evitando uma resposta clara"), correct: 1 },

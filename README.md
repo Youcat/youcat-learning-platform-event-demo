@@ -35,7 +35,7 @@ Use `?lang=en` for the development-language version. Use a predefined group code
 
 ## Minigame foundation
 
-The shared Phaser 3.90 runtime is lazy-loaded only after Home. Production startup remains on the existing HTML path, while bundled fixtures and engines can be reviewed in the isolated Game Lab. Open C21 “Balance of Love” with `?lab=C21&lang=en` or `?lab=C21&lang=pt`; the non-production foundation proof remains available at `?lab=foundation-skeleton-v1&lang=en`. C21 replaces Q127 game 1 (mission slot 0) while preserving four games and one quiz.
+The shared Phaser 3.90 runtime is lazy-loaded only after Home. Production startup remains on the existing HTML path, while bundled fixtures and retained engines can be reviewed in the isolated Game Lab. The non-production foundation proof remains available at `?lab=foundation-skeleton-v1&lang=en`. Every question retains four games and one quiz.
 
 See [`docs/minigame-foundation.md`](docs/minigame-foundation.md) for the exact `GameInstance` and engine contracts, integration boundaries, and engine-worktree instructions. Use [`docs/minigame-ui-ux-review-checklist.md`](docs/minigame-ui-ux-review-checklist.md) for objective review before enabling an engine in missions.
 

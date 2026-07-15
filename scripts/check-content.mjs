@@ -7,11 +7,10 @@ const official = new Set(content.questions.map((item) => item.number));
 const authored = new Set(learning.map((item) => item.number));
 const mechanicCounts = new Map();
 const approvedMinigameSlots = new Map([
-  ["3:0", "B9"], ["3:1", "C29"], ["14:1", "B13"], ["14:3", "C30"],
-  ["25:1", "C23"], ["25:3", "A4"], ["34:1", "A2"], ["59:0", "C22"],
+  ["3:1", "C29"], ["14:3", "C30"], ["25:3", "A4"], ["34:1", "A2"],
   ["68:3", "A7"], ["83:1", "C20"], ["126:0", "C27"], ["140:3", "B14"],
 ]);
-const approvedMinigameVersions = new Map([["B13", "2.0.0"]]);
+const approvedMinigameVersions = new Map();
 const registry = createAppMinigameRegistry();
 
 for (const number of expected) {
@@ -63,7 +62,7 @@ for (const item of learning) {
   if (!item.saintQuote?.text || !item.saintQuote?.author) throw new Error(`Q${item.number} needs a saint quote`);
 }
 
-for (const [mechanic, expectedCount] of Object.entries({ order: 3, match: 7, reveal: 6, wordsearch: 5, move: 1, "image-shuffle": 6, minigame: 12 })) {
+for (const [mechanic, expectedCount] of Object.entries({ order: 5, match: 8, reveal: 6, crossword: 1, wordsearch: 5, move: 1, "image-shuffle": 6, minigame: 8 })) {
   if (mechanicCounts.get(mechanic) !== expectedCount) throw new Error(`${mechanic} must appear exactly ${expectedCount} times`);
 }
 if ([...approvedMinigameSlots.keys()].some((slot) => {

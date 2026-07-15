@@ -197,7 +197,7 @@ test("catalog registers production C29 and Q3 replaces only human game 2", () =>
   const q3 = approvedActivities[3];
   assert.equal(q3.games.length, 4);
   assert.equal(q3.quiz.length, 1);
-  assert.deepEqual({ type: q3.games[0].type, engineId: q3.games[0].engineId }, { type: "minigame", engineId: "B9" });
+  assert.equal(q3.games[0].type, "order");
   assert.deepEqual({ type: q3.games[1].type, fixtureId: q3.games[1].fixtureId, engineId: q3.games[1].engineId, engineVersion: q3.games[1].engineVersion }, { type: "minigame", fixtureId: "C29", engineId: "C29", engineVersion: "1.0.0" });
   assert.equal(q3.games[2].type, "move");
   assert.equal(q3.games[3].type, "wordsearch");
