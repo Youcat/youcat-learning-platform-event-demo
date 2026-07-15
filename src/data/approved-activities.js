@@ -61,7 +61,7 @@ const activities = {
         [t("Consent", "Consentimento"), t("Is indispensable, but by itself does not create permanence or a shared future.", "É indispensável, mas sozinho não cria permanência nem um futuro comum.")],
         [t("Marriage covenant", "Aliança matrimonial"), t("Gives a public and lasting form to the complete mutual gift.", "Dá forma pública e duradoura ao dom mútuo completo.")],
       ] },
-      { type: "minigame", engineId: "B13", engineVersion: "1.0.0", fixtureId: "B13", xp: 9, title: t("Relationship Metro", "Metrô dos relacionamentos"), prompt: t("Reconstruct the two approved routes and their shared transfer stations.", "Reconstrua as duas rotas aprovadas e suas estações de conexão compartilhadas.") },
+      { type: "minigame", engineId: "B13", engineVersion: "2.0.0", fixtureId: "B13", xp: 9, title: t("Words that belong together", "Palavras que pertencem uma à outra"), prompt: t("Match body with soul, dignity with freedom, and gift with covenant.", "Associe corpo e alma, dignidade e liberdade, dom e aliança.") },
       { type: "reveal", title: t("What does this action communicate?", "O que esta ação comunica?"), prompt: t("Classify the meaning communicated by each action.", "Classifique o significado comunicado por cada ação."), categories: [t("Partial closeness", "Proximidade parcial"), t("Total self-gift", "Dom total de si"), t("Contradiction", "Contradição")], cards: [
         { text: t("Mutual attraction without a lasting promise", "Atração mútua sem uma promessa duradoura"), correct: 0 },
         { text: t("Free consent and genuine care, but an explicit refusal of permanence", "Consentimento livre e cuidado verdadeiro, mas recusa explícita da permanência"), correct: 0 },

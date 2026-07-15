@@ -1,45 +1,37 @@
 import {
-  B13_CONCEPTS,
   B13_ENGINE_ID,
   B13_ENGINE_VERSION,
-  B13_ROUTES,
-  B13_SOLUTION,
-  B13_STATIONS,
-} from "../engines/b13-relationship-metro.js";
+  B13_PAIRS,
+} from "../engines/b13-matching-pairs.js";
 
 export const B13_FIXTURE_ID = "B13";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const completionArt = new URL("../assets/b13-self-gift.webp", import.meta.url).href;
-
 export const b13Fixture = Object.freeze({
   id: B13_FIXTURE_ID,
   questionNumber: 14,
   missionSlot: 1,
   engineId: B13_ENGINE_ID,
   engineVersion: B13_ENGINE_VERSION,
-  seed: "love-forever-q14-relationship-metro-v1",
+  seed: "love-forever-q14-matching-pairs-v2",
   mode: "lab",
   xp: 9,
   title: {
-    en: "Relationship Metro",
-    pt: "Metrô dos relacionamentos",
+    en: "Words that belong together",
+    pt: "Palavras que pertencem uma à outra",
   },
   prompt: {
-    en: "Place the six concepts on the two routes. Drag a concept to a station, or tap a concept and then a station. Check only when your map is ready.",
-    pt: "Posicione os seis conceitos nas duas rotas. Arraste um conceito até uma estação ou toque no conceito e depois na estação. Verifique só quando o mapa estiver pronto.",
+    en: "Match the three pairs: tap two words, drag one word onto another, or use the keyboard.",
+    pt: "Forme os três pares: toque em duas palavras, arraste uma palavra sobre outra ou use o teclado.",
   },
   insight: {
-    en: "Bodily actions express the person. A truthful gift joins dignity and freedom within a lasting covenant.",
-    pt: "Os gestos do corpo expressam a pessoa. Um dom verdadeiro une dignidade e liberdade numa aliança duradoura.",
+    en: "The person is body and soul. Dignity needs freedom, and a true gift finds its lasting form in covenant.",
+    pt: "A pessoa é corpo e alma. A dignidade precisa de liberdade, e um verdadeiro dom encontra sua forma duradoura na aliança.",
   },
-  assets: { baseImage: completionArt, layers: [], masks: [] },
+  assets: { baseImage: null, layers: [], masks: [] },
   layoutOverrides: {},
   payload: {
-    schemaVersion: 1,
-    concepts: clone(B13_CONCEPTS),
-    stations: clone(B13_STATIONS),
-    routes: clone(B13_ROUTES),
-    solution: clone(B13_SOLUTION),
+    schemaVersion: 2,
+    pairs: clone(B13_PAIRS),
   },
 });

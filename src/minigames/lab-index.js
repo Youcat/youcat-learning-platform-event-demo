@@ -7,7 +7,7 @@ export const PLANNED_MINIGAME_ENGINES = Object.freeze([
   { engineId: "A4", title: { en: "Living Symbols", pt: "Símbolos vivos" } },
   { engineId: "A7", title: { en: "Restore the whole person", pt: "Restaure a pessoa inteira" } },
   { engineId: "B9", title: { en: "Bridge of Fidelity", pt: "Ponte da Fidelidade" } },
-  { engineId: "B13", title: { en: "Relationship Metro", pt: "Metrô dos relacionamentos" } },
+  { engineId: "B13", title: { en: "Words that belong together", pt: "Palavras que pertencem uma à outra" } },
   { engineId: "B14", title: { en: "Roots, trunk, branches & fruit", pt: "Raízes, tronco, ramos e fruto" } },
   { engineId: "C20", title: { en: "River of Decisions", pt: "Rio das Decisões" } },
   { engineId: "C21", title: { en: "Balance of Love", pt: "O equilíbrio do amor" } },

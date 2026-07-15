@@ -2,7 +2,7 @@ import { a2Engine } from "./engines/a2-engine.js";
 import { a4Engine } from "./engines/a4-engine.js";
 import { a7Engine } from "./engines/a7-engine.js";
 import { b9Engine } from "./engines/b9-engine.js";
-import { b13RelationshipMetroEngine } from "./engines/b13-relationship-metro.js";
+import { b13MatchingPairsEngine } from "./engines/b13-matching-pairs.js";
 import { b14Engine } from "./engines/b14.js";
 import { c20Engine } from "./engines/c20-engine.js";
 import { c21Engine } from "./engines/c21-engine.js";
@@ -34,7 +34,7 @@ const productionEntries = Object.freeze([
   [a4Fixture, a4Engine],
   [a7Fixture, a7Engine],
   [b9Fixture, b9Engine],
-  [b13Fixture, b13RelationshipMetroEngine],
+  [b13Fixture, b13MatchingPairsEngine],
   [b14Fixture, b14Engine],
   [c20Fixture, c20Engine],
   [c21LabFixture, c21Engine],

@@ -1,4 +1,4 @@
-import { b13RelationshipMetroEngine, B13_ENGINE_ID, B13_ENGINE_VERSION } from "./engines/b13-relationship-metro.js";
+import { b13MatchingPairsEngine, B13_ENGINE_ID, B13_ENGINE_VERSION } from "./engines/b13-matching-pairs.js";
 import { b13Fixture } from "./fixtures/b13-fixture.js";
 import { missionGameInstanceFrom } from "./mission-hooks.js";
 import { createMinigameRegistry } from "./registry.js";
@@ -12,7 +12,7 @@ function createProductionRegistry() {
   registry.register({
     engineId: B13_ENGINE_ID,
     engineVersion: B13_ENGINE_VERSION,
-    engine: b13RelationshipMetroEngine,
+    engine: b13MatchingPairsEngine,
     production: true,
   });
   return registry;

@@ -5,9 +5,9 @@ import { bundledMinigameSource, createAppMinigameRegistry, fixtureForMissionActi
 import { missionInstanceForActivity } from "../src/minigames/mission-player.js";
 
 const approvedSlots = [
-  [3, 0, "B9"], [3, 1, "C29"], [14, 1, "B13"], [14, 3, "C30"],
-  [25, 1, "C23"], [25, 3, "A4"], [34, 1, "A2"], [59, 0, "C22"],
-  [68, 3, "A7"], [83, 1, "C20"], [126, 0, "C27"], [127, 0, "C21"], [140, 3, "B14"],
+  [3, 0, "B9", "1.0.0"], [3, 1, "C29", "1.0.0"], [14, 1, "B13", "2.0.0"], [14, 3, "C30", "1.0.0"],
+  [25, 1, "C23", "1.0.0"], [25, 3, "A4", "1.0.0"], [34, 1, "A2", "1.0.0"], [59, 0, "C22", "1.0.0"],
+  [68, 3, "A7", "1.0.0"], [83, 1, "C20", "1.0.0"], [126, 0, "C27", "1.0.0"], [127, 0, "C21", "1.0.0"], [140, 3, "B14", "1.0.0"],
 ];
 
 test("the combined catalog registers exactly the thirteen reviewed production engines", () => {
@@ -26,16 +26,16 @@ test("every reviewed engine occupies its exact real mission slot while all quest
     assert.equal(activity.quiz.length, 1);
   });
   assert.equal(Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "minigame").length, 13);
-  approvedSlots.forEach(([questionNumber, missionSlot, engineId]) => {
+  approvedSlots.forEach(([questionNumber, missionSlot, engineId, engineVersion]) => {
     const activity = activities[questionNumber].games[missionSlot];
-    assert.deepEqual({ type: activity.type, engineId: activity.engineId, engineVersion: activity.engineVersion }, { type: "minigame", engineId, engineVersion: "1.0.0" });
+    assert.deepEqual({ type: activity.type, engineId: activity.engineId, engineVersion: activity.engineVersion }, { type: "minigame", engineId, engineVersion });
     const fixture = fixtureForMissionActivity(activity);
     assert.deepEqual({ questionNumber: fixture.questionNumber, missionSlot: fixture.missionSlot, engineId: fixture.engineId }, { questionNumber, missionSlot, engineId });
   });
 });
 
 test("the generic mission launcher derives an exact mission GameInstance for every engine", () => {
-  approvedSlots.forEach(([questionNumber, missionSlot, engineId], index) => {
+  approvedSlots.forEach(([questionNumber, missionSlot, engineId, engineVersion], index) => {
     const activity = activities[questionNumber].games[missionSlot];
     const instance = missionInstanceForActivity({
       mission: { id: `review-${index}`, groupCode: "assis", questionNumber, challengeIndex: missionSlot, xp: activity.xp || 5 },
@@ -43,7 +43,7 @@ test("the generic mission launcher derives an exact mission GameInstance for eve
     });
     assert.deepEqual(
       { mode: instance.mode, questionNumber: instance.questionNumber, missionSlot: instance.missionSlot, engineId: instance.engineId, engineVersion: instance.engineVersion },
-      { mode: "mission", questionNumber, missionSlot, engineId, engineVersion: "1.0.0" },
+      { mode: "mission", questionNumber, missionSlot, engineId, engineVersion },
     );
   });
 });

@@ -11,6 +11,7 @@ const approvedMinigameSlots = new Map([
   ["25:1", "C23"], ["25:3", "A4"], ["34:1", "A2"], ["59:0", "C22"],
   ["68:3", "A7"], ["83:1", "C20"], ["126:0", "C27"], ["127:0", "C21"], ["140:3", "B14"],
 ]);
+const approvedMinigameVersions = new Map([["B13", "2.0.0"]]);
 const registry = createAppMinigameRegistry();
 
 for (const number of expected) {
@@ -46,7 +47,8 @@ for (const item of learning) {
     }
     if (game.type === "minigame") {
       const slotKey = `${item.number}:${gameIndex}`;
-      if (approvedMinigameSlots.get(slotKey) !== game.engineId || game.engineVersion !== "1.0.0") {
+      const approvedVersion = approvedMinigameVersions.get(game.engineId) || "1.0.0";
+      if (approvedMinigameSlots.get(slotKey) !== game.engineId || game.engineVersion !== approvedVersion) {
         throw new Error(`Unapproved production minigame at Q${item.number} slot ${gameIndex}`);
       }
       const fixture = bundledMinigameSource.get(game.fixtureId || game.definitionId || game.sourceId || game.engineId, { mode: "lab" })
