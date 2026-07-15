@@ -173,6 +173,12 @@ export async function launchGameStage({
     },
     onReady: (readyScene) => {
       scene = readyScene;
+      const canvas = canvasHost.querySelector("canvas");
+      if (canvas) {
+        canvas.tabIndex = 0;
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", `${tr(instance.title, locale)}. ${tr(instance.prompt, locale)}`);
+      }
       loading.hidden = true;
       const canvas = canvasHost.querySelector("canvas");
       if (canvas) {

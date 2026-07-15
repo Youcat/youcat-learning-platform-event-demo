@@ -97,6 +97,9 @@ const copy = {
     imageShuffleRestart: "Shuffle again",
     imageShuffleReference: "View picture",
     imageShuffleComplete: "Picture complete.",
+    openMinigame: "Open Magnetic Field",
+    resumeMinigame: "Resume Magnetic Field",
+    minigameSubmitted: "Your one submission is complete. Reopen it to review the debrief.",
     done: "Completed",
     of: "of",
     hearts: "hearts",
@@ -188,6 +191,9 @@ const copy = {
     imageShuffleRestart: "Embaralhar novamente",
     imageShuffleReference: "Ver imagem",
     imageShuffleComplete: "Imagem completa.",
+    openMinigame: "Abrir Campo Magnético",
+    resumeMinigame: "Continuar Campo Magnético",
+    minigameSubmitted: "Sua única resposta foi concluída. Reabra para rever a reflexão.",
     done: "Concluído",
     of: "de",
     hearts: "corações",
@@ -1205,7 +1211,8 @@ async function completeTeamAttempt(correct, { deferRender = false } = {}) {
   } catch (error) {
     console.error("Unable to complete team challenge", error);
     state.missionInteraction = loadMissionInteraction(mission);
-    renderQuestion(mission.questionNumber);
+    if (render) renderQuestion(mission.questionNumber);
+    return false;
   }
 }
 
@@ -2081,6 +2088,11 @@ app.addEventListener("click", async (event) => {
     state.completedMission = null;
     state.missionInteraction = null;
     await requestNextMission();
+    return;
+  }
+
+  if (action === "launch-minigame") {
+    await launchMissionMinigame();
     return;
   }
 
