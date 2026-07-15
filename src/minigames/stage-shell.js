@@ -67,7 +67,7 @@ export async function launchGameStage({
     </section>
     <section class="minigame-canvas-region" aria-label="${escapeHtml(tr(instance.title, locale))}">
       <div class="minigame-loading" data-stage-loading role="status">${copy[locale].loading}</div>
-      <div class="minigame-canvas-host" data-stage-canvas></div>
+      <div class="minigame-canvas-host" data-stage-canvas role="group" tabindex="0" aria-label="${escapeHtml(`${tr(instance.title, locale)}. ${tr(instance.prompt, locale)}`)}"></div>
     </section>
     <section class="minigame-access-panel" aria-labelledby="minigame-access-title">
       <h2 id="minigame-access-title">${copy[locale].controls}</h2>
@@ -119,6 +119,7 @@ export async function launchGameStage({
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = tr(action.label, locale);
+      button.dataset.accessAction = action.id;
       button.disabled = Boolean(action.disabled) || (instance.mode === "mission" && submitted);
       const runAction = () => {
         action.run();
@@ -217,6 +218,7 @@ export async function launchGameStage({
     if (instance.mode === "mission" || (evaluation.correct && evaluation.complete)) insight.hidden = false;
     renderAccessibleActions();
     updateHintControl();
+    renderAccessibleActions();
     persist();
     await adaptResult(instance, evaluation, { hintsUsed });
   }
@@ -226,6 +228,7 @@ export async function launchGameStage({
     persistence.clear(instance);
     hintsUsed = 0;
     submitted = false;
+    completed = false;
     engine.restoreState(scene, null, instance);
     feedback.textContent = "";
     feedback.dataset.state = "";
@@ -238,7 +241,7 @@ export async function launchGameStage({
     persist();
   }
 
-  mount.addEventListener("click", async (event) => {
+  async function handleStageClick(event) {
     const button = event.target.closest("[data-stage-action]");
     if (!button) return;
     const action = button.dataset.stageAction;
@@ -252,7 +255,8 @@ export async function launchGameStage({
     }
     if (action === "reset" || action === "replay") reset();
     if (action === "close") onClose?.();
-  });
+  }
+  mount.addEventListener("click", handleStageClick);
   updateHintControl();
 
   return {
@@ -260,6 +264,7 @@ export async function launchGameStage({
       if (destroyed) return;
       destroyed = true;
       persist();
+      mount.removeEventListener("click", handleStageClick);
       engine.destroy(scene, instance);
       game?.destroy(true);
       mount.replaceChildren();

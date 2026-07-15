@@ -64,13 +64,7 @@ const activities = {
         [t("Consent", "Consentimento"), t("Is indispensable, but by itself does not create permanence or a shared future.", "É indispensável, mas sozinho não cria permanência nem um futuro comum.")],
         [t("Marriage covenant", "Aliança matrimonial"), t("Gives a public and lasting form to the complete mutual gift.", "Dá forma pública e duradoura ao dom mútuo completo.")],
       ] },
-      { type: "wordsearch", seed: "assis-14-1", title: t("The language of the body", "A linguagem do corpo"), prompt: t("Find and mark all five words in the letter grid.", "Encontre e marque as cinco palavras na grade de letras."), words: [t("BODY", "CORPO"), t("SOUL", "ALMA"), t("DIGNITY", "DIGNIDADE"), t("GIFT", "DOM"), t("COVENANT", "ALIANÇA")], clues: [
-        { clue: t("The visible part of the person that can express an invisible intention.", "A parte visível da pessoa que pode expressar uma intenção invisível."), correct: 0 },
-        { clue: t("The spiritual dimension showing why a person is never only physical.", "A dimensão espiritual que mostra por que a pessoa nunca é apenas física."), correct: 1 },
-        { clue: t("What prevents another person from becoming a means to an end.", "O que impede que outra pessoa se torne um meio para um fim."), correct: 2 },
-        { clue: t("Something freely given that cannot be reduced to a transaction.", "Algo livremente dado que não pode ser reduzido a uma transação."), correct: 3 },
-        { clue: t("The lasting promise that gives total self-gift a truthful home.", "A promessa duradoura que oferece um lar verdadeiro ao dom total de si."), correct: 4 },
-      ] },
+      { type: "minigame", engineId: "B13", engineVersion: "1.0.0", fixtureId: "B13", xp: 9, title: t("Relationship Metro", "Metrô dos relacionamentos"), prompt: t("Reconstruct the two approved routes and their shared transfer stations.", "Reconstrua as duas rotas aprovadas e suas estações de conexão compartilhadas.") },
       { type: "reveal", title: t("What does this action communicate?", "O que esta ação comunica?"), prompt: t("Classify the meaning communicated by each action.", "Classifique o significado comunicado por cada ação."), categories: [t("Partial closeness", "Proximidade parcial"), t("Total self-gift", "Dom total de si"), t("Contradiction", "Contradição")], cards: [
         { text: t("Mutual attraction without a lasting promise", "Atração mútua sem uma promessa duradoura"), correct: 0 },
         { text: t("Free consent and genuine care, but an explicit refusal of permanence", "Consentimento livre e cuidado verdadeiro, mas recusa explícita da permanência"), correct: 0 },

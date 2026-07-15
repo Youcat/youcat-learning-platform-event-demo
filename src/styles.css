@@ -185,6 +185,11 @@ textarea:focus-visible {
   max-height: 300px;
 }
 
+.minigame-canvas-host:focus-visible {
+  outline: 3px solid var(--love-red);
+  outline-offset: -4px;
+}
+
 .minigame-canvas-host canvas {
   display: block;
   max-width: 100%;
@@ -251,6 +256,20 @@ textarea:focus-visible {
   font-size: 13px;
   font-weight: 600;
   white-space: normal;
+}
+
+.minigame-engine-status {
+  min-height: 18px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+[data-engine-id="B13"] .minigame-access-actions button {
+  padding-inline: 8px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .minigame-stage-controls {

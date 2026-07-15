@@ -350,6 +350,7 @@ function gameXp(game) {
   if (game.type === "reveal") return Math.min(9, 3 + (game.cards?.length || 3));
   if (game.type === "crossword") return Math.min(10, 4 + (game.clues?.length || 4));
   if (game.type === "wordsearch") return Math.min(10, 4 + (game.words?.length || 4));
+  if (game.type === "minigame") return 9;
   return 5;
 }
 
@@ -2356,6 +2357,36 @@ async function handleGameAction(target, action) {
   saveMissionInteraction();
   if (gameState.finished) await completeTeamAttempt(gameState.currentCorrect);
   else rerenderQuestion();
+}
+
+let activeMinigameController = null;
+
+async function openMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
+  const activity = learningByNumber.get(mission.questionNumber)?.games?.[mission.challengeIndex];
+  if (activity?.type !== "minigame") return;
+  state.view = "minigame";
+  const { launchB13MissionGame } = await import("./minigames/mission-integration.js");
+  activeMinigameController = await launchB13MissionGame({
+    mount: app,
+    mission,
+    activity,
+    language,
+    onResult: async (result) => {
+      state.missionInteraction.attempted = true;
+      state.missionInteraction.finished = true;
+      state.missionInteraction.currentCorrect = result.correct;
+      state.missionInteraction.succeeded = result.correct;
+      await completeTeamAttempt(result.correct, { render: false });
+    },
+    onClose: () => {
+      activeMinigameController?.destroy();
+      activeMinigameController = null;
+      const number = state.activeMission?.questionNumber || state.completedMission?.questionNumber || mission.questionNumber;
+      renderQuestion(number);
+    },
+  });
 }
 
 document.addEventListener("pointerdown", noteMissionActivity, { passive: true });
