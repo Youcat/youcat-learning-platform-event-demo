@@ -38,10 +38,13 @@ export async function launchGameStage({
   const saved = persistence.load(instance);
   let hintsUsed = Math.max(0, Math.min(2, Number(saved?.hintsUsed) || 0));
   let submitted = Boolean(saved?.submitted);
+  const restoredComplete = Boolean(saved?.engineState?.complete);
   let scene = null;
   let game = null;
   let destroyed = false;
-  const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  const reducedMotionPreference = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  const reducedMotionLabProof = instance.mode === "lab" && new URLSearchParams(globalThis.location?.search || "").get("reducedMotion") === "1";
+  const reducedMotion = reducedMotionPreference || reducedMotionLabProof;
   const adaptResult = createResultAdapter({
     onLabResult: onResult,
     onMissionResult: onResult,
@@ -65,13 +68,14 @@ export async function launchGameStage({
     <section class="minigame-access-panel" aria-labelledby="minigame-access-title">
       <h2 id="minigame-access-title">${copy[locale].controls}</h2>
       <div class="minigame-access-actions" data-stage-access></div>
+      <p class="minigame-access-status" data-stage-access-status role="status" aria-live="polite"></p>
     </section>
     <footer class="minigame-stage-controls">
       <div class="minigame-secondary-controls">
         ${instance.mode === "lab" ? `<button type="button" data-stage-action="reset">↺ ${copy[locale].reset}</button><button type="button" data-stage-action="replay">${copy[locale].replay}</button>` : ""}
         <button type="button" data-stage-action="hint">${copy[locale].hint} · <span data-stage-hints>${2 - hintsUsed}</span> <span data-stage-hint-unit>${2 - hintsUsed === 1 ? copy[locale].hintLeft : copy[locale].hintsLeft}</span></button>
       </div>
-      <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : copy[locale].check}</button>
+      <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted || restoredComplete ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : restoredComplete ? copy[locale].completed : copy[locale].check}</button>
       <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].locked : ""}</p>
       <p class="minigame-insight" data-stage-insight ${submitted ? "" : "hidden"}>${escapeHtml(tr(instance.insight, locale))}</p>
     </footer>
@@ -119,6 +123,7 @@ export async function launchGameStage({
       });
       access.append(button);
     }
+    accessStatus.textContent = tr(scene?.accessibleStatus, locale);
   }
 
   function reportEngineFeedback(message) {
@@ -211,6 +216,7 @@ export async function launchGameStage({
     insight.hidden = true;
     checkButton.disabled = false;
     checkButton.textContent = copy[locale].check;
+    insight.hidden = true;
     updateHintControl();
     renderAccessibleActions();
     persist();

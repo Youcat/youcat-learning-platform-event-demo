@@ -215,6 +215,18 @@ textarea:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.minigame-stage-shell[data-minigame-engine="B9"] .minigame-access-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.minigame-access-status {
+  min-height: 18px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 .minigame-access-actions button,
 .minigame-secondary-controls button {
   min-height: 44px;

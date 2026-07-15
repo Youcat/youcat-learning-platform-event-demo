@@ -5,12 +5,13 @@ const activities = {
   3: {
     games: [
       {
-        type: "order",
-        title: t("From attraction to mature love", "Da atração ao amor maduro"),
-        prompt: t("A relationship begins with strong attraction. Put the next stages of mature love in the most coherent order.", "Um relacionamento começa com forte atração. Coloque as etapas seguintes do amor maduro na ordem mais coerente."),
-        items: [step("attraction", "Notice attraction and the desire for closeness.", "Perceber a atração e o desejo de proximidade."), step("reality", "See the real person beyond idealization.", "Ver a pessoa real para além da idealização."), step("good", "Choose the other person’s good in concrete decisions.", "Escolher o bem da outra pessoa em decisões concretas."), step("fidelity", "Build patterns of fidelity that can survive changing feelings.", "Criar hábitos de fidelidade capazes de atravessar a mudança dos sentimentos.")],
-        answer: ["attraction", "reality", "good", "fidelity"], start: ["good", "attraction", "fidelity", "reality"],
-        insight: t("Feelings can begin love’s movement, but mature love requires reality, decision, and repeated fidelity.", "Os sentimentos podem iniciar o movimento do amor, mas o amor maduro exige realidade, decisão e fidelidade repetida."),
+        type: "minigame",
+        engineId: "B9",
+        engineVersion: "1.0.0",
+        fixtureId: "B9",
+        xp: 6,
+        title: t("Bridge of Fidelity", "Ponte da Fidelidade"),
+        prompt: t("Arrange every bridge stone freely, revise your path, then check it.", "Organize livremente todas as pedras da ponte, revise o caminho e depois verifique."),
       },
       {
         type: "reveal", title: t("What begins, sustains, or distorts love?", "O que inicia, sustenta ou distorce o amor?"),

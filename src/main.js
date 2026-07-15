@@ -125,6 +125,8 @@ const copy = {
     teamProgress: "Team progress",
     challenge: "Team challenge",
     oneAttempt: "This challenge is completed for your team after this attempt—right or wrong.",
+    openMinigame: "Open game",
+    minigameSaved: "You can leave before Check and return without using the attempt.",
     missionXp: "XP earned in this mission",
     declineReflection: "I prefer not to answer",
     notNow: "Not now",
@@ -213,6 +215,8 @@ const copy = {
     teamProgress: "Progresso da equipe",
     challenge: "Desafio da equipe",
     oneAttempt: "Este desafio será concluído para sua equipe depois desta tentativa — certa ou errada.",
+    openMinigame: "Abrir jogo",
+    minigameSaved: "Você pode sair antes de verificar e voltar sem usar a tentativa.",
     missionXp: "XP conquistado nesta missão",
     declineReflection: "Prefiro não responder",
     notNow: "Agora não",
@@ -1002,6 +1006,13 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
+  if (game.type === "minigame" && game.engineId === "B9") {
+    const interaction = state.missionInteraction;
+    const result = interaction?.attempted
+      ? `<div class="answer-explanation ${interaction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${interaction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${escapeHtml(tr(learning.games[0].prompt))}</p></div>`
+      : `<button type="button" class="primary-action" data-action="open-production-minigame" ${finished ? "disabled" : ""}>${c("openMinigame")}</button><p class="form-note">${c("minigameSaved")}</p>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title))}</h2><p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>${result}</article></div></section>`;
+  }
   const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : c("oneAttempt");
   return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
 }
@@ -1924,6 +1935,45 @@ app.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const action = target.dataset.action;
+
+  if (action === "open-production-minigame") {
+    const mission = state.activeMission;
+    const game = mission?.challengeKind === "game" ? learningByNumber.get(mission.questionNumber)?.games?.[mission.challengeIndex] : null;
+    if (!mission || game?.engineId !== "B9" || state.missionInteraction?.attempted) return;
+    target.disabled = true;
+    try {
+      const { applyB9MissionResult, launchB9MissionStage } = await import("./minigames/b9-integration.js");
+      activeMinigameStage?.destroy();
+      let controller = null;
+      controller = await launchB9MissionStage({
+        mount: app,
+        mission,
+        language,
+        onResult: async (result) => {
+          await applyB9MissionResult({
+            interaction: state.missionInteraction,
+            result,
+            finish: async (correct) => {
+              saveMissionInteraction();
+              controller?.destroy();
+              if (activeMinigameStage === controller) activeMinigameStage = null;
+              await completeTeamAttempt(correct);
+            },
+          });
+        },
+        onClose: () => {
+          controller?.destroy();
+          if (activeMinigameStage === controller) activeMinigameStage = null;
+          if (state.activeMission?.id === mission.id) renderQuestion(mission.questionNumber);
+        },
+      });
+      activeMinigameStage = controller;
+    } catch (error) {
+      console.error("Unable to open B9 minigame", error);
+      if (state.activeMission?.id === mission.id) renderQuestion(mission.questionNumber);
+    }
+    return;
+  }
 
   if (action === "continue-profile") {
     try {
