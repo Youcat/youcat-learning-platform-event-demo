@@ -130,6 +130,7 @@ const copy = {
     notNow: "Not now",
     finishBoard: "Finish this reflection board",
     allComplete: "Your group has completed all challenges.",
+    testMinigames: "Test minigames",
   },
   pt: {
     home: "Início",
@@ -218,6 +219,7 @@ const copy = {
     notNow: "Agora não",
     finishBoard: "Concluir este mural de reflexões",
     allComplete: "Seu grupo concluiu todos os desafios.",
+    testMinigames: "Testar minijogos",
   },
 };
 
@@ -697,6 +699,7 @@ function renderHome() {
         <button type="button" class="primary-action" data-action="next-mission" ${state.missionClaiming ? "disabled" : ""}>${c("getChallenge")}</button>
         <p class="mission-waiting" role="status">${state.missionStatus === "waiting" ? c("waitingChallenge") : ""}</p>
       </section>
+      <a class="minigame-lab-home-link" href="?lab=index&amp;lang=${language}">${c("testMinigames")} →</a>
       <section class="question-list" aria-label="${c("teamProgress")}">${cards}</section>
       ${bottomNavigation(false)}
     </main>

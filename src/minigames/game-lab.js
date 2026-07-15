@@ -1,5 +1,5 @@
 import { bundledMinigameSource, createAppMinigameRegistry } from "./catalog.js";
-import { launchGameStage } from "./stage-shell.js";
+import { renderGameLabIndex } from "./lab-index.js";
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -12,11 +12,16 @@ function labError(mount, id, language) {
 }
 
 export async function startGameLab({ mount, id, language = "pt" }) {
+  if (id === "index") {
+    renderGameLabIndex({ mount, language });
+    return null;
+  }
   const instance = bundledMinigameSource.get(id, { mode: "lab" });
   if (!instance) {
     labError(mount, id, language);
     return null;
   }
+  const { launchGameStage } = await import("./stage-shell.js");
   return launchGameStage({
     mount,
     instance,

@@ -417,6 +417,154 @@ textarea:focus-visible {
   line-height: 34px;
 }
 
+/* Test-only Game Lab index. Keep this a quiet list, not a dashboard. */
+.minigame-lab-index {
+  width: min(100%, 480px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(24px, env(safe-area-inset-top)) 28px max(32px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  background: #fff;
+  color: var(--graphite);
+}
+
+.minigame-index-heading {
+  padding: 0 0 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.minigame-index-back {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin: 0 0 20px;
+  color: var(--graphite);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.minigame-index-heading > p:first-of-type {
+  margin: 0;
+  color: var(--love-red);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.minigame-index-heading h1 {
+  margin: 4px 0 8px;
+  color: var(--love-red);
+  font-family: "Fira Sans", "Source Sans 3", system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+}
+
+.minigame-index-heading > p:last-child {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.minigame-index-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minigame-index-list li {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.minigame-index-row {
+  display: grid;
+  min-height: 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  color: var(--graphite);
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  text-decoration: none;
+}
+
+a.minigame-index-row:hover {
+  color: var(--love-red);
+}
+
+a.minigame-index-row:focus-visible,
+.minigame-lab-home-link:focus-visible,
+.minigame-index-back:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid var(--love-red);
+  outline-offset: 3px;
+}
+
+.minigame-index-code {
+  color: var(--love-red);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.minigame-index-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.minigame-index-copy strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.minigame-index-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.minigame-index-arrow {
+  color: var(--love-red);
+  font-size: 20px;
+}
+
+.minigame-index-row.is-review {
+  color: var(--soft);
+}
+
+.minigame-index-state {
+  max-width: 68px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: right;
+}
+
+.minigame-lab-home-link {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 28px 16px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--border);
+  color: var(--love-red);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (max-width: 374px) {
+  .minigame-lab-index { padding-right: 20px; padding-left: 20px; }
+  .minigame-index-row { gap: 8px; grid-template-columns: 38px minmax(0, 1fr) auto; }
+  .minigame-lab-home-link { margin-right: 20px; margin-left: 20px; }
+}
+
 @media (max-height: 720px) {
   .minigame-stage-copy { padding-top: 10px; padding-bottom: 8px; }
   .minigame-stage-copy h1 { font-size: 20px; line-height: 25px; }
