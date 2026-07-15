@@ -340,7 +340,7 @@ export const a2Engine = Object.freeze({
         const result = applyA2Decision(this.a2State, this.a2Puzzle, id, decision);
         if (!result.accepted) {
           onFeedback(result.reason === "locked"
-            ? localized("This result is locked. Use Replay for a new run.", "Este resultado está bloqueado. Use Jogar novamente para uma nova partida.")
+            ? localized("This result is locked.", "Este resultado está bloqueado.")
             : localized("That move is not available.", "Esse movimento não está disponível."));
           return;
         }

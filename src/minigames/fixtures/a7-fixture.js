@@ -28,8 +28,8 @@ export const a7Fixture = Object.freeze({
   xp: 0,
   title: localized("Restore the whole person", "Restaure a pessoa inteira"),
   prompt: localized(
-    "Place the five shards—trust, promise, tenderness, freedom, and completion—into their matching silhouettes. Drag, tap a shard then its place, or use the controls.",
-    "Coloque os cinco fragmentos — confiança, promessa, ternura, liberdade e plenitude — nas silhuetas correspondentes. Arraste, toque num fragmento e depois no seu lugar, ou use os controles.",
+    "Place the five shards—trust, promise, tenderness, freedom, and completion—into their matching silhouettes. Drag a shard into place, or tap a shard and then its place.",
+    "Coloque os cinco fragmentos — confiança, promessa, ternura, liberdade e plenitude — nas silhuetas correspondentes. Arraste um fragmento até o lugar ou toque no fragmento e depois no seu lugar.",
   ),
   insight: localized(
     "Love receives the whole person. Trust, tenderness, freedom, and a definitive promise belong together in complete self-gift.",

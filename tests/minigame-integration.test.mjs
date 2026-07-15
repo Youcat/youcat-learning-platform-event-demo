@@ -5,13 +5,13 @@ import { bundledMinigameSource, createAppMinigameRegistry, fixtureForMissionActi
 import { missionInstanceForActivity } from "../src/minigames/mission-player.js";
 
 const approvedSlots = [
-  [3, 1, "C29", "1.0.0"], [14, 3, "C30", "1.0.0"], [25, 3, "A4", "1.0.0"], [34, 1, "A2", "1.0.0"],
-  [68, 3, "A7", "1.0.0"], [83, 1, "C20", "1.0.0"], [126, 0, "C27", "1.0.0"], [140, 3, "B14", "1.0.0"],
+  [14, 3, "C30", "1.0.0"], [25, 3, "A4", "1.0.0"], [34, 1, "A2", "1.0.0"],
+  [68, 3, "A7", "1.0.0"], [83, 1, "C20", "1.0.0"], [140, 3, "B14", "1.0.0"],
 ];
 
-test("the combined catalog registers exactly the eight retained production engines", () => {
-  assert.equal(productionMinigameFixtures.length, 8);
-  assert.equal(new Set(productionMinigameFixtures.map((fixture) => fixture.id)).size, 8);
+test("the combined catalog registers exactly the six retained production engines", () => {
+  assert.equal(productionMinigameFixtures.length, 6);
+  assert.equal(new Set(productionMinigameFixtures.map((fixture) => fixture.id)).size, 6);
   const registry = createAppMinigameRegistry();
   const production = registry.registrations().filter((entry) => entry.production);
   assert.deepEqual(new Set(production.map((entry) => entry.engineId)), new Set(approvedSlots.map(([, , engineId]) => engineId)));
@@ -24,7 +24,7 @@ test("every reviewed engine occupies its exact real mission slot while all quest
     assert.equal(activity.games.length, 4);
     assert.equal(activity.quiz.length, 1);
   });
-  assert.equal(Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "minigame").length, 8);
+  assert.equal(Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "minigame").length, 6);
   approvedSlots.forEach(([questionNumber, missionSlot, engineId, engineVersion]) => {
     const activity = activities[questionNumber].games[missionSlot];
     assert.deepEqual({ type: activity.type, engineId: activity.engineId, engineVersion: activity.engineVersion }, { type: "minigame", engineId, engineVersion });
@@ -55,12 +55,13 @@ test("removed engines are absent and their mission slots remain playable standar
   assert.equal(q127.games[0].title.en, "What protects love in a grave crisis?");
   assert.equal(q127.games[0].cards.length, 5);
   assert.equal(productionMinigameFixtures.some(({ engineId }) => engineId === "C21"), false);
-  for (const engineId of ["B9", "B13", "C21", "C22", "C23"]) {
+  for (const engineId of ["B9", "B13", "C21", "C22", "C23", "C27", "C29"]) {
     assert.equal(productionMinigameFixtures.some((fixture) => fixture.engineId === engineId), false);
     assert.equal(bundledMinigameSource.get(engineId), null);
   }
-  assert.deepEqual(activities[3].games.map(({ type }) => type), ["order", "minigame", "move", "wordsearch"]);
   assert.deepEqual(activities[14].games.map(({ type }) => type), ["match", "crossword", "reveal", "minigame"]);
   assert.deepEqual(activities[25].games.map(({ type }) => type), ["image-shuffle", "order", "match", "minigame"]);
   assert.deepEqual(activities[59].games.map(({ type }) => type), ["match", "image-shuffle", "reveal", "wordsearch"]);
+  assert.deepEqual(activities[3].games.map(({ type }) => type), ["order", "reveal", "move", "wordsearch"]);
+  assert.deepEqual(activities[126].games.map(({ type }) => type), ["order", "match", "image-shuffle", "reveal"]);
 });

@@ -15,8 +15,8 @@ const shared = {
     pt: "Raízes, tronco, ramos e fruto",
   },
   prompt: {
-    en: "Grow love layer by layer. Drag each word to the tree, tap a word and then its target, or use the accessible buttons. Complete the roots first.",
-    pt: "Faça o amor crescer camada por camada. Arraste cada palavra até a árvore, toque numa palavra e depois no alvo, ou use os botões acessíveis. Comece pelas raízes.",
+    en: "Grow love layer by layer. Drag each word to the tree, or tap a word and then its target. Complete the roots first.",
+    pt: "Faça o amor crescer camada por camada. Arraste cada palavra até a árvore ou toque numa palavra e depois no alvo. Comece pelas raízes.",
   },
   insight: {
     en: "God sustains love at its roots. Decision gives it form; gratitude, forgiveness, respect, and care open a deeper communion.",

@@ -198,5 +198,5 @@ test("Q14 preserves three standard games, C30 in human game 4, and one quiz", ()
       },
     },
   );
-  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 8);
+  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 6);
 });

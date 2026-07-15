@@ -1,5 +1,3 @@
-import { c27Activity } from "../minigames/fixtures/c27-fixture.js";
-
 const t = (en, pt) => ({ en, pt });
 const step = (id, en, pt) => ({ id, label: t(en, pt) });
 
@@ -13,16 +11,13 @@ const activities = {
         answer: ["attraction", "reality", "good", "fidelity"], start: ["good", "attraction", "fidelity", "reality"],
         insight: t("Feelings can begin love’s movement, but mature love requires reality, decision, and repeated fidelity.", "Os sentimentos podem iniciar o movimento do amor, mas o amor maduro exige realidade, decisão e fidelidade repetida."),
       },
-      {
-        type: "minigame",
-        fixtureId: "C29",
-        engineId: "C29",
-        engineVersion: "1.0.0",
-        xp: 8,
-        title: t("Mirror of Truth", "Espelho da Verdade"),
-        prompt: t("Clear the fog, expose two distortions, and repair each with its truthful clarification.", "Limpe a névoa, exponha duas distorções e corrija cada uma com o seu esclarecimento verdadeiro."),
-        insight: t("Mature love sees a real person and can deepen as feelings change.", "O amor maduro vê uma pessoa real e pode aprofundar-se quando os sentimentos mudam."),
-      },
+      { type: "reveal", title: t("What begins, sustains, or distorts love?", "O que inicia, sustenta ou distorce o amor?"), prompt: t("Reveal each card and classify it.", "Revele cada cartão e classifique-o."), categories: [t("Begins love", "Inicia o amor"), t("Sustains love", "Sustenta o amor"), t("Distorts love", "Distorce o amor")], cards: [
+        { text: t("Strong attraction", "Forte atração"), correct: 0 },
+        { text: t("Seeing the real person beyond idealization", "Ver a pessoa real além da idealização"), correct: 1 },
+        { text: t("Repeatedly choosing the other person’s good", "Escolher repetidamente o bem da outra pessoa"), correct: 1 },
+        { text: t("Treating a person as replaceable when excitement changes", "Tratar uma pessoa como substituível quando o entusiasmo muda"), correct: 2 },
+        { text: t("Remaining while refusing to name serious harm", "Permanecer recusando-se a reconhecer um dano grave"), correct: 2 },
+      ], insight: t("Mature love holds attraction, truth, decision, and fidelity together.", "O amor maduro mantém unidos atração, verdade, decisão e fidelidade.") },
       {
         type: "move", mode: "quote", title: t("Reveal the central sentence", "Revele a frase central"),
         prompt: t("Reconstruct the sentence from the crooked blocks.", "Reconstrua a frase com os blocos."),
@@ -149,7 +144,7 @@ const activities = {
 
   126: {
     games: [
-      c27Activity,
+      { type: "order", title: t("Fidelity after conflict", "Fidelidade depois do conflito"), prompt: t("Put these actions in the order most likely to repair an ordinary conflict.", "Coloque estas ações na ordem mais capaz de reparar um conflito cotidiano."), items: [step("calm", "Regain enough calm to act truthfully rather than react impulsively.", "Recuperar calma suficiente para agir com verdade em vez de reagir impulsivamente."), step("first", "Take the first step instead of waiting to win.", "Dar o primeiro passo em vez de esperar vencer."), step("repair", "Listen, acknowledge harm, and make a concrete repair.", "Escutar, reconhecer o dano e realizar uma reparação concreta."), step("renew", "Renew fidelity through a small action repeatable tomorrow.", "Renovar a fidelidade por meio de um pequeno gesto que possa ser repetido amanhã.")], answer: ["calm", "first", "repair", "renew"], start: ["repair", "renew", "calm", "first"] },
       { type: "match", title: t("Fidelity in different moments", "Fidelidade em momentos diferentes"), prompt: t("Match each moment with a faithful response.", "Associe cada momento a uma resposta fiel."), pairs: [[t("The other person’s weakness", "A fraqueza da outra pessoa"), t("Patient support without pretending the weakness is good.", "Apoio paciente sem fingir que a fraqueza é boa.")], [t("The other person’s success", "O sucesso da outra pessoa"), t("Joy that celebrates rather than competes.", "Alegria que celebra em vez de competir.")], [t("Ordinary routine", "A rotina cotidiana"), t("Attentive care that keeps the person from becoming invisible.", "Cuidado atento que impede a pessoa de se tornar invisível.")]] },
       { type: "image-shuffle", title: t("Reveal a prayer-and-fidelity scene", "Revele uma cena de oração e fidelidade"), prompt: t("Reconstruct the saying around the illustration.", "Reconstrua o ditado ao redor da ilustração."), blocks: [step("family", "THE FAMILY", "A FAMÍLIA"), step("prays", "THAT PRAYS", "QUE REZA"), step("together", "TOGETHER", "UNIDA"), step("stays", "STAYS TOGETHER", "PERMANECE UNIDA")], answer: ["family", "prays", "together", "stays"], start: ["together", "family", "stays", "prays"], reveal: t("The family that prays together stays together.", "A família que reza unida permanece unida."), source: t("Saying cited in YOUCAT Love Forever 126", "Ditado citado no YOUCAT Love Forever 126"), insight: t("Prayer returns imperfect people to the source of fidelity and strengthens the next concrete act of love.", "A oração reconduz pessoas imperfeitas à fonte da fidelidade e fortalece o próximo gesto concreto de amor.") },
       { type: "reveal", title: t("What does fidelity do here?", "O que a fidelidade faz aqui?"), prompt: t("Choose the most faithful action in each ordinary moment.", "Escolha a ação mais fiel em cada momento cotidiano."), categories: [t("Take the first step", "Dar o primeiro passo"), t("Celebrate", "Celebrar"), t("Give attention", "Dar atenção"), t("Join patience and truth", "Unir paciência e verdade"), t("Continue simply", "Continuar com simplicidade")], cards: [

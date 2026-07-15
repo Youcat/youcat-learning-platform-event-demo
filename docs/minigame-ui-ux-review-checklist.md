@@ -14,17 +14,17 @@ Record Pass/Fail, evidence, and owner for every item before an engine is enabled
 ## Interaction
 
 - [ ] The first screen states the objective and the available interaction in English and Portuguese.
-- [ ] Check, Hint, and feedback are HTML controls/content rather than painted into canvas.
+- [ ] Check and feedback are HTML controls/content rather than painted into canvas; no Hint control is shown.
 - [ ] Relevant direct manipulation works by drag.
 - [ ] The same task works by tap-select followed by tap-target.
-- [ ] The same task works by keyboard and/or the visible accessible action controls.
+- [ ] The same task works by keyboard directly from the focused canvas, without a separate accessible-controls section.
 - [ ] Every HTML target is at least `44 × 44` CSS pixels and has a visible focus state.
 - [ ] No success depends on hover, sound, a countdown, rapid response, or motion.
 - [ ] Invalid actions leave state recoverable and return concise feedback.
 
 ## Accessibility and comfort
 
-- [ ] Canvas has a useful accessible name; the complete task is operable through surrounding HTML controls.
+- [ ] Canvas has a useful accessible name and concise keyboard instructions where keyboard operation is supported.
 - [ ] Control order, labels, disabled state, and feedback are correct with VoiceOver/TalkBack-style linear navigation.
 - [ ] Arrow/Space/Enter behavior does not trap focus or prevent normal page navigation outside the canvas.
 - [ ] Feedback uses a polite live region and does not rely on color alone.
@@ -36,8 +36,8 @@ Record Pass/Fail, evidence, and owner for every item before an engine is enabled
 
 - [ ] Reload during play restores meaningful partial state from local persistence.
 - [ ] A saved state from another engine version is ignored safely.
-- [ ] Game Lab offers unlimited Reset and Replay and exactly two hints per run.
-- [ ] Mission mode offers no Reset/Replay and accepts exactly one Check submission, correct or wrong.
+- [ ] Game Lab shows no Reset, Replay, Hint, or accessible-controls section.
+- [ ] Mission mode shows no Reset, Replay, Hint, or accessible-controls section and accepts exactly one Check submission, correct or wrong.
 - [ ] Result output contains no XP side effect; it passes through the result adapter once.
 - [ ] The fixture comes from the bundled source adapter and performs no live Firestore content read.
 - [ ] The engine is registered by exact id/version, and a non-production engine cannot resolve for a mission.
@@ -48,5 +48,5 @@ Record Pass/Fail, evidence, and owner for every item before an engine is enabled
 - [ ] Focused contract, state, and engine tests pass.
 - [ ] Full `npm run check` passes.
 - [ ] Production `npm run build` passes and Phaser is emitted as a separate lazy chunk.
-- [ ] Screenshots are reviewed at `390 × 844` for initial, partial, hint, incorrect, correct, resumed, and reduced-motion states.
+- [ ] Screenshots are reviewed at `390 × 844` for initial, meaningful partial, and completed/debrief states; resumed and reduced-motion behavior is verified separately.
 - [ ] No unrelated inherited files were reverted or discarded.

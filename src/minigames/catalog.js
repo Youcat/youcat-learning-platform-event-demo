@@ -3,8 +3,6 @@ import { a4Engine } from "./engines/a4-engine.js";
 import { a7Engine } from "./engines/a7-engine.js";
 import { b14Engine } from "./engines/b14.js";
 import { c20Engine } from "./engines/c20-engine.js";
-import { c27Engine } from "./engines/c27-engine.js";
-import { c29Engine } from "./engines/c29.js";
 import { c30CovenantRingsEngine } from "./engines/c30-covenant-rings.js";
 import { skeletonEngine } from "./engines/skeleton-engine.js";
 import { a2Fixture } from "./fixtures/a2-fixture.js";
@@ -12,8 +10,6 @@ import { a4Fixture } from "./fixtures/a4-fixture.js";
 import { a7Fixture } from "./fixtures/a7-fixture.js";
 import { b14Fixture } from "./fixtures/b14-fixture.js";
 import { c20Fixture } from "./fixtures/c20-fixture.js";
-import { c27Fixture } from "./fixtures/c27-fixture.js";
-import { c29Fixture } from "./fixtures/c29-fixture.js";
 import { c30CovenantRingsFixture } from "./fixtures/c30-covenant-rings-fixture.js";
 import { skeletonFixture } from "./fixtures/skeleton-fixture.js";
 import { createMinigameRegistry } from "./registry.js";
@@ -25,8 +21,6 @@ const productionEntries = Object.freeze([
   [a7Fixture, a7Engine],
   [b14Fixture, b14Engine],
   [c20Fixture, c20Engine],
-  [c27Fixture, c27Engine],
-  [c29Fixture, c29Engine],
   [c30CovenantRingsFixture, c30CovenantRingsEngine],
 ]);
 

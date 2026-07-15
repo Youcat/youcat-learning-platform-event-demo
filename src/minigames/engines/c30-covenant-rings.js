@@ -532,7 +532,7 @@ export const c30CovenantRingsEngine = Object.freeze({
 
   showHint(scene, hintIndex) {
     const state = scene.covenantState;
-    if (state.locked) return localized("This round is complete. Use Replay to begin again.", "Esta rodada terminou. Use Jogar novamente para recomeçar.");
+    if (state.locked) return localized("This round is complete.", "Esta rodada terminou.");
     const anchor = mostCommonStep(state.ringSteps);
     const misaligned = state.ringSteps
       .map((step, index) => ({ index, distance: circularDistance(step, anchor, scene.covenantPayload.sectors) }))

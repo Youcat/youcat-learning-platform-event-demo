@@ -14,8 +14,8 @@ export const skeletonFixture = Object.freeze({
     pt: "Prova de interação da fundação",
   },
   prompt: {
-    en: "Move the red marker into the graphite target. Drag it, tap the marker and then the target, or use the accessible controls.",
-    pt: "Mova o marcador vermelho até o alvo de grafite. Arraste-o, toque no marcador e depois no alvo, ou use os controles acessíveis.",
+    en: "Move the red marker into the graphite target. Drag it, or tap the marker and then the target.",
+    pt: "Mova o marcador vermelho até o alvo de grafite. Arraste-o ou toque no marcador e depois no alvo.",
   },
   insight: {
     en: "This non-production fixture proves the shared shell only; it does not replace a mission game.",

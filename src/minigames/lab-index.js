@@ -8,8 +8,6 @@ export const PLANNED_MINIGAME_ENGINES = Object.freeze([
   { engineId: "A7", title: { en: "Restore the whole person", pt: "Restaure a pessoa inteira" } },
   { engineId: "B14", title: { en: "Roots, trunk, branches & fruit", pt: "Raízes, tronco, ramos e fruto" } },
   { engineId: "C20", title: { en: "River of Decisions", pt: "Rio das Decisões" } },
-  { engineId: "C27", title: { en: "Wellspring", pt: "Nascente" } },
-  { engineId: "C29", title: { en: "Mirror of Truth", pt: "Espelho da Verdade" } },
   { engineId: "C30", title: { en: "Covenant Rings", pt: "Anéis da Aliança" } },
 ]);
 
