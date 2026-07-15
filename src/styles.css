@@ -288,6 +288,41 @@ textarea:focus-visible {
   line-height: 17px;
 }
 
+.minigame-insight[hidden] {
+  display: none;
+}
+
+.minigame-mission-launch {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  padding: 20px 0 4px;
+  text-align: center;
+}
+
+.minigame-mission-launch p {
+  max-width: 290px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.minigame-mission-mark {
+  color: var(--love-red);
+  font-size: 40px;
+  line-height: 1;
+  transform: rotate(-8deg);
+}
+
+.minigame-stage-shell[data-minigame-engine="A2"] .minigame-access-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.minigame-stage-shell[data-minigame-engine="A2"] .minigame-access-actions button {
+  padding: 6px 10px;
+}
+
 .minigame-lab-error {
   width: min(100%, 480px);
   min-height: 100vh;

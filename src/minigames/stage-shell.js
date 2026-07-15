@@ -48,7 +48,7 @@ export async function launchGameStage({
   });
 
   document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
-  mount.innerHTML = `<main class="minigame-stage-shell ${reducedMotion ? "is-reduced-motion" : ""}" data-minigame-mode="${instance.mode}">
+  mount.innerHTML = `<main class="minigame-stage-shell ${reducedMotion ? "is-reduced-motion" : ""}" data-minigame-mode="${instance.mode}" data-minigame-engine="${escapeHtml(instance.engineId)}">
     <header class="minigame-stage-header">
       <button type="button" class="minigame-back" data-stage-action="close">← ${copy[locale].back}</button>
       <p>${instance.mode === "lab" ? copy[locale].lab : `YOUCAT Love Forever ${instance.questionNumber}`}</p>
@@ -73,7 +73,7 @@ export async function launchGameStage({
       </div>
       <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : copy[locale].check}</button>
       <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].locked : ""}</p>
-      <p class="minigame-insight">${escapeHtml(tr(instance.insight, locale))}</p>
+      <p class="minigame-insight" data-stage-insight ${submitted ? "" : "hidden"}>${escapeHtml(tr(instance.insight, locale))}</p>
     </footer>
   </main>`;
 
@@ -84,13 +84,14 @@ export async function launchGameStage({
   const hintButton = mount.querySelector('[data-stage-action="hint"]');
   const hintCount = mount.querySelector("[data-stage-hints]");
   const checkButton = mount.querySelector('[data-stage-action="check"]');
+  const insight = mount.querySelector("[data-stage-insight]");
 
   function persist() {
     if (!scene || destroyed) return;
     persistence.save(instance, {
       hintsUsed,
       submitted,
-      engineState: engine.serializeState(scene),
+      engineState: engine.serializeState(scene, instance),
     });
   }
 
@@ -115,6 +116,11 @@ export async function launchGameStage({
     }
   }
 
+  function reportEngineFeedback(message) {
+    feedback.textContent = tr(message, locale);
+    feedback.dataset.state = "";
+  }
+
   const Phaser = await loadPhaserRuntime();
   if (destroyed) return { destroy() {} };
   scene = engine.createScene({
@@ -132,6 +138,7 @@ export async function launchGameStage({
       renderAccessibleActions();
       persist();
     },
+    onFeedback: reportEngineFeedback,
   });
   engine.restoreState(scene, saved?.engineState || null, instance);
   game = new Phaser.Game({
@@ -160,6 +167,8 @@ export async function launchGameStage({
       checkButton.disabled = true;
       checkButton.textContent = copy[locale].submitted;
     }
+    if (instance.mode === "mission" || (evaluation.correct && evaluation.complete)) insight.hidden = false;
+    renderAccessibleActions();
     updateHintControl();
     persist();
     await adaptResult(instance, evaluation, { hintsUsed });
@@ -173,6 +182,7 @@ export async function launchGameStage({
     engine.restoreState(scene, null, instance);
     feedback.textContent = "";
     feedback.dataset.state = "";
+    insight.hidden = true;
     checkButton.disabled = false;
     checkButton.textContent = copy[locale].check;
     updateHintControl();

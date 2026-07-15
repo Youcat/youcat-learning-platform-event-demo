@@ -52,7 +52,7 @@ test("all Assis word searches generate deterministic English and Portuguese grid
       }
     });
   }
-  assert.equal(puzzleCount, 16);
+  assert.equal(puzzleCount, 14);
 });
 
 test("freehand validation accepts reverse paths, rejects wandering paths, and prevents duplicates", () => {

@@ -41,7 +41,7 @@ for (const item of learning) {
   if (!item.saintQuote?.text || !item.saintQuote?.author) throw new Error(`Q${item.number} needs a saint quote`);
 }
 
-for (const [mechanic, expectedCount] of Object.entries({ order: 8, match: 8, reveal: 8, wordsearch: 8, move: 1, "image-shuffle": 7 })) {
+for (const [mechanic, expectedCount] of Object.entries({ order: 8, match: 8, reveal: 8, wordsearch: 7, move: 1, "image-shuffle": 7, minigame: 1 })) {
   if (mechanicCounts.get(mechanic) !== expectedCount) throw new Error(`${mechanic} must appear exactly ${expectedCount} times`);
 }
 

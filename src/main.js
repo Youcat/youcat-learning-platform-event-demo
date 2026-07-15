@@ -389,6 +389,7 @@ const state = {
   readingCleanup: null,
   syncTimer: null,
   submitting: false,
+  activeMinigameStage: null,
 };
 
 function t(en, pt) {
@@ -1119,7 +1120,7 @@ function noteMissionActivity() {
   if (state.activeMission) state.lastMissionActivity = Date.now();
 }
 
-async function completeTeamAttempt(correct) {
+async function completeTeamAttempt(correct, { deferRender = false } = {}) {
   const mission = state.activeMission;
   if (!mission || mission.type !== "shared") return;
   const xp = correct ? mission.xp : 0;
@@ -1130,6 +1131,7 @@ async function completeTeamAttempt(correct) {
     state.completedMission = mission;
     state.activeMission = null;
     clearInterval(state.missionRenewTimer);
+    if (deferRender) return;
     renderQuestion(mission.questionNumber);
     // Leave the result in view first. The overview is already available below for
     // anyone who wants to continue immediately, then opens itself after feedback.
@@ -1254,6 +1256,15 @@ function renderGamesCarousel(number, learning, interaction) {
 
 function renderGame(number, game, gameIndex, gameState) {
   const disabled = gameState.attempted || gameState.finished;
+  if (game.type === "minigame") {
+    const active = state.activeMission?.type === "shared"
+      && state.activeMission.questionNumber === number
+      && state.activeMission.challengeIndex === gameIndex;
+    if (disabled) {
+      return `<div class="answer-explanation ${gameState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${gameState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${language === "pt" ? "A solução e a reflexão apareceram no jogo." : "The solution and reflection appeared in the game."}</p></div>`;
+    }
+    return `<div class="minigame-mission-launch"><div class="minigame-mission-mark" aria-hidden="true">⌁</div><p>${language === "pt" ? "Uma árvore, dez ramos e uma escolha para cada folha." : "One tree, ten branches, and one choice for each leaf."}</p><button type="button" class="primary-action" data-action="launch-minigame" ${active ? "" : "disabled"}>${language === "pt" ? "Abrir o jogo" : "Open game"}</button></div>`;
+  }
   if (["sequence", "order"].includes(game.type)) {
     const displayItems = (game.start || game.items.map((item) => item.id)).map((id) => game.items.find((item) => item.id === id));
     return `<p class="game-help">${c("sequenceHelp")}</p><div class="sequence-board">
@@ -1958,6 +1969,45 @@ app.addEventListener("click", async (event) => {
   if (action === "load-global-more") {
     target.disabled = true;
     await loadGlobalPage(Number(target.dataset.question));
+    return;
+  }
+
+  if (action === "launch-minigame") {
+    const mission = state.activeMission;
+    if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
+    const game = learningByNumber.get(mission.questionNumber).games[mission.challengeIndex];
+    if (game.type !== "minigame" || state.missionInteraction?.attempted) return;
+    target.disabled = true;
+    try {
+      const { launchA2Mission } = await import("./minigames/a2-mission-adapter.js");
+      let controller = null;
+      controller = await launchA2Mission({
+        mount: app,
+        mission,
+        activity: game,
+        language,
+        onResult: async (result) => {
+          const gameState = state.missionInteraction;
+          gameState.finished = true;
+          gameState.attempted = true;
+          gameState.currentCorrect = result.correct && result.complete;
+          gameState.succeeded = gameState.currentCorrect;
+          saveMissionInteraction();
+          await completeTeamAttempt(gameState.currentCorrect, { deferRender: true });
+        },
+        onClose: () => {
+          controller?.destroy();
+          state.activeMinigameStage = null;
+          const current = state.activeMission || state.completedMission;
+          if (current) renderQuestion(current.questionNumber);
+          else renderHome();
+        },
+      });
+      state.activeMinigameStage = controller;
+    } catch (error) {
+      console.error("Unable to open A2 minigame", error);
+      target.disabled = false;
+    }
     return;
   }
 
