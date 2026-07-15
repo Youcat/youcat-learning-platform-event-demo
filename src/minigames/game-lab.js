@@ -21,6 +21,12 @@ export async function startGameLab({ mount, id, language = "pt" }) {
   }
   const registry = createMinigameRegistry();
   registry.register({
+    engineId: "C23",
+    engineVersion: "1.0.0",
+    engine: c23Engine,
+    production: true,
+  });
+  registry.register({
     engineId: "foundation-skeleton",
     engineVersion: "1.0.0",
     engine: skeletonEngine,

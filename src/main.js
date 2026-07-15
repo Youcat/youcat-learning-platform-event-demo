@@ -70,6 +70,8 @@ const copy = {
     deepDive: "Deep Dive",
     games: "Four games",
     game: "Game",
+    openCompass: "Open compass",
+    compassCompleted: "Compass submitted",
     quiz: "One question to discuss",
     answer: "Personal reflection",
     answerBody: "Answer without sharing anything too personal.",
@@ -164,6 +166,8 @@ const copy = {
     deepDive: "Aprofundamento",
     games: "Quatro jogos",
     game: "Jogo",
+    openCompass: "Abrir bússola",
+    compassCompleted: "Bússola enviada",
     quiz: "Uma pergunta para discutir",
     answer: "Reflexão pessoal",
     answerBody: "Responda sem contar nada íntimo demais.",
@@ -1023,6 +1027,9 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title))}</h2><p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>${result}</article></div></section>`;
   }
   const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : c("oneAttempt");
+  if (game.type === "minigame" && game.definitionId === "C23") {
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel c23-mission-launch"><h2>${escapeHtml(tr(game.title))}</h2><p class="game-prompt">${escapeHtml(tr(game.prompt))}</p><button type="button" class="primary-action" data-action="launch-c23" ${finished ? "disabled" : ""}>${finished ? c("compassCompleted") : c("openCompass")}</button></article></div></section>`;
+  }
   return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
 }
 

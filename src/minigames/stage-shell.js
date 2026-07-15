@@ -217,6 +217,7 @@ export async function launchGameStage({
       return;
     }
     const evaluation = engine.evaluate(scene, instance);
+    resultShown = true;
     feedback.textContent = tr(evaluation.feedback, locale);
     feedback.dataset.state = evaluation.correct && evaluation.complete ? "correct" : "wrong";
     insight.hidden = false;
