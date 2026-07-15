@@ -198,6 +198,11 @@ textarea:focus-visible {
   touch-action: none;
 }
 
+.minigame-canvas-host canvas:focus-visible {
+  outline: 3px solid var(--love-red);
+  outline-offset: -4px;
+}
+
 .minigame-loading {
   position: absolute;
   z-index: 2;
