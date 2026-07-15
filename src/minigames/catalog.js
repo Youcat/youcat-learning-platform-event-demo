@@ -5,7 +5,6 @@ import { b9Engine } from "./engines/b9-engine.js";
 import { b13MatchingPairsEngine } from "./engines/b13-matching-pairs.js";
 import { b14Engine } from "./engines/b14.js";
 import { c20Engine } from "./engines/c20-engine.js";
-import { c21Engine } from "./engines/c21-engine.js";
 import { c22MagneticFieldEngine } from "./engines/c22-magnetic-field.js";
 import { c23Engine } from "./engines/c23-engine.js";
 import { c27Engine } from "./engines/c27-engine.js";
@@ -19,7 +18,6 @@ import { b9Fixture } from "./fixtures/b9-fixture.js";
 import { b13Fixture } from "./fixtures/b13-fixture.js";
 import { b14Fixture } from "./fixtures/b14-fixture.js";
 import { c20Fixture } from "./fixtures/c20-fixture.js";
-import { c21LabFixture } from "./fixtures/c21-fixture.js";
 import { c22Fixture } from "./fixtures/c22-fixture.js";
 import { c23Fixture } from "./fixtures/c23-fixture.js";
 import { c27Fixture } from "./fixtures/c27-fixture.js";
@@ -37,7 +35,6 @@ const productionEntries = Object.freeze([
   [b13Fixture, b13MatchingPairsEngine],
   [b14Fixture, b14Engine],
   [c20Fixture, c20Engine],
-  [c21LabFixture, c21Engine],
   [c22Fixture, c22MagneticFieldEngine],
   [c23Fixture, c23Engine],
   [c27Fixture, c27Engine],

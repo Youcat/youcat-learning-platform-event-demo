@@ -11,12 +11,13 @@ import {
   renderGameLabIndex,
 } from "../src/minigames/lab-index.js";
 
-test("Lab index lists thirteen planned engines plus the foundation fixture", () => {
+test("Lab index lists twelve retained engines plus the foundation fixture", () => {
   const entries = buildMinigameLabEntries({ language: "en" });
-  assert.equal(PLANNED_MINIGAME_ENGINES.length, 13);
-  assert.equal(entries.length, 14);
+  assert.equal(PLANNED_MINIGAME_ENGINES.length, 12);
+  assert.equal(entries.length, 13);
   assert.equal(entries.filter(({ fixture }) => fixture).length, 1);
-  assert.equal(entries.filter(({ playable }) => playable).length, 14);
+  assert.equal(entries.filter(({ playable }) => playable).length, 13);
+  assert.equal(entries.some(({ engineId }) => engineId === "C21"), false);
   entries.forEach((entry) => assert.match(entry.href, /^\?lab=.+&lang=en$/));
 });
 

@@ -154,7 +154,13 @@ const activities = {
 
   127: {
     games: [
-      { type: "minigame", definitionId: "c21-q127-slot0", engineId: "C21", engineVersion: "1.0.0", xp: 5, title: t("Balance of Love", "O equilíbrio do amor"), prompt: t("Arrange five supports for faithful care in a grave crisis. Your arrangement is reflective, not a moral ranking.", "Organize cinco apoios para um cuidado fiel numa crise grave. Sua organização é reflexiva, não uma classificação moral.") },
+      { type: "reveal", title: t("What protects love in a grave crisis?", "O que protege o amor numa crise grave?"), prompt: t("Classify each response by its immediate purpose.", "Classifique cada resposta segundo seu objetivo imediato."), categories: [t("Protect safety", "Proteger a segurança"), t("Bring truth and qualified help", "Trazer verdade e ajuda qualificada"), t("Set a firm boundary", "Estabelecer um limite firme")], cards: [
+        { text: t("Move children away from immediate danger.", "Afastar as crianças de um perigo imediato."), correct: 0 },
+        { text: t("Tell a qualified professional what has been hidden.", "Contar a um profissional qualificado o que foi escondido."), correct: 1 },
+        { text: t("Refuse to cover the consequences of an addiction.", "Recusar encobrir as consequências de um vício."), correct: 2 },
+        { text: t("Seek appropriate legal, medical, and pastoral counsel.", "Buscar orientação jurídica, médica e pastoral adequada."), correct: 1 },
+        { text: t("Live apart when necessary to protect life and dignity.", "Viver separados quando necessário para proteger a vida e a dignidade."), correct: 0 },
+      ] },
       { type: "wordsearch", seed: "assis-127-1", title: t("Fidelity in a grave crisis", "Fidelidade numa crise grave"), prompt: t("Find and mark all five words in the letter grid.", "Encontre e marque as cinco palavras na grade de letras."), words: [t("SAFETY", "SEGURANÇA"), t("TRUTH", "VERDADE"), t("HELP", "AJUDA"), t("BOUNDARY", "LIMITE"), t("FIDELITY", "FIDELIDADE")], clues: [
         { clue: t("The first priority when life or dignity is seriously threatened.", "A primeira prioridade quando a vida ou a dignidade estão seriamente ameaçadas."), correct: 0 }, { clue: t("What breaks the secrecy in which addiction and abuse grow.", "O que rompe o segredo no qual o vício e o abuso crescem."), correct: 1 }, { clue: t("What should be qualified and appropriate to the crisis.", "O que deve ser qualificado e adequado à crise."), correct: 2 }, { clue: t("A limit that protects the person and refuses cooperation with destruction.", "Um limite que protege a pessoa e recusa cooperar com a destruição."), correct: 3 }, { clue: t("Love that refuses both abandonment and denial of reality.", "Amor que recusa tanto o abandono quanto a negação da realidade."), correct: 4 },
       ] },

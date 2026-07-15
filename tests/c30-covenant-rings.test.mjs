@@ -199,5 +199,5 @@ test("Q14 preserves exactly three legacy games, C30 in human game 4, and one qui
       },
     },
   );
-  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 13);
+  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 12);
 });

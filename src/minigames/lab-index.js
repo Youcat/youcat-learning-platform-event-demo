@@ -10,7 +10,6 @@ export const PLANNED_MINIGAME_ENGINES = Object.freeze([
   { engineId: "B13", title: { en: "Words that belong together", pt: "Palavras que pertencem uma à outra" } },
   { engineId: "B14", title: { en: "Roots, trunk, branches & fruit", pt: "Raízes, tronco, ramos e fruto" } },
   { engineId: "C20", title: { en: "River of Decisions", pt: "Rio das Decisões" } },
-  { engineId: "C21", title: { en: "Balance of Love", pt: "O equilíbrio do amor" } },
   { engineId: "C22", title: { en: "Magnetic Field", pt: "Campo Magnético" } },
   { engineId: "C23", title: { en: "Compass of Discernment", pt: "Bússola do Discernimento" } },
   { engineId: "C27", title: { en: "Wellspring", pt: "Nascente" } },
