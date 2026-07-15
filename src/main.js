@@ -393,6 +393,7 @@ const state = {
   submitting: false,
   activeMinigameStage: null,
 };
+let activeMinigameController = null;
 
 function t(en, pt) {
   return { en, pt };
@@ -2131,6 +2132,36 @@ app.addEventListener("click", async (event) => {
     }
   }
 });
+
+async function openMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || mission.questionNumber !== 68 || mission.challengeIndex !== 3 || state.missionInteraction?.attempted) return;
+  const { launchA7MissionStage } = await import("./minigames/mission-a7.js");
+  let controller = null;
+  const closeStage = () => {
+    controller?.destroy();
+    if (activeMinigameController === controller) activeMinigameController = null;
+    const current = state.activeMission || state.completedMission;
+    if (current) renderQuestion(current.questionNumber);
+    else renderHome();
+  };
+  controller = await launchA7MissionStage({
+    mount: app,
+    mission,
+    language,
+    onResult: async (result) => {
+      const correct = Boolean(result.correct && result.complete);
+      state.missionInteraction.attempted = true;
+      state.missionInteraction.finished = true;
+      state.missionInteraction.succeeded = correct;
+      state.missionInteraction.currentCorrect = correct;
+      saveMissionInteraction();
+      await completeTeamAttempt(correct, { deferRender: true });
+    },
+    onClose: closeStage,
+  });
+  activeMinigameController = controller;
+}
 
 async function handleGameAction(target, action) {
   const mission = state.activeMission;

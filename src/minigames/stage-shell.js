@@ -81,6 +81,7 @@ export async function launchGameStage({
   const loading = mount.querySelector("[data-stage-loading]");
   const feedback = mount.querySelector("[data-stage-feedback]");
   const access = mount.querySelector("[data-stage-access]");
+  const accessPanel = mount.querySelector(".minigame-access-panel");
   const hintButton = mount.querySelector('[data-stage-action="hint"]');
   const hintCount = mount.querySelector("[data-stage-hints]");
   const hintUnit = mount.querySelector("[data-stage-hint-unit]");
@@ -104,7 +105,9 @@ export async function launchGameStage({
 
   function renderAccessibleActions() {
     access.innerHTML = "";
-    for (const action of engine.getAccessibleActions(scene, instance) || []) {
+    const actions = engine.getAccessibleActions(scene, instance) || [];
+    accessPanel.hidden = actions.length === 0;
+    for (const action of actions) {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = tr(action.label, locale);
@@ -130,7 +133,11 @@ export async function launchGameStage({
     instance,
     language: locale,
     reducedMotion,
-    onStateChange: () => {
+    onStateChange: (changedScene) => {
+      if (changedScene?.accessibleFeedback) {
+        feedback.textContent = tr(changedScene.accessibleFeedback, locale);
+        feedback.dataset.state = changedScene.accessibleFeedbackState || "";
+      }
       persist();
       renderAccessibleActions();
       renderEngineFeedback();
@@ -165,6 +172,9 @@ export async function launchGameStage({
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [scene],
   });
+  game.canvas.setAttribute("tabindex", "0");
+  game.canvas.setAttribute("role", "application");
+  game.canvas.setAttribute("aria-label", `${tr(instance.title, locale)}. ${tr(instance.prompt, locale)}`);
 
   async function submit() {
     if (instance.mode === "mission" && submitted) {
@@ -181,6 +191,7 @@ export async function launchGameStage({
       scene.revealSolution?.();
       checkButton.disabled = true;
       checkButton.textContent = copy[locale].submitted;
+      insight.hidden = false;
     }
     if (instance.mode === "mission" || (evaluation.correct && evaluation.complete)) insight.hidden = false;
     renderAccessibleActions();

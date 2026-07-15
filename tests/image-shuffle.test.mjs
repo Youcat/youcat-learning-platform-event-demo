@@ -7,13 +7,12 @@ const puzzleSlots = new Map([
   [25, 0],
   [34, 3],
   [59, 1],
-  [68, 3],
   [83, 0],
   [126, 2],
   [140, 1],
 ]);
 
-test("Assis uses the seven prepared game illustrations as 3x3 shuffle puzzles", () => {
+test("Assis preserves the six game illustrations still used as 3x3 shuffle puzzles", () => {
   const puzzles = [];
   for (const [number, index] of puzzleSlots) {
     const game = activities[number].games[index];
@@ -22,7 +21,7 @@ test("Assis uses the seven prepared game illustrations as 3x3 shuffle puzzles", 
     assert.ok(game.title.pt);
     puzzles.push(`${number}:${index}`);
   }
-  assert.deepEqual(puzzles, ["25:0", "34:3", "59:1", "68:3", "83:0", "126:2", "140:1"]);
+  assert.deepEqual(puzzles, ["25:0", "34:3", "59:1", "83:0", "126:2", "140:1"]);
 });
 
 test("a 3x3 shuffle is always a reachable unsolved board", () => {
