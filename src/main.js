@@ -337,6 +337,7 @@ function wordSearchPathPoints(points = []) {
 
 function gameXp(game) {
   if (game.xp) return game.xp;
+  if (game.type === "minigame") return 10;
   if (game.type === "match") return 4;
   if (game.type === "order") return 6;
   if (game.type === "move") return Math.min(9, 4 + (game.answer?.length || 3));
@@ -381,6 +382,7 @@ const state = {
   missionWaitTimer: null,
   lastMissionActivity: Date.now(),
   missionRenewTimer: null,
+  activeMinigameController: null,
   leaderboardUnsubscribe: null,
   leaderboardMembers: [],
   leaderboardContributions: [],
@@ -1147,6 +1149,47 @@ async function completeTeamAttempt(correct, { deferRender = false } = {}) {
   }
 }
 
+async function launchCurrentMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || mission.questionNumber !== 25 || mission.challengeIndex !== 3) return;
+  const game = learningByNumber.get(25)?.games?.[3];
+  if (game?.type !== "minigame" || game.engineId !== "A4" || game.engineVersion !== "1.0.0") return;
+  state.activeMinigameController?.destroy();
+  state.activeMinigameController = null;
+  try {
+    const { launchA4Mission } = await import("./minigames/a4-mission-adapter.js");
+    const controller = await launchA4Mission({
+      mount: app,
+      mission,
+      language,
+      onClose: () => {
+        const activeController = state.activeMinigameController;
+        state.activeMinigameController = null;
+        activeController?.destroy();
+        if (state.activeMission?.id === mission.id) renderQuestion(mission.questionNumber);
+        else renderHome();
+      },
+      onResult: async (result) => {
+        if (state.activeMission?.id !== mission.id || state.missionInteraction?.attempted) return;
+        state.missionInteraction.currentCorrect = Boolean(result.correct && result.complete);
+        state.missionInteraction.succeeded = state.missionInteraction.currentCorrect;
+        state.missionInteraction.attempted = true;
+        state.missionInteraction.finished = true;
+        saveMissionInteraction();
+        const activeController = state.activeMinigameController;
+        state.activeMinigameController = null;
+        activeController?.destroy();
+        await completeTeamAttempt(state.missionInteraction.currentCorrect);
+      },
+    });
+    state.activeMinigameController = controller;
+  } catch (error) {
+    console.error("Unable to open Living Symbols", error);
+    state.activeMinigameController = null;
+    renderQuestion(mission.questionNumber);
+  }
+}
+
 async function finishReflectionMission(status) {
   const mission = state.activeMission;
   if (!mission || mission.type !== "reflection") return;
@@ -1362,6 +1405,7 @@ function renderGame(number, game, gameIndex, gameState) {
 }
 
 function gameSolution(game) {
+  if (game.type === "minigame") return language === "pt" ? "Escuta · Evangelho · Liberdade · Vocação · Frutos" : "Listen · Gospel · Freedom · Vocation · Fruits";
   if (["sequence", "order"].includes(game.type)) return game.answer.map((id) => tr(game.items.find((item) => item.id === id).label)).join(" → ");
   if (game.type === "match") return game.pairs.map((pair) => `${tr(pair[0])} — ${tr(pair[1])}`).join(" · ");
   if (game.type === "reveal") return game.cards.map((card) => `${tr(card.text)} — ${tr(game.categories[card.correct])}`).join(" · ");
@@ -2014,6 +2058,11 @@ app.addEventListener("click", async (event) => {
   if (action === "carousel-dot") {
     const carouselEl = document.getElementById(target.dataset.carousel);
     carouselEl?.scrollTo({ left: Number(target.dataset.index) * carouselEl.clientWidth, behavior: "smooth" });
+    return;
+  }
+
+  if (action === "launch-minigame") {
+    await launchCurrentMissionMinigame();
     return;
   }
 

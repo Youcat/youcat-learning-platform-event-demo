@@ -36,6 +36,9 @@ for (const item of learning) {
         }
       }
     }
+    if (game.type === "minigame" && (item.number !== 25 || game.engineId !== "A4" || game.engineVersion !== "1.0.0")) {
+      throw new Error("Only Q25 game 4 may use the A4 production minigame");
+    }
   }
   if (!item.quiz[0].feedback?.pt) throw new Error(`Q${item.number} quiz needs Portuguese feedback`);
   if (!item.saintQuote?.text || !item.saintQuote?.author) throw new Error(`Q${item.number} needs a saint quote`);

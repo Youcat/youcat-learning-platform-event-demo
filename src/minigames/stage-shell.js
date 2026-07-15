@@ -4,8 +4,8 @@ import { createResultAdapter } from "./result-adapter.js";
 import { loadPhaserRuntime } from "./runtime.js";
 
 const copy = {
-  en: { back: "Back", lab: "Game Lab", hint: "Hint", hintsLeft: "hints left", check: "Check", reset: "Reset", replay: "Replay", controls: "Accessible controls", loading: "Loading game…", submitted: "Mission submitted", locked: "This mission already has its one submission." },
-  pt: { back: "Voltar", lab: "Laboratório de Jogos", hint: "Dica", hintsLeft: "dicas restantes", check: "Verificar", reset: "Reiniciar", replay: "Jogar novamente", controls: "Controles acessíveis", loading: "Carregando jogo…", submitted: "Missão enviada", locked: "Esta missão já recebeu sua única resposta." },
+  en: { back: "Back", lab: "Game Lab", hint: "Hint", hintLeft: "hint left", hintsLeft: "hints left", check: "Check", reset: "Reset", replay: "Replay", controls: "Accessible controls", loading: "Loading game…", submitted: "Mission submitted", locked: "This mission already has its one submission." },
+  pt: { back: "Voltar", lab: "Laboratório de Jogos", hint: "Dica", hintLeft: "dica restante", hintsLeft: "dicas restantes", check: "Verificar", reset: "Reiniciar", replay: "Jogar novamente", controls: "Controles acessíveis", loading: "Carregando jogo…", submitted: "Missão enviada", locked: "Esta missão já recebeu sua única resposta." },
 };
 
 function tr(value, language) {
@@ -56,7 +56,7 @@ export async function launchGameStage({
     </header>
     <section class="minigame-stage-copy" aria-labelledby="minigame-title">
       <h1 id="minigame-title">${escapeHtml(tr(instance.title, locale))}</h1>
-      <p>${escapeHtml(tr(instance.prompt, locale))}</p>
+      <p id="minigame-prompt">${escapeHtml(tr(instance.prompt, locale))}</p>
     </section>
     <section class="minigame-canvas-region" aria-label="${escapeHtml(tr(instance.title, locale))}">
       <div class="minigame-loading" data-stage-loading role="status">${copy[locale].loading}</div>
@@ -69,7 +69,7 @@ export async function launchGameStage({
     <footer class="minigame-stage-controls">
       <div class="minigame-secondary-controls">
         ${instance.mode === "lab" ? `<button type="button" data-stage-action="reset">↺ ${copy[locale].reset}</button><button type="button" data-stage-action="replay">${copy[locale].replay}</button>` : ""}
-        <button type="button" data-stage-action="hint">${copy[locale].hint} · <span data-stage-hints>${2 - hintsUsed}</span> ${copy[locale].hintsLeft}</button>
+        <button type="button" data-stage-action="hint">${copy[locale].hint} · <span data-stage-hints>${2 - hintsUsed}</span> <span data-stage-hint-unit>${2 - hintsUsed === 1 ? copy[locale].hintLeft : copy[locale].hintsLeft}</span></button>
       </div>
       <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : copy[locale].check}</button>
       <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].locked : ""}</p>
@@ -83,6 +83,7 @@ export async function launchGameStage({
   const access = mount.querySelector("[data-stage-access]");
   const hintButton = mount.querySelector('[data-stage-action="hint"]');
   const hintCount = mount.querySelector("[data-stage-hints]");
+  const hintUnit = mount.querySelector("[data-stage-hint-unit]");
   const checkButton = mount.querySelector('[data-stage-action="check"]');
   const insight = mount.querySelector("[data-stage-insight]");
 
@@ -97,6 +98,7 @@ export async function launchGameStage({
 
   function updateHintControl() {
     hintCount.textContent = String(Math.max(0, 2 - hintsUsed));
+    hintUnit.textContent = 2 - hintsUsed === 1 ? copy[locale].hintLeft : copy[locale].hintsLeft;
     hintButton.disabled = hintsUsed >= 2 || (instance.mode === "mission" && submitted);
   }
 
@@ -131,10 +133,20 @@ export async function launchGameStage({
     onStateChange: () => {
       persist();
       renderAccessibleActions();
+      renderEngineFeedback();
     },
     onReady: (readyScene) => {
       scene = readyScene;
       loading.hidden = true;
+      const canvas = canvasHost.querySelector("canvas");
+      if (canvas) {
+        canvas.tabIndex = 0;
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-describedby", "minigame-prompt");
+        canvas.setAttribute("aria-label", `${tr(instance.title, locale)}. ${tr(instance.prompt, locale)}`);
+      }
+      readyScene.setLocked?.(instance.mode === "mission" && submitted);
+      if (instance.mode === "mission" && submitted) readyScene.revealSolution?.();
       renderAccessibleActions();
       persist();
     },
@@ -162,8 +174,11 @@ export async function launchGameStage({
     const evaluation = engine.evaluate(scene, instance);
     feedback.textContent = tr(evaluation.feedback, locale);
     feedback.dataset.state = evaluation.correct && evaluation.complete ? "correct" : "wrong";
+    insight.hidden = false;
     if (instance.mode === "mission") {
       submitted = true;
+      scene.setLocked?.(true);
+      scene.revealSolution?.();
       checkButton.disabled = true;
       checkButton.textContent = copy[locale].submitted;
     }
