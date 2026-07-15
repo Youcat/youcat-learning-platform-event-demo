@@ -1020,6 +1020,51 @@ function renderMissionElement(mission, learning, finished) {
   return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
 }
 
+let activeMinigameStage = null;
+
+async function launchMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
+  const activity = learningByNumber.get(mission.questionNumber)?.games?.[mission.challengeIndex];
+  if (activity?.type !== "minigame" || activity.engineId !== "C21") return;
+  const number = mission.questionNumber;
+  state.view = "minigame";
+  try {
+    const { launchC21Mission } = await import("./minigames/c21-bundle.js");
+    let controller = null;
+    const close = async () => {
+      controller?.destroy();
+      if (activeMinigameStage === controller) activeMinigameStage = null;
+      if (state.missionInteraction?.attempted) {
+        await completeTeamAttempt(Boolean(state.missionInteraction.succeeded));
+      } else {
+        state.view = "question";
+        renderQuestion(number);
+      }
+    };
+    controller = await launchC21Mission({
+      mount: app,
+      mission,
+      activity,
+      language,
+      onResult: (result) => {
+        state.missionInteraction.attempted = true;
+        state.missionInteraction.finished = true;
+        state.missionInteraction.currentCorrect = Boolean(result.correct && result.complete);
+        state.missionInteraction.succeeded = state.missionInteraction.currentCorrect;
+        state.missionInteraction.minigameResult = { ...result };
+        saveMissionInteraction();
+      },
+      onClose: close,
+    });
+    activeMinigameStage = controller;
+  } catch (error) {
+    console.error("Unable to open C21 mission", error);
+    state.view = "question";
+    renderQuestion(number);
+  }
+}
+
 function renderMissionQuiz(mission, item) {
   const quizState = state.missionInteraction;
   return `<article class="carousel-panel quiz-panel mission-quiz-panel"><h2>${escapeHtml(tr(item.prompt))}</h2><div class="choice-board">

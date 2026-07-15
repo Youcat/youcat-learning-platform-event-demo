@@ -148,6 +148,13 @@ export async function launchGameStage({
     feedback.dataset.state = "";
   }
 
+  function syncEngineFeedback() {
+    if (!scene?.accessibleFeedback) return;
+    feedback.textContent = tr(scene.accessibleFeedback, locale);
+    feedback.dataset.state = "";
+    scene.accessibleFeedback = null;
+  }
+
   const Phaser = await loadPhaserRuntime();
   if (destroyed) return { destroy() {} };
   scene = engine.createScene({
