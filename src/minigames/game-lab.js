@@ -41,7 +41,7 @@ export async function startGameLab({ mount, id, language = "pt" }) {
   return launchGameStage({
     mount,
     instance,
-    registry,
+    registry: createAppMinigameRegistry(),
     language,
     onClose: () => { window.location.href = `?lang=${language}`; },
   });

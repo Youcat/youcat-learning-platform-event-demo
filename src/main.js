@@ -41,6 +41,7 @@ const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 const progress = createProgressStore();
 const CONTENT_VERSION = 5;
+let activeMinigameStage = null;
 
 const copy = {
   en: {

@@ -276,7 +276,6 @@ export async function launchGameStage({
   return {
     destroy() {
       if (destroyed) return;
-      destroyed = true;
       persist();
       mount.removeEventListener("click", handleStageClick);
       engine.destroy(scene, instance);
