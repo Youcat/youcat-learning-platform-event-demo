@@ -1849,6 +1849,37 @@ function rerenderQuestion() {
   renderQuestion(state.currentQuestion, positions);
 }
 
+let activeMinigameController = null;
+
+async function launchMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || state.missionInteraction?.attempted) return;
+  const activity = learningByNumber.get(mission.questionNumber)?.games[mission.challengeIndex];
+  if (activity?.type !== "minigame") return;
+  const number = mission.questionNumber;
+  const { applyMissionMinigameResult, startMissionMinigame } = await import("./minigames/mission-player.js");
+  activeMinigameController = await startMissionMinigame({
+    mount: app,
+    mission,
+    activity,
+    language,
+    onClose: () => {
+      activeMinigameController?.destroy();
+      activeMinigameController = null;
+      renderQuestion(number);
+    },
+    onResult: async (result) => {
+      if (!state.activeMission) return;
+      const submission = applyMissionMinigameResult(state.missionInteraction, result);
+      if (!submission.accepted) return;
+      saveMissionInteraction();
+      activeMinigameController?.destroy();
+      activeMinigameController = null;
+      await completeTeamAttempt(submission.correct);
+    },
+  });
+}
+
 async function openQuestion(number) {
   cleanupSubscription();
   state.feedStatus = isFirebaseConfigured() ? "loading" : "ready";
@@ -2158,6 +2189,17 @@ app.addEventListener("click", async (event) => {
 
   if (action === "finish-board") {
     await finishBoardMission();
+    return;
+  }
+
+  if (action === "launch-minigame") {
+    target.disabled = true;
+    try {
+      await launchMissionMinigame();
+    } catch (error) {
+      console.error("Unable to launch mission minigame", error);
+      target.disabled = false;
+    }
     return;
   }
 
