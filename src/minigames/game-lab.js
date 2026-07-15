@@ -14,7 +14,7 @@ function labError(mount, id, language) {
 }
 
 export async function startGameLab({ mount, id, language = "pt" }) {
-  const instance = source.get(id, { mode: "lab" });
+  const instance = bundledMinigameSource.get(id, { mode: "lab" });
   if (!instance) {
     labError(mount, id, language);
     return null;

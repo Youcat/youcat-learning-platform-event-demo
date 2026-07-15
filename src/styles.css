@@ -234,7 +234,7 @@ textarea:focus-visible {
 .minigame-access-actions {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .minigame-stage-shell[data-minigame-engine="B9"] .minigame-access-actions {

@@ -1264,6 +1264,48 @@ async function launchCurrentMissionMinigame() {
   }
 }
 
+function closeMissionMinigame() {
+  const controller = activeMinigameStage;
+  activeMinigameStage = null;
+  controller?.destroy();
+  const mission = state.activeMission || state.completedMission;
+  if (mission) renderQuestion(mission.questionNumber);
+  else renderHome();
+}
+
+async function launchMissionMinigame() {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || state.missionInteraction?.attempted) return;
+  const gameDefinition = learningByNumber.get(mission.questionNumber)?.games?.[mission.challengeIndex];
+  if (gameDefinition?.type !== "minigame") return;
+  const [catalog, missionHooks, stage, integration] = await Promise.all([
+    import("./minigames/catalog.js"),
+    import("./minigames/mission-hooks.js"),
+    import("./minigames/stage-shell.js"),
+    import("./minigames/c29-integration.js"),
+  ]);
+  const definition = catalog.bundledMinigameSource.get(gameDefinition.fixtureId, { mode: "lab" });
+  const instance = missionHooks.missionGameInstanceFrom({ mission, definition });
+  const registry = catalog.createAppMinigameRegistry();
+  activeMinigameStage = await stage.launchGameStage({
+    mount: app,
+    instance,
+    registry,
+    language,
+    onClose: closeMissionMinigame,
+    onResult: async (result) => {
+      const accepted = integration.acceptC29MissionResult(state.missionInteraction, result);
+      if (!accepted.accepted) return;
+      state.missionInteraction = accepted.interaction;
+      saveMissionInteraction();
+      const controller = activeMinigameStage;
+      activeMinigameStage = null;
+      controller?.destroy();
+      await completeTeamAttempt(result.correct && result.complete);
+    },
+  });
+}
+
 async function finishReflectionMission(status) {
   const mission = state.activeMission;
   if (!mission || mission.type !== "reflection") return;
