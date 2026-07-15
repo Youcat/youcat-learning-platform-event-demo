@@ -182,7 +182,8 @@ test("C30 is bundled and production registered for lab and mission resolution", 
 test("Q14 preserves exactly three legacy games, C30 in human game 4, and one quiz", () => {
   assert.equal(activities[14].games.length, 4);
   assert.equal(activities[14].quiz.length, 1);
-  assert.deepEqual(activities[14].games.slice(0, 3).map((game) => game.type), ["match", "wordsearch", "reveal"]);
+  assert.deepEqual(activities[14].games.slice(0, 3).map((game) => game.type), ["match", "minigame", "reveal"]);
+  assert.equal(activities[14].games[1].engineId, "B13");
   assert.deepEqual(
     activities[14].games[3],
     {
@@ -198,5 +199,5 @@ test("Q14 preserves exactly three legacy games, C30 in human game 4, and one qui
       },
     },
   );
-  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 1);
+  assert.equal(Object.values(activities).flatMap((item) => item.games).filter((game) => game.type === "minigame").length, 13);
 });

@@ -363,6 +363,36 @@ textarea:focus-visible {
   transform: rotate(-8deg);
 }
 
+.mission-minigame-launch,
+.minigame-mission-launcher {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.mission-minigame-launch p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.minigame-launch-action,
+.mission-minigame-launch .primary-action,
+.minigame-mission-launcher .primary-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+}
+
+.minigame-mission-status {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
 .minigame-stage-shell[data-minigame-engine="A2"] .minigame-access-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -394,6 +424,12 @@ textarea:focus-visible {
   .minigame-canvas-region,
   .minigame-canvas-host { max-height: 290px; }
   .minigame-canvas-host { min-height: 210px; }
+}
+
+@media (max-width: 374px) {
+  .minigame-stage-copy { padding-right: 20px; padding-left: 20px; }
+  .minigame-access-actions { gap: 6px; }
+  .minigame-access-actions button { padding-right: 7px; padding-left: 7px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

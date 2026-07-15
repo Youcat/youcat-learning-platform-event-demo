@@ -220,7 +220,7 @@ test("Q3 replacement preserves exactly four games and one quiz", () => {
   const q3 = activities[3];
   assert.equal(q3.games.length, 4);
   assert.equal(q3.quiz.length, 1);
-  assert.deepEqual(q3.games.map(({ type }) => type), ["minigame", "reveal", "move", "wordsearch"]);
+  assert.deepEqual(q3.games.map(({ type }) => type), ["minigame", "minigame", "move", "wordsearch"]);
   assert.deepEqual(
     { engineId: q3.games[0].engineId, engineVersion: q3.games[0].engineVersion, fixtureId: q3.games[0].fixtureId },
     { engineId: B9_ENGINE_ID, engineVersion: B9_ENGINE_VERSION, fixtureId: "B9" },

@@ -211,5 +211,5 @@ test("Q34 replaces only human game 2 and still contains four games plus one quiz
     { engineId: q34.games[1].engineId, engineVersion: q34.games[1].engineVersion, sourceId: q34.games[1].sourceId },
     { engineId: "A2", engineVersion: "1.0.0", sourceId: "a2-q34-slot1" },
   );
-  assert.equal(learningContent.flatMap((item) => item.games).filter((game) => game.type === "wordsearch").length, 7);
+  assert.equal(learningContent.flatMap((item) => item.games).filter((game) => game.type === "wordsearch").length, 5);
 });

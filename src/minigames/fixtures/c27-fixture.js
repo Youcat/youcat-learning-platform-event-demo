@@ -39,7 +39,10 @@ export const c27Fixture = Object.freeze({
 export const c27Activity = Object.freeze({
   type: "minigame",
   fixtureId: C27_FIXTURE_ID,
+  engineId: c27Fixture.engineId,
+  engineVersion: c27Fixture.engineVersion,
   xp: 8,
   title: c27Fixture.title,
   prompt: c27Fixture.prompt,
+  insight: c27Fixture.insight,
 });

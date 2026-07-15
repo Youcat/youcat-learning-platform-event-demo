@@ -176,7 +176,8 @@ test("Q25 keeps four games plus one quiz and replaces only human game 4", () => 
   const q25 = approvedActivities[25];
   assert.equal(q25.games.length, 4);
   assert.equal(q25.quiz.length, 1);
-  assert.deepEqual(q25.games.slice(0, 3).map((game) => game.type), ["image-shuffle", "order", "match"]);
+  assert.deepEqual(q25.games.slice(0, 3).map((game) => game.type), ["image-shuffle", "minigame", "match"]);
+  assert.equal(q25.games[1].engineId, "C23");
   assert.deepEqual(q25.games[3], {
     type: "minigame",
     engineId: "A4",

@@ -1,10 +1,10 @@
-import { bundledGameSource, createRegisteredMinigameRegistry } from "./catalog.js";
+import { createAppMinigameRegistry, fixtureForMissionActivity } from "./catalog.js";
 import { missionGameInstanceFrom } from "./mission-hooks.js";
 import { launchGameStage } from "./stage-shell.js";
 
 export function missionInstanceForActivity({ mission, activity }) {
-  const definition = bundledGameSource.get(activity?.fixtureId);
-  if (!definition) throw new TypeError(`No bundled minigame fixture for ${String(activity?.fixtureId || "")}`);
+  const definition = fixtureForMissionActivity(activity);
+  if (!definition) throw new TypeError(`No bundled minigame fixture for ${String(activity?.fixtureId || activity?.definitionId || activity?.engineId || "")}`);
   if (definition.questionNumber !== Number(mission.questionNumber) || definition.missionSlot !== Number(mission.challengeIndex)) {
     throw new TypeError("Mission and bundled minigame slot do not match");
   }
@@ -28,7 +28,7 @@ export async function startMissionMinigame({ mount, mission, activity, language,
   return launchGameStage({
     mount,
     instance,
-    registry: createRegisteredMinigameRegistry(),
+    registry: createAppMinigameRegistry(),
     language,
     onResult,
     onClose,

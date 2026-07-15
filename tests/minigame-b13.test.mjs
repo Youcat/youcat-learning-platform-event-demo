@@ -181,7 +181,8 @@ test("B13 is production-registered and Q14 replaces only human game 2", () => {
 
   assert.equal(activities[14].games.length, 4);
   assert.equal(activities[14].quiz.length, 1);
-  assert.deepEqual(activities[14].games.map(({ type }) => type), ["match", "minigame", "reveal", "order"]);
+  assert.deepEqual(activities[14].games.map(({ type }) => type), ["match", "minigame", "reveal", "minigame"]);
   assert.equal(activities[14].games[1].engineId, "B13");
+  assert.equal(activities[14].games[3].engineId, "C30");
   assert.equal(B13_STATIONS.length, 6);
 });

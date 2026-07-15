@@ -28,6 +28,7 @@ function occurrences(grid, normalized) {
 }
 
 test("all Assis word searches generate deterministic English and Portuguese grids", () => {
+  const expectedPuzzleCount = Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "wordsearch").length * 2;
   let puzzleCount = 0;
   for (const [questionNumber, activity] of Object.entries(activities)) {
     activity.games.forEach((game, gameIndex) => {
@@ -52,7 +53,7 @@ test("all Assis word searches generate deterministic English and Portuguese grid
       }
     });
   }
-  assert.equal(puzzleCount, 14);
+  assert.equal(puzzleCount, expectedPuzzleCount);
 });
 
 test("freehand validation accepts reverse paths, rejects wandering paths, and prevents duplicates", () => {
