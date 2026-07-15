@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "doctor": "node scripts/doctor.mjs",
     "content": "node scripts/extract-official-content.mjs",
     "deep-dive-content": "node scripts/build-deep-dive-sources.mjs",
     "dev": "vite",
@@ -11,9 +12,13 @@
     "preview": "vite preview",
     "check": "node scripts/check-content.mjs && node --test tests/*.test.mjs"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@fontsource/fira-sans": "^5.2.6",
-    "firebase": "^12.0.0"
+    "firebase": "^12.0.0",
+    "phaser": "3.90.0"
   },
   "devDependencies": {
     "cheerio": "^1.2.0",

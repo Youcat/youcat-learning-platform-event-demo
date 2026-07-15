@@ -26,13 +26,23 @@ for (const item of learning) {
     if (["order", "move"].includes(game.type) && game.start.join("|") === game.answer.join("|")) {
       throw new Error(`Q${item.number} ${game.type} game must not start solved`);
     }
+    if (game.type === "wordsearch") {
+      if (!game.seed) throw new Error(`Q${item.number} wordsearch needs a stable seed`);
+      if (game.words.length < 3 || game.words.length > 5) throw new Error(`Q${item.number} wordsearch needs 3–5 words`);
+      for (const locale of ["en", "pt"]) {
+        for (const word of game.words) {
+          const length = [...word[locale].normalize("NFC").toLocaleUpperCase(locale)].filter((char) => /\p{L}/u.test(char)).length;
+          if (length < 1 || length > 10) throw new Error(`Q${item.number} ${locale} wordsearch word must have 1–10 letters`);
+        }
+      }
+    }
   }
   if (!item.quiz[0].feedback?.pt) throw new Error(`Q${item.number} quiz needs Portuguese feedback`);
   if (!item.saintQuote?.text || !item.saintQuote?.author) throw new Error(`Q${item.number} needs a saint quote`);
 }
 
-for (const mechanic of ["order", "match", "reveal", "crossword", "move"]) {
-  if (mechanicCounts.get(mechanic) !== 8) throw new Error(`${mechanic} must appear exactly eight times`);
+for (const [mechanic, expectedCount] of Object.entries({ order: 8, match: 8, reveal: 8, wordsearch: 8, move: 1, "image-shuffle": 7 })) {
+  if (mechanicCounts.get(mechanic) !== expectedCount) throw new Error(`${mechanic} must appear exactly ${expectedCount} times`);
 }
 
 console.log("Content checks passed.");

@@ -9,6 +9,8 @@ import learningContent from "./data/learning-content.js";
 import { GROUPS, displayNameForLeaderboard, groupByCode, normalizeGroup } from "./groups.js";
 import { rankGroupSummaries, rankMembers } from "./leaderboard.js";
 import { ACHIEVEMENTS, createProgressStore, readingReward } from "./progress.js";
+import { createWordSearch, pathBetweenCells, simplifyPath, validateStroke } from "./wordsearch.js";
+import { isSolved, moveTile, movableTileIndices, shuffleBoard, tileBackground } from "./image-shuffle.js";
 import {
   ensureParticipantSession,
   claimRandomMission,
@@ -34,10 +36,11 @@ import {
 const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") === "en" ? "en" : "pt";
+const gameLabId = params.get("lab");
 const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 const progress = createProgressStore();
-const CONTENT_VERSION = 3;
+const CONTENT_VERSION = 5;
 
 const copy = {
   en: {
@@ -84,6 +87,16 @@ const copy = {
     incorrect: "Try once more",
     sequenceHelp: "Tap the steps in the right order.",
     matchHelp: "Tap one item on the left, then its match on the right.",
+    wordSearchHelp: "Draw across each hidden word. You can retry exploratory strokes.",
+    wordSearchTry: "That is not one of the hidden words. Try again.",
+    wordSearchComplete: "All words found.",
+    wordSearchAttempt: "Find every word to complete this team attempt. Exploratory strokes do not count against you.",
+    imageShuffleHelp: "Move a piece next to the open space. Take your time—only the completed picture counts.",
+    imageShuffleAttempt: "Move only neighbouring pieces into the open space. You can take as many moves as you need.",
+    imageShuffleMoves: "moves",
+    imageShuffleRestart: "Shuffle again",
+    imageShuffleReference: "View picture",
+    imageShuffleComplete: "Picture complete.",
     done: "Completed",
     of: "of",
     hearts: "hearts",
@@ -162,6 +175,16 @@ const copy = {
     incorrect: "Tente mais uma vez",
     sequenceHelp: "Toque nas etapas na ordem certa.",
     matchHelp: "Toque em um item à esquerda e depois no correspondente à direita.",
+    wordSearchHelp: "Desenhe uma linha sobre cada palavra escondida. Você pode tentar novamente.",
+    wordSearchTry: "Essa não é uma das palavras escondidas. Tente novamente.",
+    wordSearchComplete: "Todas as palavras foram encontradas.",
+    wordSearchAttempt: "Encontre todas as palavras para concluir esta tentativa da equipe. Traços exploratórios não contam contra você.",
+    imageShuffleHelp: "Mova uma peça ao lado do espaço vazio. Sem pressa — só a imagem completa conta.",
+    imageShuffleAttempt: "Mova apenas peças vizinhas para o espaço vazio. Você pode fazer quantos movimentos precisar.",
+    imageShuffleMoves: "movimentos",
+    imageShuffleRestart: "Embaralhar novamente",
+    imageShuffleReference: "Ver imagem",
+    imageShuffleComplete: "Imagem completa.",
     done: "Concluído",
     of: "de",
     hearts: "corações",
@@ -268,8 +291,49 @@ function gameIllustration(number, gameIndex) {
   return gameIllustrations[`${number}:${gameIndex}`] || questionIllustrations[number];
 }
 
+const IMAGE_SHUFFLE_SIZE = 3;
+
+function imageShuffleStateFor(gameState) {
+  try {
+    movableTileIndices(gameState.puzzleBoard, IMAGE_SHUFFLE_SIZE);
+  } catch {
+    gameState.puzzleBoard = shuffleBoard(IMAGE_SHUFFLE_SIZE);
+    gameState.puzzleMoves = 0;
+    gameState.puzzleStartedAt = Date.now();
+    gameState.puzzleReference = false;
+  }
+  gameState.puzzleMoves = Number.isInteger(gameState.puzzleMoves) ? gameState.puzzleMoves : 0;
+  gameState.puzzleReference = Boolean(gameState.puzzleReference);
+  return gameState;
+}
+
 const officialByNumber = new Map(officialContent.questions.map((item) => [item.number, item]));
 const learningByNumber = new Map(learningContent.map((item) => [item.number, item]));
+const wordSearchCache = new Map();
+
+function wordSearchFor(number, game, gameIndex) {
+  const labels = game.words.map((word) => tr(word));
+  const seed = `${game.seed || `assis-${number}-${gameIndex}`}:${language}`;
+  const key = `${number}:${gameIndex}:${language}:${seed}:${labels.join("|")}`;
+  if (!wordSearchCache.has(key)) {
+    wordSearchCache.set(key, createWordSearch({
+      words: labels,
+      title: tr(game.title || game.prompt),
+      locale: language,
+      seed,
+      target: "assis",
+      id: `assis-${number}-${gameIndex}-${language}`,
+    }));
+  }
+  return wordSearchCache.get(key);
+}
+
+function wordSearchPathPoints(points = []) {
+  return points
+    .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+    .map((point) => `${point.x * 100},${point.y * 100}`)
+    .join(" ");
+}
 
 function gameXp(game) {
   if (game.xp) return game.xp;
@@ -278,6 +342,7 @@ function gameXp(game) {
   if (game.type === "move") return Math.min(9, 4 + (game.answer?.length || 3));
   if (game.type === "reveal") return Math.min(9, 3 + (game.cards?.length || 3));
   if (game.type === "crossword") return Math.min(10, 4 + (game.clues?.length || 4));
+  if (game.type === "wordsearch") return Math.min(10, 4 + (game.words?.length || 4));
   return 5;
 }
 
@@ -362,6 +427,8 @@ function interactionFor(number) {
         sequence: [],
         activeLeft: null,
         matched: [],
+        foundWordIds: [],
+        wordSearchStrokes: [],
         start: game.start || [],
         message: "",
       })),
@@ -638,6 +705,9 @@ function renderHome() {
   if (state.missionStatus === "waiting") {
     state.missionWaitTimer = setTimeout(() => { void requestNextMission(); }, 15_000);
   }
+  void import("./minigames/runtime.js")
+    .then(({ preloadPhaserRuntimeAfterHome }) => preloadPhaserRuntimeAfterHome())
+    .catch(() => {});
 }
 
 function cleanupMissionDashboard() {
@@ -896,6 +966,7 @@ function renderQuestion(number, positions = null) {
     ${finished ? renderMissionOverview(number) : ""}
   </div>${bottomNavigation(false)}</main>`;
   bindCarouselState();
+  bindWordSearchBoards();
   bindReadingTimers();
   bindMissionLease();
   restorePositions(positions);
@@ -927,7 +998,8 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
-  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
+  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : c("oneAttempt");
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
 }
 
 function renderMissionQuiz(mission, item) {
@@ -946,11 +1018,11 @@ function renderMissionOverview(number) {
 }
 
 function freshMissionInteraction() {
-  return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], currentCorrect: null, message: "" };
+  return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], foundWordIds: [], wordSearchStrokes: [], currentCorrect: null, message: "" };
 }
 
 function missionStorageKey(mission) {
-  return `mission-v1:${mission.groupCode}:${mission.id}`;
+  return `mission-v2:${mission.groupCode}:${mission.id}`;
 }
 
 function loadMissionInteraction(mission) {
@@ -1205,6 +1277,57 @@ function renderGame(number, game, gameIndex, gameState) {
       ${game.categories.map((category, index) => `<button type="button" class="choice-option" data-action="reveal-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled ? "disabled" : ""}>${escapeHtml(tr(category))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
   }
 
+  if (game.type === "image-shuffle") {
+    const puzzleState = imageShuffleStateFor(gameState);
+    const board = puzzleState.puzzleBoard;
+    const movable = new Set(movableTileIndices(board, IMAGE_SHUFFLE_SIZE));
+    const illustration = gameIllustration(number, gameIndex);
+    const solved = gameState.finished && isSolved(board, IMAGE_SHUFFLE_SIZE);
+    const title = tr(game.title || game.prompt);
+    const piece = language === "pt" ? "Peça" : "Piece";
+    const movableText = language === "pt" ? "pode mover" : "movable";
+    const fixedText = language === "pt" ? "não pode mover" : "not movable";
+    return `<p class="game-help" id="image-shuffle-help-${number}-${gameIndex}">${c("imageShuffleHelp")}</p>
+      <div class="image-shuffle-game">
+        <div class="image-shuffle-meta"><span>3 × 3</span><span>${puzzleState.puzzleMoves} ${c("imageShuffleMoves")}</span><button type="button" class="image-shuffle-reference-action" data-action="image-shuffle-reference">${c("imageShuffleReference")}</button></div>
+        ${puzzleState.puzzleReference ? `<img class="image-shuffle-reference" src="${illustration}" alt="${escapeHtml(title)}" />` : ""}
+        <div class="image-shuffle-board ${solved ? "is-solved" : ""}" role="grid" aria-label="${escapeHtml(`${title}, 3 by 3 image puzzle`)}" aria-describedby="image-shuffle-help-${number}-${gameIndex}">
+          ${board.map((tile, index) => {
+            if (tile === 0) return `<div class="image-shuffle-empty" role="gridcell" aria-label="${language === "pt" ? "Espaço vazio" : "Empty space"}" style="--tile-image:url('${illustration}')"></div>`;
+            const background = tileBackground(tile, IMAGE_SHUFFLE_SIZE);
+            const canMove = movable.has(index) && !solved;
+            return `<button type="button" role="gridcell" class="image-shuffle-tile" data-action="image-shuffle-tile" data-cell="${index}" aria-label="${escapeHtml(`${piece} ${tile}; ${canMove ? movableText : fixedText}`)}" style="--tile-image:url('${illustration}');--tile-size:${background.backgroundSize};--tile-position:${background.backgroundPosition}" ${canMove ? "" : "disabled"}><span aria-hidden="true"></span></button>`;
+          }).join("")}
+        </div>
+        <button type="button" class="quiet-action image-shuffle-restart" data-action="image-shuffle-restart" ${solved ? "disabled" : ""}>↺ ${c("imageShuffleRestart")}</button>
+        <p class="image-shuffle-status" aria-live="polite">${solved ? c("imageShuffleComplete") : ""}</p>
+      </div>${gameMessage(gameState, game)}`;
+  }
+
+  if (game.type === "wordsearch") {
+    const puzzle = wordSearchFor(number, game, gameIndex);
+    const foundWordIds = gameState.foundWordIds || [];
+    const strokes = gameState.wordSearchStrokes || [];
+    const helpId = `wordsearch-help-${number}-${gameIndex}`;
+    return `<p class="game-help" id="${helpId}">${c("wordSearchHelp")}</p><div class="wordsearch-game" data-wordsearch data-question="${number}" data-game="${gameIndex}" data-disabled="${disabled}">
+      <p class="wordsearch-progress">${foundWordIds.length}/${puzzle.words.length}</p>
+      <div class="wordsearch-board" data-wordsearch-board aria-describedby="${helpId}">
+        <svg class="wordsearch-strokes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          ${strokes.map((stroke) => `<polyline class="wordsearch-stroke" points="${wordSearchPathPoints(stroke.points)}"></polyline>`).join("")}
+          <polyline class="wordsearch-stroke wordsearch-live-stroke" points=""></polyline>
+        </svg>
+        <div class="wordsearch-grid" role="grid" aria-label="${escapeHtml(tr(game.title || game.prompt))}" style="grid-template-columns:repeat(${puzzle.size},minmax(0,1fr))">
+          ${puzzle.grid.flatMap((row, rowIndex) => row.map((letter, colIndex) => {
+            const cellIndex = rowIndex * puzzle.size + colIndex;
+            return `<button type="button" class="wordsearch-cell" role="gridcell" data-wordsearch-cell="${cellIndex}" tabindex="${cellIndex === 0 ? 0 : -1}" aria-label="${escapeHtml(`${letter}, ${rowIndex + 1}, ${colIndex + 1}`)}" ${disabled ? "disabled" : ""}>${escapeHtml(letter)}</button>`;
+          })).join("")}
+        </div>
+      </div>
+      <ul class="wordsearch-words">${puzzle.words.map((word) => `<li class="${foundWordIds.includes(word.id) ? "is-found" : ""}">${escapeHtml(word.label)}</li>`).join("")}</ul>
+      <p class="wordsearch-status ${gameState.finished ? "is-complete" : ""}" data-wordsearch-status aria-live="polite">${gameState.finished ? c("wordSearchComplete") : ""}</p>
+    </div>${gameMessage(gameState, game)}`;
+  }
+
   if (game.type === "crossword") {
     const clueIndex = gameState.sequence.length;
     const clue = game.clues[Math.min(clueIndex, game.clues.length - 1)];
@@ -1232,7 +1355,8 @@ function gameSolution(game) {
   if (game.type === "match") return game.pairs.map((pair) => `${tr(pair[0])} — ${tr(pair[1])}`).join(" · ");
   if (game.type === "reveal") return game.cards.map((card) => `${tr(card.text)} — ${tr(game.categories[card.correct])}`).join(" · ");
   if (game.type === "crossword") return game.clues.map((clue) => tr(game.words[clue.correct])).join(" · ");
-  if (game.type === "move") return tr(game.reveal);
+  if (game.type === "wordsearch") return game.words.map((word) => tr(word)).join(" · ");
+  if (["move", "image-shuffle"].includes(game.type)) return tr(game.reveal);
   return "";
 }
 
@@ -1240,6 +1364,139 @@ function gameMessage(gameState, game) {
   if (gameState.finished) return `<div class="answer-explanation ${gameState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${gameState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${c("solution")}: ${escapeHtml(gameSolution(game))}</p>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`;
   if (gameState.message) return `<p class="game-message is-wrong">${escapeHtml(gameState.message)}</p>`;
   return '<p class="game-message" aria-hidden="true">&nbsp;</p>';
+}
+
+function bindWordSearchBoards() {
+  document.querySelectorAll("[data-wordsearch]").forEach((container) => {
+    if (container.dataset.disabled === "true") return;
+    const mission = state.activeMission;
+    const number = Number(container.dataset.question);
+    const gameIndex = Number(container.dataset.game);
+    if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || mission.questionNumber !== number || mission.challengeIndex !== gameIndex) return;
+    const game = learningByNumber.get(number).games[gameIndex];
+    if (game.type !== "wordsearch") return;
+    const puzzle = wordSearchFor(number, game, gameIndex);
+    const gameState = state.missionInteraction;
+    gameState.foundWordIds ||= [];
+    gameState.wordSearchStrokes ||= [];
+    const board = container.querySelector("[data-wordsearch-board]");
+    const liveStroke = container.querySelector(".wordsearch-live-stroke");
+    const status = container.querySelector("[data-wordsearch-status]");
+    const cells = [...container.querySelectorAll("[data-wordsearch-cell]")];
+    let activePath = null;
+    let tapStartIndex = null;
+    let ignoreClickUntil = 0;
+
+    const pointForEvent = (event) => {
+      const bounds = board.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
+        y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)),
+      };
+    };
+    const cellForPoint = (point) => Math.min(puzzle.size - 1, Math.floor(point.y * puzzle.size)) * puzzle.size + Math.min(puzzle.size - 1, Math.floor(point.x * puzzle.size));
+    const cellCoordinates = (index) => ({ row: Math.floor(index / puzzle.size), col: index % puzzle.size });
+
+    const showInvalid = () => {
+      liveStroke.classList.add("is-invalid");
+      status.textContent = c("wordSearchTry");
+      setTimeout(() => {
+        if (!liveStroke.isConnected) return;
+        liveStroke.setAttribute("points", "");
+        liveStroke.classList.remove("is-invalid");
+      }, 170);
+    };
+
+    const commit = async (points) => {
+      const target = validateStroke(points, puzzle, gameState.foundWordIds);
+      if (!target) {
+        showInvalid();
+        return;
+      }
+      gameState.foundWordIds.push(target.id);
+      gameState.wordSearchStrokes.push({ wordId: target.id, points: simplifyPath(points) });
+      gameState.message = "";
+      const complete = gameState.foundWordIds.length === puzzle.words.length;
+      if (complete) {
+        gameState.finished = true;
+        gameState.currentCorrect = true;
+        gameState.attempted = true;
+        gameState.succeeded = true;
+      }
+      saveMissionInteraction();
+      if (complete) await completeTeamAttempt(true);
+      else rerenderQuestion();
+    };
+
+    const chooseCell = (index) => {
+      if (tapStartIndex === null) {
+        tapStartIndex = index;
+        cells.forEach((cell) => cell.classList.toggle("is-start", Number(cell.dataset.wordsearchCell) === index));
+        status.textContent = c("wordSearchHelp");
+        return;
+      }
+      const start = cellCoordinates(tapStartIndex);
+      const end = cellCoordinates(index);
+      tapStartIndex = null;
+      cells.forEach((cell) => cell.classList.remove("is-start"));
+      const path = pathBetweenCells(start, end, puzzle.size);
+      if (path.length === 1) path.push({ ...path[0] });
+      void commit(path);
+    };
+
+    board.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      event.preventDefault();
+      board.setPointerCapture(event.pointerId);
+      activePath = [pointForEvent(event)];
+      liveStroke.setAttribute("points", wordSearchPathPoints(activePath));
+    });
+    board.addEventListener("pointermove", (event) => {
+      if (!activePath) return;
+      activePath.push(pointForEvent(event));
+      liveStroke.setAttribute("points", wordSearchPathPoints(activePath));
+    });
+    board.addEventListener("pointerup", (event) => {
+      if (!activePath) return;
+      activePath.push(pointForEvent(event));
+      const points = activePath;
+      activePath = null;
+      ignoreClickUntil = performance.now() + 300;
+      const distance = Math.hypot(points[0].x - points.at(-1).x, points[0].y - points.at(-1).y);
+      if (distance <= 0.02) chooseCell(cellForPoint(points.at(-1)));
+      else void commit(points);
+    });
+    board.addEventListener("pointercancel", () => {
+      activePath = null;
+      liveStroke.setAttribute("points", "");
+    });
+
+    cells.forEach((cell) => {
+      cell.addEventListener("click", () => {
+        if (performance.now() >= ignoreClickUntil) chooseCell(Number(cell.dataset.wordsearchCell));
+      });
+      cell.addEventListener("keydown", (event) => {
+        const index = Number(cell.dataset.wordsearchCell);
+        const row = Math.floor(index / puzzle.size);
+        const col = index % puzzle.size;
+        const moves = {
+          ArrowLeft: [row, Math.max(0, col - 1)],
+          ArrowRight: [row, Math.min(puzzle.size - 1, col + 1)],
+          ArrowUp: [Math.max(0, row - 1), col],
+          ArrowDown: [Math.min(puzzle.size - 1, row + 1), col],
+        };
+        if (moves[event.key]) {
+          event.preventDefault();
+          const nextIndex = moves[event.key][0] * puzzle.size + moves[event.key][1];
+          cells.forEach((candidate, candidateIndex) => { candidate.tabIndex = candidateIndex === nextIndex ? 0 : -1; });
+          cells[nextIndex]?.focus();
+        } else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          chooseCell(index);
+        }
+      });
+    });
+  });
 }
 
 function renderQuizCarousel(number, learning, interaction) {
@@ -1710,7 +1967,7 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
-  if (["sequence", "match-left", "match-right", "reveal-choice", "crossword-choice", "move-block"].includes(action)) {
+  if (["sequence", "match-left", "match-right", "reveal-choice", "crossword-choice", "move-block", "image-shuffle-tile", "image-shuffle-restart", "image-shuffle-reference"].includes(action)) {
     await handleGameAction(target, action);
     return;
   }
@@ -1796,6 +2053,27 @@ async function handleGameAction(target, action) {
     saveMissionInteraction();
   };
 
+  if (action === "image-shuffle-reference") {
+    const puzzleState = imageShuffleStateFor(gameState);
+    puzzleState.puzzleReference = !puzzleState.puzzleReference;
+    saveMissionInteraction();
+    rerenderQuestion();
+    return;
+  }
+
+  if (action === "image-shuffle-restart") {
+    const puzzleState = imageShuffleStateFor(gameState);
+    const confirmation = language === "pt" ? "Embaralhar novamente e perder estes movimentos?" : "Shuffle again and lose these moves?";
+    if (puzzleState.puzzleMoves > 0 && !window.confirm(confirmation)) return;
+    puzzleState.puzzleBoard = shuffleBoard(IMAGE_SHUFFLE_SIZE);
+    puzzleState.puzzleMoves = 0;
+    puzzleState.puzzleStartedAt = Date.now();
+    puzzleState.puzzleReference = false;
+    saveMissionInteraction();
+    rerenderQuestion();
+    return;
+  }
+
   if (action === "sequence") {
     const itemId = target.dataset.item;
     const expected = game.answer[gameState.sequence.length];
@@ -1856,6 +2134,15 @@ async function handleGameAction(target, action) {
     }
   }
 
+  if (action === "image-shuffle-tile") {
+    const puzzleState = imageShuffleStateFor(gameState);
+    const nextBoard = moveTile(puzzleState.puzzleBoard, Number(target.dataset.cell), IMAGE_SHUFFLE_SIZE);
+    if (!nextBoard) return;
+    puzzleState.puzzleBoard = nextBoard;
+    puzzleState.puzzleMoves += 1;
+    if (isSolved(nextBoard, IMAGE_SHUFFLE_SIZE)) finish(true);
+  }
+
   saveMissionInteraction();
   if (gameState.finished) await completeTeamAttempt(gameState.currentCorrect);
   else rerenderQuestion();
@@ -1865,5 +2152,12 @@ document.addEventListener("pointerdown", noteMissionActivity, { passive: true })
 document.addEventListener("keydown", noteMissionActivity);
 document.addEventListener("scroll", noteMissionActivity, { passive: true, capture: true });
 window.addEventListener("beforeunload", cleanupSubscription);
-if (state.profile) renderReturning();
+if (gameLabId) {
+  void import("./minigames/game-lab.js")
+    .then(({ startGameLab }) => startGameLab({ mount: app, id: gameLabId, language }))
+    .catch((error) => {
+      console.error("Unable to open Game Lab", error);
+      app.innerHTML = `<main class="minigame-lab-error"><h1>${language === "en" ? "Game Lab could not start" : "O Laboratório de Jogos não pôde iniciar"}</h1><p>${escapeHtml(error.message)}</p></main>`;
+    });
+} else if (state.profile) renderReturning();
 else renderWelcome();

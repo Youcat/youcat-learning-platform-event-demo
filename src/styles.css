@@ -83,6 +83,247 @@ textarea:focus-visible {
   overflow-x: hidden;
 }
 
+/* Shared Phaser minigame foundation. Love Forever red replaces YOUCAT yellow. */
+.minigame-stage-shell {
+  display: flex;
+  width: min(100%, 480px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: #fff;
+  color: var(--graphite);
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.minigame-stage-header {
+  display: grid;
+  min-height: 52px;
+  align-items: center;
+  padding: max(8px, env(safe-area-inset-top)) 20px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  grid-template-columns: 1fr auto 1fr;
+}
+
+.minigame-stage-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.minigame-stage-header > span {
+  color: var(--love-red);
+  font-size: 12px;
+  font-weight: 700;
+  justify-self: end;
+}
+
+.minigame-back {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--graphite);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  justify-self: start;
+}
+
+.minigame-stage-copy {
+  padding: 16px 28px 12px;
+}
+
+.minigame-stage-copy h1 {
+  margin: 0 0 8px;
+  color: var(--love-red);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.minigame-stage-copy p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--graphite);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.minigame-canvas-region {
+  position: relative;
+  display: flex;
+  min-height: 250px;
+  max-height: 300px;
+  flex: 1 1 270px;
+  align-items: stretch;
+  justify-content: center;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: #fff;
+  overflow: hidden;
+}
+
+.minigame-canvas-host {
+  width: 100%;
+  min-height: 250px;
+  max-height: 300px;
+}
+
+.minigame-canvas-host canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0 auto;
+  touch-action: none;
+}
+
+.minigame-loading {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.minigame-loading[hidden] {
+  display: none;
+}
+
+.minigame-access-panel {
+  padding: 10px 20px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.minigame-access-panel h2 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.minigame-access-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.minigame-access-actions button,
+.minigame-secondary-controls button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--graphite);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--graphite);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: normal;
+}
+
+.minigame-stage-controls {
+  padding: 12px 20px max(16px, env(safe-area-inset-bottom));
+}
+
+.minigame-secondary-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.minigame-check {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 1.5px solid var(--graphite);
+  border-radius: 8px;
+  background: var(--love-red);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.minigame-check:disabled,
+.minigame-access-actions button:disabled,
+.minigame-secondary-controls button:disabled {
+  border-color: var(--border);
+  background: #fff;
+  color: var(--soft);
+  cursor: default;
+}
+
+.minigame-feedback {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.minigame-feedback[data-state="correct"] {
+  color: var(--graphite);
+  text-decoration: underline 3px var(--love-red-35);
+  text-underline-offset: -1px;
+}
+
+.minigame-feedback[data-state="wrong"] {
+  color: var(--error);
+}
+
+.minigame-insight {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.minigame-lab-error {
+  width: min(100%, 480px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 76px 28px;
+  background: #fff;
+}
+
+.minigame-lab-error h1 {
+  margin: 0 0 12px;
+  color: var(--love-red);
+  font-size: 28px;
+  line-height: 34px;
+}
+
+@media (max-height: 720px) {
+  .minigame-stage-copy { padding-top: 10px; padding-bottom: 8px; }
+  .minigame-stage-copy h1 { font-size: 20px; line-height: 25px; }
+  .minigame-canvas-region { min-height: 210px; flex-basis: 290px; }
+  .minigame-canvas-region,
+  .minigame-canvas-host { max-height: 290px; }
+  .minigame-canvas-host { min-height: 210px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minigame-stage-shell *,
+  .minigame-stage-shell *::before,
+  .minigame-stage-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 .brand-kicker,
 .section-kicker,
 .panel-label,
@@ -874,6 +1115,116 @@ textarea:focus-visible {
   line-height: 20px;
 }
 
+.wordsearch-game {
+  width: 100%;
+}
+
+.wordsearch-progress {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.wordsearch-board {
+  position: relative;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.wordsearch-grid {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+}
+
+.wordsearch-cell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--graphite);
+  font-size: clamp(16px, 4.8vw, 21px);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.wordsearch-cell:focus-visible {
+  outline: 2px solid var(--graphite);
+  outline-offset: -4px;
+}
+
+.wordsearch-cell.is-start {
+  background: var(--love-red-35);
+  clip-path: var(--marker-cut-a);
+}
+
+.wordsearch-strokes {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.wordsearch-stroke {
+  fill: none;
+  stroke: var(--love-red);
+  stroke-width: 4.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .52;
+}
+
+.wordsearch-live-stroke.is-invalid {
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.wordsearch-words {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 0;
+  margin: 16px 0 0;
+  list-style: none;
+}
+
+.wordsearch-words li {
+  color: var(--graphite);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.wordsearch-words li.is-found {
+  color: var(--muted);
+  text-decoration: line-through 3px var(--love-red);
+}
+
+.wordsearch-status {
+  min-height: 18px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.wordsearch-status.is-complete {
+  color: var(--graphite);
+}
+
 .sequence-board,
 .choice-board {
   display: grid;
@@ -1075,6 +1426,145 @@ textarea:focus-visible {
   font-family: "Rockster", sans-serif;
   font-size: 22px;
   line-height: 26px;
+}
+
+.image-shuffle-game {
+  margin-top: 4px;
+}
+
+.image-shuffle-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.image-shuffle-meta span:first-child {
+  color: var(--love-red);
+}
+
+.image-shuffle-reference-action {
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--love-red);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.image-shuffle-reference {
+  display: block;
+  width: min(100%, 178px);
+  aspect-ratio: 1;
+  margin: 4px auto 10px;
+  border: 1px solid var(--graphite);
+  object-fit: contain;
+}
+
+.image-shuffle-board {
+  display: grid;
+  width: min(100%, 306px);
+  aspect-ratio: 1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  margin: 4px auto 0;
+  padding: 2px;
+  border: 1.5px solid var(--graphite);
+  border-radius: var(--wobble-radius-a);
+  background: var(--graphite);
+  overflow: hidden;
+}
+
+.image-shuffle-tile,
+.image-shuffle-empty {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.image-shuffle-tile {
+  cursor: pointer;
+}
+
+.image-shuffle-tile:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.image-shuffle-tile > span,
+.image-shuffle-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: var(--tile-image);
+  background-repeat: no-repeat;
+}
+
+.image-shuffle-tile > span {
+  background-position: var(--tile-position);
+  background-size: var(--tile-size);
+}
+
+.image-shuffle-tile:not(:disabled):hover > span,
+.image-shuffle-tile:not(:disabled):focus-visible > span {
+  outline: 2px solid var(--love-red);
+  outline-offset: -3px;
+}
+
+.image-shuffle-empty {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(34, 32, 29, .55);
+  background-color: var(--love-red-soft);
+  background-image: none;
+}
+
+.image-shuffle-empty::after {
+  color: var(--love-red);
+  content: "♡";
+  font-family: Georgia, serif;
+  font-size: 28px;
+  transform: rotate(-8deg);
+}
+
+.image-shuffle-board.is-solved .image-shuffle-empty {
+  border: 0;
+  background-image: var(--tile-image);
+  background-position: 100% 100%;
+  background-size: 300% 300%;
+}
+
+.image-shuffle-board.is-solved .image-shuffle-empty::after {
+  content: none;
+}
+
+.image-shuffle-restart {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  margin: 3px auto 0;
+  color: var(--graphite);
+}
+
+.image-shuffle-status {
+  min-height: 19px;
+  margin: 5px 0 0;
+  color: var(--love-red);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .sr-only {
@@ -1421,6 +1911,10 @@ textarea:focus-visible {
   *::after {
     scroll-behavior: auto !important;
     animation-duration: .01ms !important;
+  }
+
+  .wordsearch-live-stroke.is-invalid {
+    transition: none;
   }
 }
 

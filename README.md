@@ -25,10 +25,19 @@ The shared challenge state is organized into 20 small-group rooms of roughly ten
 
 1. Install Node.js 22.
 2. Run `npm ci`.
-3. Run `npm run dev`.
-4. Open the local URL shown in the terminal.
+3. Run `npm run doctor` to verify the local toolchain, authenticated source paths, and Firebase setup.
+4. Run `npm run dev`.
+5. Open the local URL shown in the terminal.
+
+The doctor never prints Firebase values. Missing Firebase configuration is only a warning because the app has a safe local-preview mode. Publication-source warnings matter only when regenerating authenticated content.
 
 Use `?lang=en` for the development-language version. Use a predefined group code such as `?room=Assis-Sao-Jose` to preselect a group from a QR code; participants can still change groups later.
+
+## Minigame foundation
+
+The shared Phaser 3.90 runtime is lazy-loaded only after Home. Production startup remains on the existing HTML path, while bundled fixtures and engines can be reviewed in the isolated Game Lab. Open the non-production foundation proof with `?lab=foundation-skeleton-v1&lang=en`.
+
+See [`docs/minigame-foundation.md`](docs/minigame-foundation.md) for the exact `GameInstance` and engine contracts, integration boundaries, and engine-worktree instructions. Use [`docs/minigame-ui-ux-review-checklist.md`](docs/minigame-ui-ux-review-checklist.md) for objective review before enabling an engine in missions.
 
 ## 200-user load test
 

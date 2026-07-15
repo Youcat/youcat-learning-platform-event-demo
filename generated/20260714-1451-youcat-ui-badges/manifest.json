@@ -1,0 +1,30 @@
+{
+  "batch_name": "youcat-ui-badges",
+  "created_at": "2026-07-14T14:51:31",
+  "items": [
+    {"slug":"achievement-first-steps","title":"First steps","category":"icon","subject":"John","action":"taking the first step over a small starting line","emotion":"eager","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"achievement-curious","title":"Curious","category":"icon","subject":"Isabelle","action":"leaning toward an open book and a question mark","emotion":"curious","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"achievement-explorer","title":"Explorer","category":"icon","subject":"John and Isabelle","action":"following a winding path toward a small cross","emotion":"adventurous","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"achievement-persevering","title":"Persevering","category":"icon","subject":"John","action":"reaching a hilltop after a steep climb","emotion":"determined and joyful","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-jose","title":"São José","category":"icon","subject":"Saint Joseph","action":"holding a lily protectively","emotion":"quiet","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-francisco","title":"São Francisco","category":"icon","subject":"Saint Francis","action":"welcoming a small bird on one hand","emotion":"peaceful","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-clara","title":"Santa Clara","category":"icon","subject":"Saint Clare","action":"holding a small monstrance reverently","emotion":"reverent","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santo-antonio","title":"Santo Antônio","category":"icon","subject":"Saint Anthony","action":"holding a lily beside an open book","emotion":"warm","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-joao-paulo-ii","title":"São João Paulo II","category":"icon","subject":"Saint John Paul II","action":"blessing beside a pastoral cross","emotion":"energetic","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-teresa-de-calcuta","title":"Santa Teresa de Calcutá","category":"icon","subject":"Saint Teresa of Calcutta","action":"cradling a small heart","emotion":"tender","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-pedro","title":"São Pedro","category":"icon","subject":"Saint Peter","action":"holding two crossed keys","emotion":"steadfast","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-paulo","title":"São Paulo","category":"icon","subject":"Saint Paul","action":"holding a book beside a sword","emotion":"bold","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-rita","title":"Santa Rita","category":"icon","subject":"Saint Rita","action":"holding one rose near her heart","emotion":"hopeful","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-bento","title":"São Bento","category":"icon","subject":"Saint Benedict","action":"holding a cross over an open book","emotion":"wise","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-teresinha","title":"Santa Teresinha","category":"icon","subject":"Saint Thérèse","action":"letting small roses fall from her hands","emotion":"trusting","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-joao-bosco","title":"São João Bosco","category":"icon","subject":"Saint John Bosco","action":"welcoming two young silhouettes beneath three stars","emotion":"lively","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-faustina","title":"Santa Faustina","category":"icon","subject":"Saint Faustina","action":"praying with two pale rays flowing from a heart","emotion":"trusting","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santo-agostinho","title":"Santo Agostinho","category":"icon","subject":"Saint Augustine","action":"holding an open book beside a heart","emotion":"searching","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-monica","title":"Santa Mônica","category":"icon","subject":"Saint Monica","action":"praying with one symbolic tear","emotion":"patient","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-padre-pio","title":"São Padre Pio","category":"icon","subject":"Saint Padre Pio","action":"praying before a small cross","emotion":"contemplative","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-catarina-de-sena","title":"Santa Catarina de Sena","category":"icon","subject":"Saint Catherine of Siena","action":"holding a lily and pointing toward a church outline","emotion":"courageous","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-domingos","title":"São Domingos","category":"icon","subject":"Saint Dominic","action":"preaching beneath one star","emotion":"radiant","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-santa-gianna","title":"Santa Gianna","category":"icon","subject":"Saint Gianna","action":"gently lifting a small child","emotion":"loving","background":"none","size":"1024x1024","status":"draft","prompt":""},
+    {"slug":"saint-sao-maximiliano-kolbe","title":"São Maximiliano Kolbe","category":"icon","subject":"Saint Maximilian Kolbe","action":"holding two small crowns","emotion":"courageous","background":"none","size":"1024x1024","status":"draft","prompt":""}
+  ]
+}
