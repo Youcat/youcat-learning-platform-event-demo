@@ -132,6 +132,7 @@ const copy = {
     notNow: "Not now",
     finishBoard: "Finish this reflection board",
     allComplete: "Your group has completed all challenges.",
+    openGame: "Open game",
   },
   pt: {
     home: "Início",
@@ -222,6 +223,7 @@ const copy = {
     notNow: "Agora não",
     finishBoard: "Concluir este mural de reflexões",
     allComplete: "Seu grupo concluiu todos os desafios.",
+    openGame: "Abrir jogo",
   },
 };
 
@@ -2134,6 +2136,34 @@ app.addEventListener("click", async (event) => {
     state.missionInteraction.succeeded = state.missionInteraction.currentCorrect;
     saveMissionInteraction();
     await completeTeamAttempt(state.missionInteraction.currentCorrect);
+    return;
+  }
+
+  if (action === "launch-b14") {
+    const mission = state.activeMission;
+    if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || mission.questionNumber !== 140 || mission.challengeIndex !== 3 || state.missionInteraction.attempted) return;
+    target.disabled = true;
+    try {
+      const definition = learningByNumber.get(140).games[3];
+      const { launchB14Mission } = await import("./minigames/b14-mission-adapter.js");
+      await launchB14Mission({
+        mission,
+        definition,
+        language,
+        onResult: async (result) => {
+          if (state.missionInteraction.attempted) return;
+          state.missionInteraction.attempted = true;
+          state.missionInteraction.finished = true;
+          state.missionInteraction.succeeded = result.correct && result.complete;
+          state.missionInteraction.currentCorrect = result.correct && result.complete;
+          saveMissionInteraction();
+          await completeTeamAttempt(state.missionInteraction.currentCorrect);
+        },
+      });
+    } catch (error) {
+      console.error("Unable to open B14 mission", error);
+      target.disabled = false;
+    }
     return;
   }
 

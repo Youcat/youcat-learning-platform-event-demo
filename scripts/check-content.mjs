@@ -22,7 +22,8 @@ for (const item of learning) {
   if (item.games.length !== 4) throw new Error(`Q${item.number} must have four games`);
   if (item.quiz.length !== 1) throw new Error(`Q${item.number} must have exactly one quiz`);
   for (const game of item.games) {
-    mechanicCounts.set(game.type, (mechanicCounts.get(game.type) || 0) + 1);
+    const mechanic = game.engineId || game.type;
+    mechanicCounts.set(mechanic, (mechanicCounts.get(mechanic) || 0) + 1);
     if (["order", "move"].includes(game.type) && game.start.join("|") === game.answer.join("|")) {
       throw new Error(`Q${item.number} ${game.type} game must not start solved`);
     }

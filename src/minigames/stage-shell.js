@@ -22,6 +22,10 @@ function validateEnginePayload(engine, instance) {
   throw new GameContractError("Engine rejected GameInstance payload", result?.errors || []);
 }
 
+export function submissionAllowed(instance, submitted) {
+  return instance?.mode !== "mission" || !submitted;
+}
+
 export async function launchGameStage({
   mount,
   instance,
@@ -116,10 +120,16 @@ export async function launchGameStage({
       button.type = "button";
       button.textContent = tr(action.label, locale);
       button.disabled = Boolean(action.disabled) || (instance.mode === "mission" && submitted);
-      button.addEventListener("click", () => {
+      const runAction = () => {
         action.run();
         persist();
         renderAccessibleActions();
+      };
+      button.addEventListener("click", runAction);
+      button.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        runAction();
       });
       access.append(button);
     }
@@ -128,6 +138,12 @@ export async function launchGameStage({
 
   function reportEngineFeedback(message) {
     feedback.textContent = tr(message, locale);
+    feedback.dataset.state = "";
+  }
+
+  function syncSceneFeedback() {
+    if (!scene?.accessibleFeedback) return;
+    feedback.textContent = tr(scene.accessibleFeedback, locale);
     feedback.dataset.state = "";
   }
 
@@ -182,7 +198,7 @@ export async function launchGameStage({
   game.canvas.setAttribute("aria-label", `${tr(instance.title, locale)}. ${tr(instance.prompt, locale)}`);
 
   async function submit() {
-    if (instance.mode === "mission" && submitted) {
+    if (!submissionAllowed(instance, submitted)) {
       feedback.textContent = copy[locale].locked;
       return;
     }
