@@ -1,5 +1,5 @@
 export const MINIGAME_STATE_VERSION = 1;
-const PREFIX = "youcat-assis:minigame";
+const PREFIX = "youcat-assis:minigame:v2";
 
 export function minigameStorageKey(instance) {
   return `${PREFIX}:v${MINIGAME_STATE_VERSION}:${instance.mode}:${instance.id}`;
