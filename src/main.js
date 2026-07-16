@@ -393,6 +393,7 @@ const state = {
   readingCleanup: null,
   syncTimer: null,
   submitting: false,
+  pendingMissionCompletion: null,
   activeMinigameController: null,
 };
 
@@ -1034,7 +1035,7 @@ function renderMissionElement(mission, learning, finished) {
       ? `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
       : `<div class="inline-minigame-host" data-inline-minigame-host data-mission-id="${escapeHtml(mission.id)}"><p class="game-help">${language === "pt" ? "Carregando desafio…" : "Loading challenge…"}</p></div>`;
     const skipAction = finished ? "" : `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`;
-    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}${skipAction}</article></div></section>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}${skipAction}</article></div></section>`;
   }
   const skipAction = game.type === "image-shuffle" && !finished
     ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
@@ -1092,6 +1093,7 @@ async function requestNextMission(excludeMissionId = "") {
   state.missionStatus = "loading";
   renderHome();
   try {
+    if (state.pendingMissionCompletion) await state.pendingMissionCompletion;
     const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId });
     if (mission?.type === "complete") {
       state.missionStatus = "complete";
@@ -1201,32 +1203,34 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
   }
 }
 
-async function finishReflectionMission(status) {
+function finishReflectionMission(status) {
   const mission = state.activeMission;
-  if (!mission || mission.type !== "reflection") return;
-  try {
-    await syncLeaderboardNow();
-  } catch (error) {
-    console.warn("Unable to synchronise XP before reflection completion", error);
-  }
-  try {
-    await finishPersonalMission({ mission, reflectionStatus: status });
-  } catch (error) {
-    // The reflection was already saved above. Do not strand someone on the
-    // form because a follow-up mission/leaderboard write could not complete.
-    console.error("Unable to finalise reflection mission", error);
-    try {
-      await releaseActiveMission(mission);
-    } catch (releaseError) {
-      console.warn("Unable to release reflection mission", releaseError);
-    }
-  }
+  if (!mission || mission.type !== "reflection") return Promise.resolve();
   state.completedMission = mission;
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
   renderQuestion(mission.questionNumber);
   void connectLeaderboards(true);
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+  scheduleLeaderboardSync("", true);
+
+  const completion = (async () => {
+    try {
+      await finishPersonalMission({ mission, reflectionStatus: status });
+    } catch (error) {
+      console.error("Unable to finalise reflection mission", error);
+      try {
+        await releaseActiveMission(mission);
+      } catch (releaseError) {
+        console.warn("Unable to release reflection mission", releaseError);
+      }
+    }
+  })();
+  const trackedCompletion = completion.finally(() => {
+    if (state.pendingMissionCompletion === trackedCompletion) state.pendingMissionCompletion = null;
+  });
+  state.pendingMissionCompletion = trackedCompletion;
+  return trackedCompletion;
 }
 
 async function finishBoardMission() {
@@ -1961,33 +1965,31 @@ app.addEventListener("submit", async (event) => {
     state.submitting = true;
     interaction.answer = text;
     renderQuestion(number, positions);
-    try {
-      const result = await publishReflection({
-        roomCode: state.room,
-        questionNumber: number,
-        name: state.profile.name,
-        text,
-      });
-      interaction.submitted = true;
-      saveInteraction(number);
-      const xpAwarded = reflectionXp(text.length);
-      const rewarded = grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
+    const publication = publishReflection({
+      roomCode: state.room,
+      questionNumber: number,
+      name: state.profile.name,
+      text,
+    });
+
+    interaction.submitted = true;
+    saveInteraction(number);
+    const xpAwarded = reflectionXp(text.length);
+    grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
+
+    void finishReflectionMission("submitted");
+    state.submitting = false;
+
+    void publication.then((result) => {
       if (!isFirebaseConfigured()) {
         const local = state.reflections.get(number) || [];
         state.reflections.set(number, [{ ...result, id: result.id }, ...local]);
       }
-      if (rewarded) await new Promise((resolve) => setTimeout(resolve, 900));
-      await finishReflectionMission("submitted");
-    } catch (error) {
+    }).catch((error) => {
       console.error("Unable to publish reflection", error);
-      interaction.submitted = false;
       interaction.answer = text;
       saveInteraction(number);
-      state.feedError = c("tryAgain");
-    } finally {
-      state.submitting = false;
-      if (state.activeMission) renderQuestion(number, positions);
-    }
+    });
   }
 });
 

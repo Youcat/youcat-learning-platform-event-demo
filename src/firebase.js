@@ -574,44 +574,44 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
-  // Completing a personal mission must never depend on a collection-wide
-  // leaderboard read. Those reads are useful for unlocking the board, but can
-  // be delayed or retried independently without trapping a participant here.
+  // Complete the participant-owned mission first. The shared event document
+  // is intentionally updated afterwards so many simultaneous reflections do
+  // not make every participant wait on the same contended transaction.
   const result = await services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, eventSnapshot, memberSnapshot] = await Promise.all([
-      transaction.get(participantRef),
-      transaction.get(eventRef),
-      transaction.get(memberRef),
-    ]);
+    const participantSnapshot = await transaction.get(participantRef);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
-    const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
     if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
     participant.reflectionStatus ||= {};
     participant.boardCompleted ||= {};
+    const newlyResolvedReflection = Boolean(reflectionStatus && !participant.reflectionStatus[key]);
     if (reflectionStatus && !participant.reflectionStatus[key]) {
       participant.reflectionStatus[key] = reflectionStatus;
-      event.resolvedByGroup ||= {};
-      event.resolvedByGroup[key] ||= {};
-      event.unlocked ||= {};
-      if (Number(memberSnapshot.data()?.groupXp || 0) > 0) {
-        event.resolvedByGroup[key][mission.groupCode] = Number(event.resolvedByGroup[key][mission.groupCode] || 0) + 1;
-      }
     }
     if (mission.type === "board") participant.boardCompleted[key] = true;
     participant.activeMission = null;
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
-    transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
-    return { unlocked: Boolean(event.unlocked[key]) };
+    return { unlocked: false, newlyResolvedReflection };
   });
-  // Board availability is derived after the essential participant state was
-  // saved. If this best-effort refresh fails, live leaderboard updates will
-  // retry it later and the completed reflection remains completed.
-  try {
-    await refreshReflectionBoardEligibilityFromFirestore();
-  } catch (error) {
-    console.warn("Unable to refresh reflection-board eligibility", error);
+
+  if (result.newlyResolvedReflection) {
+    void (async () => {
+      const memberSnapshot = await services.getDoc(memberRef);
+      if (Number(memberSnapshot.data()?.groupXp || 0) > 0) {
+        await services.runTransaction(services.db, async (transaction) => {
+          const eventSnapshot = await transaction.get(eventRef);
+          const event = { resolvedByGroup: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
+          event.resolvedByGroup ||= {};
+          event.resolvedByGroup[key] ||= {};
+          event.resolvedByGroup[key][mission.groupCode] = Number(event.resolvedByGroup[key][mission.groupCode] || 0) + 1;
+          transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
+        });
+      }
+      await refreshReflectionBoardEligibilityFromFirestore();
+    })().catch((error) => {
+      console.warn("Unable to refresh reflection-board eligibility", error);
+    });
   }
-  return result;
+  return { unlocked: result.unlocked };
 }
 
 export async function releaseActiveMission(mission) {
