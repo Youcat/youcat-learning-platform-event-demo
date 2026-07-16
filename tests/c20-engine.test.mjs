@@ -162,22 +162,22 @@ test("C20 exposes compact localized HTML cycling actions and two escalating non-
   assert.equal(scene.notifyCount, 2);
 });
 
-test("Q83 replaces only human game 2 and preserves four games plus one quiz", () => {
+test("Q83 uses a clear three-answer quiz challenge and preserves four games plus one quiz", () => {
   const q83 = approvedActivities[83];
   assert.equal(q83.games.length, 4);
   assert.equal(q83.quiz.length, 1);
   assert.equal(q83.games[0].type, "image-shuffle");
-  assert.deepEqual(q83.games[1], {
-    type: "minigame", engineId: "C20", engineVersion: "1.0.0", fixtureId: "C20", xp: 8,
-    title: { en: "River of Decisions", pt: "Rio das Decisões" },
-    prompt: { en: "Build a careful route through practical pressure, discernment, and public covenant.", pt: "Construa um caminho prudente pela pressão prática, pelo discernimento e pela aliança pública." },
-  });
+  assert.equal(q83.games[1].type, "reveal");
+  assert.equal(q83.games[1].xp, 8);
+  assert.equal(q83.games[1].categories.length, 3);
+  assert.equal(q83.games[1].cards.length, 1);
+  assert.equal(q83.games[1].cards[0].correct, 1);
   assert.equal(q83.games[2].type, "wordsearch");
   assert.equal(q83.games[3].type, "match");
 });
 
-test("C20 is registered as a production bundled source and maps only to Q83 slot 1", () => {
-  const activity = approvedActivities[83].games[1];
+test("C20 remains available as a production bundled engine for the minigame laboratory", () => {
+  const activity = { type: "minigame", engineId: "C20", engineVersion: "1.0.0", fixtureId: "C20", xp: 8 };
   const mission = { groupCode: "Assis-Sao-Jose", id: "83__game-1", questionNumber: 83, challengeIndex: 1, xp: 8 };
   const instance = createC20MissionInstance({ mission, activity });
   assert.equal(c20Source.kind, "bundled");
@@ -201,7 +201,7 @@ test("mission submission policy accepts once, locks repeats, and exit-before-sub
 
   const mission = createC20MissionInstance({
     mission: { groupCode: "Assis-Santa-Clara", id: "83__game-1", questionNumber: 83, challengeIndex: 1, xp: 8 },
-    activity: approvedActivities[83].games[1],
+    activity: { type: "minigame", engineId: "C20", engineVersion: "1.0.0", fixtureId: "C20", xp: 8 },
   });
   const persistence = createMinigamePersistence(new MemoryStorage());
   persistence.save(mission, { submitted: false, engineState: stateFor(["make-room"]) });

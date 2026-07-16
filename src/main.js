@@ -25,6 +25,7 @@ import {
   releaseActiveMission,
   renewMission,
   resetParticipantSession,
+  skipSharedMission,
   subscribeToGlobalQuestion,
   subscribeToHeartRewards,
   subscribeToLeaderboards,
@@ -417,6 +418,30 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function shuffledChoiceOrder(count) {
+  const order = Array.from({ length: count }, (_, index) => index);
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [order[index], order[other]] = [order[other], order[index]];
+  }
+  // A shuffled answer list must never accidentally retain the authored order.
+  if (count > 1 && order.every((value, index) => value === index)) [order[0], order[1]] = [order[1], order[0]];
+  return order;
+}
+
+function choiceOrderFor(gameState, key, count) {
+  gameState.choiceOrders ||= {};
+  const saved = gameState.choiceOrders[key];
+  const valid = Array.isArray(saved)
+    && saved.length === count
+    && new Set(saved).size === count
+    && saved.every((index) => Number.isInteger(index) && index >= 0 && index < count);
+  if (valid) return saved;
+  const order = shuffledChoiceOrder(count);
+  gameState.choiceOrders[key] = order;
+  return order;
+}
+
 function interactionFor(number) {
   if (!state.interactions.has(number)) {
     const learning = learningByNumber.get(number);
@@ -433,10 +458,11 @@ function interactionFor(number) {
         matched: [],
         foundWordIds: [],
         wordSearchStrokes: [],
+        choiceOrders: {},
         start: game.start || [],
         message: "",
       })),
-      quiz: learning.quiz.map(() => ({ selected: null, correct: false, attempted: false, practice: false })),
+      quiz: learning.quiz.map(() => ({ selected: null, correct: false, attempted: false, practice: false, choiceOrders: {} })),
       answer: "",
       submitted: false,
     };
@@ -809,6 +835,7 @@ async function connectLeaderboards(rerender = false) {
     state.leaderboardContributions = progress.totalXp() ? [local] : [];
     state.leaderboardStatus = "ready";
     if (rerender && state.view === "leaderboard") renderLeaderboard();
+    if (rerender && state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
     return;
   }
   state.leaderboardStatus = "loading";
@@ -820,9 +847,11 @@ async function connectLeaderboards(rerender = false) {
       if (previousTotal < 500 && currentGroupTotal() >= 500) showGroupGoalCelebration();
       state.leaderboardStatus = "ready";
       if (state.view === "leaderboard") renderLeaderboard(false);
+      if (state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
     }, () => {
       state.leaderboardStatus = "error";
       if (state.view === "leaderboard") renderLeaderboard(false);
+      if (state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
     });
   } catch {
     state.leaderboardStatus = "error";
@@ -968,7 +997,7 @@ function renderQuestion(number, positions = null) {
     </div></section>
     <section class="feed-section" data-section="reader"><div class="section-inner section-with-carousel"><p class="section-kicker">1 · ${c("reader")}</p>${renderReaderCarousel(number, official, learning)}</div></section>
     ${renderMissionElement(mission, learning, finished)}
-    ${finished ? renderMissionOverview(number) : ""}
+    ${finished ? renderMissionOverview() : ""}
   </div>${bottomNavigation(false)}</main>`;
   bindCarouselState();
   bindWordSearchBoards();
@@ -1023,21 +1052,33 @@ function renderMissionElement(mission, learning, finished) {
 
 function renderMissionQuiz(mission, item) {
   const quizState = state.missionInteraction;
+  const optionOrder = choiceOrderFor(quizState, "quiz-options", item.options.length);
   return `<article class="carousel-panel quiz-panel mission-quiz-panel"><h2>${escapeHtml(tr(item.prompt))}</h2><div class="choice-board">
-    ${item.options.map((option, index) => `<button type="button" class="choice-option ${quizState.selected === index ? (index === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && index === item.correct ? "is-correct-solution" : ""}" data-action="mission-quiz-choice" data-option="${index}" ${quizState.attempted ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}</div>
+    ${optionOrder.map((index) => `<button type="button" class="choice-option ${quizState.selected === index ? (index === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && index === item.correct ? "is-correct-solution" : ""}" data-action="mission-quiz-choice" data-option="${index}" ${quizState.attempted ? "disabled" : ""}>${escapeHtml(tr(item.options[index]))}</button>`).join("")}</div>
     ${quizState.selected === null ? "" : `<div class="answer-explanation ${quizState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${quizState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${escapeHtml(tr(item.feedback))}</p><p>${c("solution")}: ${escapeHtml(tr(item.options[item.correct]))}</p></div>`}</article>`;
 }
 
-function renderMissionOverview(number) {
-  const missionXp = Math.max(0, progress.totalXp() - state.missionStartXp);
-  return `<section class="feed-section overview-section" data-section="overview"><div class="section-inner overview-inner"><p class="section-kicker">3 · ${c("overview")}</p><h2>${c("overview")}</h2>
-    <div class="question-xp-summary"><div><span>${c("missionXp")}</span><strong>${missionXp} XP</strong></div><div><span>${c("yourContribution")}</span><strong data-question-personal-xp>${questionXp(number, state.room)} XP</strong></div><div><span>${c("groupQuestionTotal")}</span><strong data-question-group-total>${state.questionGroupTotal} XP</strong></div></div>
+function renderMissionGroupLeaderboard() {
+  if (state.leaderboardStatus === "loading" || state.leaderboardStatus === "idle") return `<p class="ranking-note">${c("loading")}</p>`;
+  return `<ol class="ranking-list">${state.leaderboardMembers.map((member, index) => `<li><b>${index + 1}</b><span>${escapeHtml(member.displayName)}</span><strong>${member.personalXp} XP</strong></li>`).join("") || `<li class="ranking-empty">Ainda não há XP neste grupo.</li>`}</ol>`;
+}
+
+function updateMissionGroupLeaderboard() {
+  const leaderboard = document.querySelector("[data-mission-group-leaderboard]");
+  if (leaderboard) leaderboard.innerHTML = renderMissionGroupLeaderboard();
+}
+
+function renderMissionOverview() {
+  const group = groupByCode(state.room);
+  return `<section class="feed-section overview-section mission-leaderboard-section" data-section="overview"><div class="section-inner overview-inner"><p class="section-kicker">3 · ${c("leaderboard")}</p><h2>${c("yourGroup")}</h2>
+    <div class="mission-group-identity">${groupMark(group)}<div><strong>${escapeHtml(state.room)}</strong><span>${escapeHtml(group.saint)}</span></div></div>
+    <div class="mission-group-leaderboard" data-mission-group-leaderboard>${renderMissionGroupLeaderboard()}</div>
     <button type="button" class="primary-action next-question-action" data-action="next-mission">${c("nextChallenge")}</button>
   </div></section>`;
 }
 
 function freshMissionInteraction() {
-  return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], foundWordIds: [], wordSearchStrokes: [], currentCorrect: null, message: "" };
+  return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], foundWordIds: [], wordSearchStrokes: [], choiceOrders: {}, currentCorrect: null, message: "" };
 }
 
 function missionStorageKey(mission) {
@@ -1151,6 +1192,7 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
     clearInterval(state.missionRenewTimer);
     if (!render) return;
     renderQuestion(mission.questionNumber, positions);
+    void connectLeaderboards(true);
     // Leave the result in view first. The overview is already available below for
     // anyone who wants to continue immediately, then opens itself after feedback.
     setTimeout(() => {
@@ -1173,6 +1215,7 @@ async function finishReflectionMission(status) {
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
   renderQuestion(mission.questionNumber);
+  void connectLeaderboards(true);
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
 }
 
@@ -1184,6 +1227,7 @@ async function finishBoardMission() {
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
   renderQuestion(mission.questionNumber);
+  void connectLeaderboards(true);
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
 }
 
@@ -1293,7 +1337,7 @@ function renderGame(number, game, gameIndex, gameState) {
   }
 
   if (game.type === "match") {
-    const rightOrder = game.pairs.length === 3 ? [1, 2, 0] : game.pairs.map((_, index) => (index + 1) % game.pairs.length);
+    const rightOrder = choiceOrderFor(gameState, "match-right", game.pairs.length);
     return `<p class="game-help">${c("matchHelp")}</p><div class="match-board"><div class="match-column">
       ${game.pairs.map((pair, index) => `<button type="button" class="game-token ${gameState.activeLeft === index ? "is-active" : ""} ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-left" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${disabled || gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(pair[0]))}</button>`).join("")}
       </div><div class="match-column">${rightOrder.map((index) => `<button type="button" class="game-token ${gameState.matched.includes(index) ? "is-matched" : ""}" data-action="match-right" data-question="${number}" data-game="${gameIndex}" data-pair="${index}" ${disabled || gameState.matched.includes(index) ? "disabled" : ""}>${escapeHtml(tr(game.pairs[index][1]))}</button>`).join("")}</div></div>${gameMessage(gameState, game)}`;
@@ -1302,8 +1346,10 @@ function renderGame(number, game, gameIndex, gameState) {
   if (game.type === "reveal") {
     const cardIndex = gameState.sequence.length;
     const card = game.cards[Math.min(cardIndex, game.cards.length - 1)];
-    return `<div class="reveal-progress">${Math.min(cardIndex + 1, game.cards.length)} ${c("of")} ${game.cards.length}</div><div class="reveal-card">${escapeHtml(tr(card.text))}</div><div class="choice-board compact-choice-board">
-      ${game.categories.map((category, index) => `<button type="button" class="choice-option" data-action="reveal-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled ? "disabled" : ""}>${escapeHtml(tr(category))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
+    const optionOrder = choiceOrderFor(gameState, `reveal-${cardIndex}`, game.categories.length);
+    const progress = game.cards.length > 1 ? `<div class="reveal-progress">${Math.min(cardIndex + 1, game.cards.length)} ${c("of")} ${game.cards.length}</div>` : "";
+    return `${progress}<div class="reveal-card">${escapeHtml(tr(card.text))}</div><div class="choice-board compact-choice-board">
+      ${optionOrder.map((index) => `<button type="button" class="choice-option" data-action="reveal-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled ? "disabled" : ""}>${escapeHtml(tr(game.categories[index]))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
   }
 
   if (game.type === "image-shuffle") {
@@ -1360,8 +1406,9 @@ function renderGame(number, game, gameIndex, gameState) {
   if (game.type === "crossword") {
     const clueIndex = gameState.sequence.length;
     const clue = game.clues[Math.min(clueIndex, game.clues.length - 1)];
+    const optionOrder = choiceOrderFor(gameState, `crossword-${clueIndex}`, game.words.length);
     return `<div class="crossword-clue"><span>${Math.min(clueIndex + 1, game.clues.length)}/${game.clues.length}</span><p>${escapeHtml(tr(clue.clue))}</p></div><div class="word-bank">
-      ${game.words.map((word, index) => `<button type="button" class="game-token ${gameState.sequence.includes(index) ? "is-matched" : ""}" data-action="crossword-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled || gameState.sequence.includes(index) ? "disabled" : ""}>${escapeHtml(tr(word))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
+      ${optionOrder.map((index) => `<button type="button" class="game-token ${gameState.sequence.includes(index) ? "is-matched" : ""}" data-action="crossword-choice" data-question="${number}" data-game="${gameIndex}" data-option="${index}" ${disabled || gameState.sequence.includes(index) ? "disabled" : ""}>${escapeHtml(tr(game.words[index]))}</button>`).join("")}</div>${gameMessage(gameState, game)}`;
   }
 
   if (game.type === "move") {
@@ -1532,8 +1579,9 @@ function bindWordSearchBoards() {
 function renderQuizCarousel(number, learning, interaction) {
   const panels = learning.quiz.map((item, quizIndex) => {
     const quizState = interaction.quiz[quizIndex];
+    const optionOrder = choiceOrderFor(quizState, "quiz-options", item.options.length);
     return `<article class="carousel-panel quiz-panel"><div class="panel-label"><span class="panel-xp">+10 XP</span> ${quizState.attempted ? `<span class="done-label ${quizState.correct ? "" : "is-missed"}">${quizState.correct ? "✓ +10 XP" : `× ${c("missedXp")}`}</span>` : ""}</div><h2>${escapeHtml(tr(item.prompt))}</h2><div class="choice-board">
-      ${item.options.map((option, optionIndex) => `<button type="button" class="choice-option ${quizState.selected === optionIndex ? (optionIndex === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && optionIndex === item.correct ? "is-correct-solution" : ""}" data-action="quiz-choice" data-question="${number}" data-quiz="${quizIndex}" data-option="${optionIndex}" ${quizState.attempted || quizState.selected !== null ? "disabled" : ""}>${escapeHtml(tr(option))}</button>`).join("")}</div>
+      ${optionOrder.map((optionIndex) => `<button type="button" class="choice-option ${quizState.selected === optionIndex ? (optionIndex === item.correct ? "is-correct" : "is-wrong") : ""} ${quizState.selected !== null && optionIndex === item.correct ? "is-correct-solution" : ""}" data-action="quiz-choice" data-question="${number}" data-quiz="${quizIndex}" data-option="${optionIndex}" ${quizState.attempted || quizState.selected !== null ? "disabled" : ""}>${escapeHtml(tr(item.options[optionIndex]))}</button>`).join("")}</div>
       ${quizState.selected === null ? "" : `<div class="answer-explanation ${quizState.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${quizState.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong><p>${escapeHtml(tr(item.feedback))}</p><p>${c("solution")}: ${escapeHtml(tr(item.options[item.correct]))}</p></div>`}</article>`;
   });
   return carousel("quiz-carousel", panels, `${c("quiz")} ${number}`);
@@ -1717,11 +1765,21 @@ async function launchMissionMinigame() {
   const { applyMissionMinigameResult, startMissionMinigame } = await import("./minigames/mission-player.js");
   document.body.classList.add("is-minigame-open");
   let controller = null;
+  let completionTimer = null;
   const close = () => {
+    clearTimeout(completionTimer);
     controller?.destroy();
     if (state.activeMinigameController === controller) state.activeMinigameController = null;
     document.body.classList.remove("is-minigame-open");
     renderQuestion(missionNumber, positions);
+  };
+  const continueToMissionLeaderboard = () => {
+    controller?.destroy();
+    if (state.activeMinigameController === controller) state.activeMinigameController = null;
+    document.body.classList.remove("is-minigame-open");
+    renderQuestion(missionNumber);
+    void connectLeaderboards(true);
+    requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
   };
   try {
     controller = await startMissionMinigame({
@@ -1735,7 +1793,9 @@ async function launchMissionMinigame() {
         if (!accepted.accepted) return;
         saveMissionInteraction();
         await completeTeamAttempt(accepted.correct, { render: false });
-        if (state.activeMission?.id === mission.id) close();
+        completionTimer = setTimeout(() => {
+          if (state.completedMission?.id === mission.id && state.activeMinigameController === controller) continueToMissionLeaderboard();
+        }, 3000);
       },
     });
     state.activeMinigameController = controller;
@@ -2005,7 +2065,7 @@ app.addEventListener("click", async (event) => {
     if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
     target.disabled = true;
     try {
-      await releaseActiveMission(mission);
+      await skipSharedMission(mission);
       cleanupMissionDashboard();
       state.activeMission = null;
       state.missionInteraction = null;

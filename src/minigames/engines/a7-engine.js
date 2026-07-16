@@ -222,6 +222,11 @@ export const a7Engine = Object.freeze({
         if (!this.a7Graphics || !this.a7Base) return;
         const width = this.scale.width, height = this.scale.height, layout = paneLayout(instance, width, height);
         this.a7Graphics.clear();
+        if (!this.a7State.referenceVisible) {
+          // One quiet frame gives the assembled image a clear home without revealing the seven shard contours.
+          this.a7Graphics.lineStyle(1.5, 0x1c1b18, 0.72);
+          this.a7Graphics.strokeRect(layout.left, layout.top, layout.paneWidth, layout.paneHeight);
+        }
         this.a7Base.setPosition(layout.centerX, layout.centerY).setScale(layout.scale).setAlpha(this.a7State.referenceVisible || this.a7State.solutionShown || this.a7State.completed ? 1 : 0);
         concepts.forEach((concept, index) => {
           const sprite = this.a7Sprites.get(concept.id); const position = this.a7State.positions[concept.id]; if (!sprite) return;

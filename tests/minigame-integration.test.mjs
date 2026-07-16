@@ -6,7 +6,7 @@ import { missionInstanceForActivity } from "../src/minigames/mission-player.js";
 
 const approvedSlots = [
   [14, 3, "C30", "1.0.0"], [25, 3, "A4", "1.0.0"], [34, 1, "A2", "1.0.0"],
-  [68, 3, "A7", "1.0.0"], [83, 1, "C20", "1.0.0"], [140, 3, "B14", "1.0.0"],
+  [68, 3, "A7", "1.0.0"], [140, 3, "B14", "1.0.0"],
 ];
 
 test("the combined catalog registers exactly the six retained production engines", () => {
@@ -14,17 +14,17 @@ test("the combined catalog registers exactly the six retained production engines
   assert.equal(new Set(productionMinigameFixtures.map((fixture) => fixture.id)).size, 6);
   const registry = createAppMinigameRegistry();
   const production = registry.registrations().filter((entry) => entry.production);
-  assert.deepEqual(new Set(production.map((entry) => entry.engineId)), new Set(approvedSlots.map(([, , engineId]) => engineId)));
+  assert.deepEqual(new Set(production.map((entry) => entry.engineId)), new Set(["A2", "A4", "A7", "B14", "C20", "C30"]));
   productionMinigameFixtures.forEach((fixture) => assert.doesNotThrow(() => registry.resolve({ ...fixture, mode: "mission" })));
   assert.throws(() => registry.resolve({ ...bundledMinigameSource.get("foundation-skeleton-v1"), mode: "mission" }), /non-production/);
 });
 
-test("every reviewed engine occupies its exact real mission slot while all questions retain four games and one quiz", () => {
+test("every assigned engine occupies its exact real mission slot while all questions retain four games and one quiz", () => {
   Object.values(activities).forEach((activity) => {
     assert.equal(activity.games.length, 4);
     assert.equal(activity.quiz.length, 1);
   });
-  assert.equal(Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "minigame").length, 6);
+  assert.equal(Object.values(activities).flatMap((activity) => activity.games).filter((game) => game.type === "minigame").length, 5);
   approvedSlots.forEach(([questionNumber, missionSlot, engineId, engineVersion]) => {
     const activity = activities[questionNumber].games[missionSlot];
     assert.deepEqual({ type: activity.type, engineId: activity.engineId, engineVersion: activity.engineVersion }, { type: "minigame", engineId, engineVersion });
@@ -64,4 +64,5 @@ test("removed engines are absent and their mission slots remain playable standar
   assert.deepEqual(activities[59].games.map(({ type }) => type), ["match", "image-shuffle", "reveal", "wordsearch"]);
   assert.deepEqual(activities[3].games.map(({ type }) => type), ["order", "reveal", "move", "wordsearch"]);
   assert.deepEqual(activities[126].games.map(({ type }) => type), ["order", "match", "image-shuffle", "reveal"]);
+  assert.deepEqual(activities[83].games.map(({ type }) => type), ["image-shuffle", "reveal", "wordsearch", "match"]);
 });

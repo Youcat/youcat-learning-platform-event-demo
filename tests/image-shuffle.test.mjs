@@ -17,6 +17,7 @@ test("Assis preserves the six game illustrations still used as 3x3 shuffle puzzl
   for (const [number, index] of puzzleSlots) {
     const game = activities[number].games[index];
     assert.equal(game.type, "image-shuffle");
+    assert.equal(game.xp, 30);
     assert.ok(game.title.en);
     assert.ok(game.title.pt);
     puzzles.push(`${number}:${index}`);

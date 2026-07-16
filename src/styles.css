@@ -1884,36 +1884,23 @@ a.minigame-index-row:focus-visible,
   font-size: 34px;
 }
 
-.question-xp-summary {
-  display: grid;
-  gap: 18px;
+.mission-group-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
 }
-
-.question-xp-summary > div {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  padding: 18px 16px;
+.mission-group-identity .group-mark { width: 58px; height: 58px; flex-basis: 58px; }
+.mission-group-identity > div { display: grid; gap: 2px; }
+.mission-group-identity strong { font-family: "Rockster", sans-serif; font-size: 19px; }
+.mission-group-identity span { color: var(--muted); font-size: 13px; }
+.mission-group-leaderboard {
+  padding: 4px 14px;
   border: 1.5px solid var(--graphite);
   border-radius: var(--wobble-radius-a);
+  background: rgba(214, 0, 86, .035);
 }
-
-.question-xp-summary > div:nth-child(2) {
-  border-radius: var(--wobble-radius-b);
-  background: var(--love-red-35);
-  transform: rotate(.25deg);
-}
-
-.question-xp-summary span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.question-xp-summary strong {
-  color: var(--love-red);
-  font-family: "Rockster", sans-serif;
-  font-size: 32px;
-}
+.mission-group-leaderboard .ranking-note { margin: 12px 0; }
 
 .next-question-action {
   margin-top: 34px;

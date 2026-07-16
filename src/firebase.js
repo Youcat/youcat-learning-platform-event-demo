@@ -324,7 +324,7 @@ function chooseMission({ participant, group, event, sharedChallenges, questions,
   const candidates = [];
   for (const challenge of sharedChallenges) {
     const saved = group.challenges?.[challenge.id];
-    const available = !saved || saved.status !== "completed" && (saved.status !== "reserved" || Number(saved.leaseUntil || 0) <= now);
+    const available = !saved || (saved.status !== "completed" && saved.status !== "skipped" && (saved.status !== "reserved" || Number(saved.leaseUntil || 0) <= now));
     if (available && challenge.id !== excludeMissionId) candidates.push({ ...challenge, type: "shared", groupCode: roomCode });
   }
   for (const questionNumber of questions) {
@@ -348,7 +348,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
     const mission = chooseMission({ participant, group, event: localMissionEvent, sharedChallenges, questions, roomCode, now, excludeMissionId });
     if (!mission) {
-      const complete = sharedChallenges.every((item) => group.challenges?.[item.id]?.status === "completed")
+      const complete = sharedChallenges.every((item) => ["completed", "skipped"].includes(group.challenges?.[item.id]?.status))
         && questions.every((number) => participant.reflectionStatus?.[number] && participant.boardCompleted?.[number]);
       return complete ? { type: "complete" } : null;
     }
@@ -376,7 +376,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     if (!mission) {
       transaction.set(participantRef, { ...participant, activeMission: null, updatedAt: services.serverTimestamp() }, { merge: true });
       transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
-      const complete = sharedChallenges.every((item) => group.challenges?.[item.id]?.status === "completed")
+      const complete = sharedChallenges.every((item) => ["completed", "skipped"].includes(group.challenges?.[item.id]?.status))
         && questions.every((number) => participant.reflectionStatus?.[number] && participant.boardCompleted?.[number]);
       return complete ? { type: "complete" } : null;
     }
@@ -447,6 +447,38 @@ export async function completeSharedMission({ mission, correct, xpAwarded }) {
     const saved = group.challenges?.[mission.id];
     if (participant?.activeMission?.id !== mission.id || saved?.reservedBy !== uid || saved.status === "completed") throw new Error("mission-not-owned");
     group.challenges[mission.id] = { ...saved, status: "completed", completedBy: uid, correct, xpAwarded, completedAt: Date.now() };
+    group.progress ||= {};
+    group.progress[key] = Number(group.progress[key] || 0) + 1;
+    transaction.set(groupRef, { ...group, updatedAt: services.serverTimestamp() }, { merge: true });
+    transaction.update(participantRef, { activeMission: null, updatedAt: services.serverTimestamp() });
+    return true;
+  });
+}
+
+export async function skipSharedMission(mission) {
+  const uid = await ensureParticipantSession();
+  const key = String(mission.questionNumber);
+  if (!configured) {
+    const participant = localParticipant(uid, mission.groupCode);
+    const group = localGroup(mission.groupCode);
+    const saved = group.challenges[mission.id];
+    if (saved?.reservedBy !== uid || saved.status !== "reserved") throw new Error("mission-not-owned");
+    group.challenges[mission.id] = { ...saved, status: "skipped", skippedBy: uid, skippedAt: Date.now() };
+    group.progress[key] = Number(group.progress[key] || 0) + 1;
+    participant.activeMission = null;
+    emitLocalMissionGroup(mission.groupCode);
+    return true;
+  }
+  const services = await getServices();
+  const participantRef = services.doc(services.db, "missionParticipants", uid);
+  const groupRef = services.doc(services.db, "missionGroups", mission.groupCode);
+  return services.runTransaction(services.db, async (transaction) => {
+    const [participantSnapshot, groupSnapshot] = await Promise.all([transaction.get(participantRef), transaction.get(groupRef)]);
+    const participant = participantSnapshot.data();
+    const group = groupSnapshot.data() || { challenges: {}, progress: {} };
+    const saved = group.challenges?.[mission.id];
+    if (participant?.activeMission?.id !== mission.id || saved?.reservedBy !== uid || saved.status !== "reserved") throw new Error("mission-not-owned");
+    group.challenges[mission.id] = { ...saved, status: "skipped", skippedBy: uid, skippedAt: services.serverTimestamp() };
     group.progress ||= {};
     group.progress[key] = Number(group.progress[key] || 0) + 1;
     transaction.set(groupRef, { ...group, updatedAt: services.serverTimestamp() }, { merge: true });

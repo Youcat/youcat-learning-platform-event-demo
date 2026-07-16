@@ -344,13 +344,6 @@ export const a4Engine = Object.freeze({
           }
         }
 
-        if (state.completed) {
-          this.graphics.lineStyle(2, 0xd60056, 0.65);
-          this.graphics.lineBetween(62, 103, 120, 126);
-          this.graphics.lineBetween(180, 103, 120, 126);
-          this.graphics.lineBetween(298, 103, 240, 126);
-          this.graphics.lineBetween(120, 210, 240, 210);
-        }
       }
     }
 

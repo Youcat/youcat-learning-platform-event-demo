@@ -30,8 +30,8 @@ export const a7Fixture = Object.freeze({
   xp: 0,
   title: localized("Restore the relationship", "Restaure a relação"),
   prompt: localized(
-    "Study the picture. Then rebuild the relationship from its seven fragments. There are no outlines.",
-    "Observe a imagem. Depois, reconstrua a relação com seus sete fragmentos. Não há contornos.",
+    "Study the picture. Then rebuild it from seven fragments inside the rectangular frame.",
+    "Observe a imagem. Depois, reconstrua-a com sete fragmentos dentro do quadro retangular.",
   ),
   insight: localized(
     "Love is not assembled from isolated virtues. In a covenant, truth, trust, tenderness, freedom, promise, and wholeness receive the other person as a gift.",
