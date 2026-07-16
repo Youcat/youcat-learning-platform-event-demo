@@ -1029,7 +1029,7 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
-  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : "";
+  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : "";
   const attemptNoteMarkup = attemptNote ? `<p class="one-attempt-note">${attemptNote}</p>` : "";
   if (game.type === "minigame") {
     const result = finished
@@ -1041,7 +1041,7 @@ function renderMissionElement(mission, learning, finished) {
   const skipAction = game.type === "image-shuffle" && !finished
     ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
     : "";
-  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel ${game.type === "image-shuffle" ? "is-image-shuffle" : ""}"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
 }
 
 function renderMissionQuiz(mission, item) {
@@ -1368,7 +1368,7 @@ function renderGame(number, game, gameIndex, gameState) {
     const piece = language === "pt" ? "Peça" : "Piece";
     const movableText = language === "pt" ? "pode mover" : "movable";
     const fixedText = language === "pt" ? "não pode mover" : "not movable";
-    return `<p class="game-help" id="image-shuffle-help-${number}-${gameIndex}">${c("imageShuffleHelp")}</p>
+    return `<span class="sr-only" id="image-shuffle-help-${number}-${gameIndex}">${c("imageShuffleHelp")}</span>
       <div class="image-shuffle-game">
         <div class="image-shuffle-meta"><span>3 × 3</span><span>${puzzleState.puzzleMoves} ${c("imageShuffleMoves")}</span><button type="button" class="image-shuffle-reference-action" data-action="image-shuffle-reference">${c("imageShuffleReference")}</button></div>
         ${puzzleState.puzzleReference ? `<img class="image-shuffle-reference" src="${illustration}" alt="${escapeHtml(title)}" />` : ""}

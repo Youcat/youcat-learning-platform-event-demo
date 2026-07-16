@@ -2517,6 +2517,21 @@ a.minigame-index-row:focus-visible,
   padding: 8px 0 18px;
   overflow-y: auto;
 }
+
+.mission-game-panel.is-image-shuffle {
+  display: flex;
+  min-height: min(590px, calc(100dvh - var(--nav-height) - 180px));
+  flex-direction: column;
+}
+
+.mission-game-panel.is-image-shuffle .image-shuffle-game {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
 .reflection-skip-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
 .reflection-skip-actions .quiet-action { font-size: 12px; }
 .skip-challenge-action {
@@ -2544,6 +2559,28 @@ a.minigame-index-row:focus-visible,
   .question-card { grid-template-columns: minmax(0, 1fr) 56px; column-gap: 6px; }
   .team-progress-ring { width: 56px; height: 56px; }
   .reflection-skip-actions { grid-template-columns: 1fr; }
+}
+
+@media (max-height: 720px) {
+  .mission-game-panel.is-image-shuffle {
+    min-height: calc(100dvh - var(--nav-height) - 172px);
+  }
+
+  .mission-game-panel.is-image-shuffle .game-prompt {
+    margin-bottom: 8px;
+  }
+
+  .mission-game-panel.is-image-shuffle .image-shuffle-meta {
+    min-height: 28px;
+  }
+
+  .mission-game-panel.is-image-shuffle .image-shuffle-board {
+    width: min(100%, 260px);
+  }
+
+  .mission-game-panel.is-image-shuffle .image-shuffle-restart {
+    min-height: 32px;
+  }
 }
 
 @media (max-width: 359px) {
