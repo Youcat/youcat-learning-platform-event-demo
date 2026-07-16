@@ -40,7 +40,7 @@ const language = params.get("lang") === "en" ? "en" : "pt";
 const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 const progress = createProgressStore();
-const CONTENT_VERSION = 6;
+const CONTENT_VERSION = 7;
 
 // GitHub Pages replaces Vite's hashed, on-demand game files on every deploy.
 // An already open app shell can otherwise ask for a removed game file and leave
