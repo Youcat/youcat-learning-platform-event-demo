@@ -576,13 +576,14 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
-  const groupSummaries = services.collection(services.db, "leaderboardGroupSummaries");
-  return services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, eventSnapshot, memberSnapshot, groupSummariesSnapshot] = await Promise.all([
+  // Completing a personal mission must never depend on a collection-wide
+  // leaderboard read. Those reads are useful for unlocking the board, but can
+  // be delayed or retried independently without trapping a participant here.
+  const result = await services.runTransaction(services.db, async (transaction) => {
+    const [participantSnapshot, eventSnapshot, memberSnapshot] = await Promise.all([
       transaction.get(participantRef),
       transaction.get(eventRef),
       transaction.get(memberRef),
-      transaction.get(groupSummaries),
     ]);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
     const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
@@ -598,13 +599,21 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
         event.resolvedByGroup[key][mission.groupCode] = Number(event.resolvedByGroup[key][mission.groupCode] || 0) + 1;
       }
     }
-    refreshReflectionBoardEligibility(event, groupSummariesSnapshot.docs.map((snapshot) => snapshot.data()));
     if (mission.type === "board") participant.boardCompleted[key] = true;
     participant.activeMission = null;
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
     transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
     return { unlocked: Boolean(event.unlocked[key]) };
   });
+  // Board availability is derived after the essential participant state was
+  // saved. If this best-effort refresh fails, live leaderboard updates will
+  // retry it later and the completed reflection remains completed.
+  try {
+    await refreshReflectionBoardEligibilityFromFirestore();
+  } catch (error) {
+    console.warn("Unable to refresh reflection-board eligibility", error);
+  }
+  return result;
 }
 
 export async function releaseActiveMission(mission) {

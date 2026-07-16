@@ -1097,6 +1097,7 @@ async function requestNextMission(excludeMissionId = "") {
   if (state.missionClaiming) return;
   state.missionClaiming = true;
   state.missionStatus = "loading";
+  renderHome();
   try {
     const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId });
     if (mission?.type === "complete") {
@@ -1215,7 +1216,18 @@ async function finishReflectionMission(status) {
   } catch (error) {
     console.warn("Unable to synchronise XP before reflection completion", error);
   }
-  await finishPersonalMission({ mission, reflectionStatus: status });
+  try {
+    await finishPersonalMission({ mission, reflectionStatus: status });
+  } catch (error) {
+    // The reflection was already saved above. Do not strand someone on the
+    // form because a follow-up mission/leaderboard write could not complete.
+    console.error("Unable to finalise reflection mission", error);
+    try {
+      await releaseActiveMission(mission);
+    } catch (releaseError) {
+      console.warn("Unable to release reflection mission", releaseError);
+    }
+  }
   state.completedMission = mission;
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
