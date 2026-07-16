@@ -37,7 +37,6 @@ import {
 const app = document.querySelector("#app");
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") === "en" ? "en" : "pt";
-const gameLabId = params.get("lab");
 const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 const progress = createProgressStore();
@@ -131,7 +130,6 @@ const copy = {
     notNow: "Not now",
     finishBoard: "Finish this reflection board",
     allComplete: "Your group has completed all challenges.",
-    testMinigames: "Test minigames",
   },
   pt: {
     home: "Início",
@@ -220,7 +218,6 @@ const copy = {
     notNow: "Agora não",
     finishBoard: "Concluir este mural de reflexões",
     allComplete: "Seu grupo concluiu todos os desafios.",
-    testMinigames: "Testar minijogos",
   },
 };
 
@@ -722,7 +719,6 @@ function renderHome() {
       <section class="mission-launch">
         <button type="button" class="primary-action" data-action="next-mission" ${state.missionClaiming ? "disabled" : ""}>${c("getChallenge")}</button>
       </section>
-      <a class="minigame-lab-home-link" href="?lab=index&amp;lang=${language}">${c("testMinigames")} →</a>
       <section class="question-list" aria-label="${c("teamProgress")}">${cards}</section>
       ${bottomNavigation(false)}
     </main>
@@ -2326,12 +2322,5 @@ window.addEventListener("beforeunload", () => {
   state.activeMinigameController?.destroy();
   cleanupSubscription();
 });
-if (gameLabId) {
-  void import("./minigames/game-lab.js")
-    .then(({ startGameLab }) => startGameLab({ mount: app, id: gameLabId, language }))
-    .catch((error) => {
-      console.error("Unable to open Game Lab", error);
-      app.innerHTML = `<main class="minigame-lab-error"><h1>${language === "en" ? "Game Lab could not start" : "O Laboratório de Jogos não pôde iniciar"}</h1><p>${escapeHtml(error.message)}</p></main>`;
-    });
-} else if (state.profile) renderReturning();
+if (state.profile) renderReturning();
 else renderWelcome();

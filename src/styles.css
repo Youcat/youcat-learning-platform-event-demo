@@ -467,7 +467,6 @@ a.minigame-index-row:hover {
 }
 
 a.minigame-index-row:focus-visible,
-.minigame-lab-home-link:focus-visible,
 .minigame-index-back:focus-visible {
   border-radius: 4px;
   outline: 3px solid var(--love-red);
@@ -516,24 +515,9 @@ a.minigame-index-row:focus-visible,
   text-align: right;
 }
 
-.minigame-lab-home-link {
-  display: flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  margin: 4px 28px 16px;
-  padding: 0 2px;
-  border-bottom: 1px solid var(--border);
-  color: var(--love-red);
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
 @media (max-width: 374px) {
   .minigame-lab-index { padding-right: 20px; padding-left: 20px; }
   .minigame-index-row { gap: 8px; grid-template-columns: 38px minmax(0, 1fr) auto; }
-  .minigame-lab-home-link { margin-right: 20px; margin-left: 20px; }
 }
 
 @media (max-height: 720px) {
