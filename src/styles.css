@@ -1350,6 +1350,18 @@ a.minigame-index-row:focus-visible,
   line-height: 18px;
 }
 
+.minigame-load-error {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 18px 0;
+}
+
+.minigame-load-error p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .game-panel,
 .quiz-panel {
   overflow-y: auto;

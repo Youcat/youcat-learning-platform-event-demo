@@ -42,6 +42,17 @@ const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta
 const progress = createProgressStore();
 const CONTENT_VERSION = 6;
 
+// GitHub Pages replaces Vite's hashed, on-demand game files on every deploy.
+// An already open app shell can otherwise ask for a removed game file and leave
+// the player on “Carregando desafio…”. Reload once into the current release.
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  const reloadKey = "youcat-assis:reloaded-after-chunk-update";
+  if (sessionStorage.getItem(reloadKey)) return;
+  sessionStorage.setItem(reloadKey, "1");
+  window.location.reload();
+});
+
 const copy = {
   en: {
     home: "Home",
@@ -1804,23 +1815,23 @@ async function mountInlineMissionMinigame() {
   const host = document.querySelector(`[data-inline-minigame-host][data-mission-id="${mission.id}"]`);
   if (!host) return;
   const missionNumber = mission.questionNumber;
-  const { applyMissionMinigameResult, startMissionMinigame } = await import("./minigames/mission-player.js");
-  if (!host.isConnected || state.activeMission?.id !== mission.id || state.activeMinigameController) return;
   let controller = null;
   let completionTimer = null;
-  const close = () => {
-    clearTimeout(completionTimer);
-    controller?.destroy();
-    if (state.activeMinigameController === controller) state.activeMinigameController = null;
-  };
-  const continueToMissionLeaderboard = () => {
-    controller?.destroy();
-    if (state.activeMinigameController === controller) state.activeMinigameController = null;
-    renderQuestion(missionNumber);
-    void connectLeaderboards(true);
-    requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
-  };
   try {
+    const { applyMissionMinigameResult, startMissionMinigame } = await import("./minigames/mission-player.js");
+    if (!host.isConnected || state.activeMission?.id !== mission.id || state.activeMinigameController) return;
+    const close = () => {
+      clearTimeout(completionTimer);
+      controller?.destroy();
+      if (state.activeMinigameController === controller) state.activeMinigameController = null;
+    };
+    const continueToMissionLeaderboard = () => {
+      controller?.destroy();
+      if (state.activeMinigameController === controller) state.activeMinigameController = null;
+      renderQuestion(missionNumber);
+      void connectLeaderboards(true);
+      requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+    };
     controller = await startMissionMinigame({
       mount: host,
       mission,
@@ -1844,9 +1855,11 @@ async function mountInlineMissionMinigame() {
     }
     state.activeMinigameController = controller;
   } catch (error) {
+    console.error("Unable to load minigame", error);
     controller?.destroy();
     state.activeMinigameController = null;
-    throw error;
+    if (!host.isConnected || state.activeMission?.id !== mission.id) return;
+    host.innerHTML = `<div class="minigame-load-error" role="status"><p>${language === "pt" ? "Não foi possível carregar este desafio." : "This challenge could not be loaded."}</p><button type="button" class="secondary-action" data-action="retry-minigame">${language === "pt" ? "Tentar novamente" : "Try again"}</button></div>`;
   }
 }
 
@@ -2081,6 +2094,14 @@ app.addEventListener("click", async (event) => {
     state.completedMission = null;
     state.missionInteraction = null;
     await requestNextMission();
+    return;
+  }
+
+  if (action === "retry-minigame") {
+    target.disabled = true;
+    const host = target.closest("[data-inline-minigame-host]");
+    if (host) host.innerHTML = `<p class="game-help">${language === "pt" ? "Carregando desafio…" : "Loading challenge…"}</p>`;
+    void mountInlineMissionMinigame();
     return;
   }
 
