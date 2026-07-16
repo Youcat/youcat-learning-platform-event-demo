@@ -2513,9 +2513,9 @@ a.minigame-index-row:focus-visible,
   width: 100%;
   min-width: 0;
   height: auto;
-  max-height: calc(100dvh - var(--nav-height) - 180px);
+  max-height: none;
   padding: 8px 0 18px;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .mission-game-panel.is-image-shuffle {
