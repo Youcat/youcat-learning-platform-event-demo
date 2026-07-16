@@ -2472,8 +2472,6 @@ a.minigame-index-row:focus-visible,
   align-items: center;
 }
 .question-card::before { width: min(145px, 42vw); }
-.mission-question-card { cursor: default; }
-.mission-question-card:active { transform: none; }
 .team-progress-ring {
   --team-progress: 0;
   position: relative;

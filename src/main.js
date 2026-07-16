@@ -687,7 +687,7 @@ function renderHome() {
     const ratio = Math.min(1, completed / 5);
     return `
       <article class="question-card" style="--card-index:${index}">
-        <div class="question-card-main mission-question-card" aria-label="${escapeHtml(official.question)}">
+        <button type="button" class="question-card-main" data-action="browse-question" data-question="${item.number}" aria-label="${escapeHtml(official.question)}">
           <img class="question-card-illustration" src="${questionIllustrations[item.number]}" alt="" />
           <span class="question-card-copy">
             <span class="question-card-meta">
@@ -696,7 +696,7 @@ function renderHome() {
             <span class="question-card-title">${escapeHtml(tr(topics[item.number]))}</span>
             <span class="question-card-question">${escapeHtml(official.question)}</span>
           </span>
-        </div>
+        </button>
         <div class="team-progress-ring" data-team-progress="${item.number}" style="--team-progress:${ratio}">
           <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20"></circle><circle class="team-progress-value" cx="24" cy="24" r="20"></circle></svg>
           <strong>${completed}/5</strong><small>${c("teamProgress")}</small>
@@ -1002,6 +1002,31 @@ function renderQuestion(number, positions = null) {
   bindMissionLease();
   restorePositions(positions);
   void mountInlineMissionMinigame();
+}
+
+function renderBrowseQuestion(number, positions = null) {
+  state.view = "browse-question";
+  state.currentQuestion = number;
+  const official = officialByNumber.get(number).official[language];
+  const learning = learningByNumber.get(number);
+  const uid = participantUid();
+  const heartsGiven = (state.reflections.get(number) || []).filter((item) => (item.voters || []).includes(uid)).length;
+  app.innerHTML = `<main class="app-shell question-screen browse-question-screen"><div id="question-feed" class="question-feed">
+    <section class="feed-section intro-section" data-section="intro"><div class="section-inner">
+      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
+      <h1>${escapeHtml(official.question)}</h1><div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
+      <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
+    </div></section>
+    <section class="feed-section" data-section="reader"><div class="section-inner section-with-carousel"><p class="section-kicker">1 · ${c("reader")}</p>${renderReaderCarousel(number, official, learning)}</div></section>
+    <section class="feed-section reflections-section" data-section="reflections"><div class="section-inner reflections-inner">
+      <p class="section-kicker">2 · ${c("reflections")}</p><h2>${c("allReflections")}</h2><p>${c("allReflectionsBody")}</p>
+      <div class="board-heart-counter">♡ ${heartsGiven}/3</div><div id="reflections-list" class="reflections-list" aria-live="polite">${renderReflectionsList(number)}</div>
+    </div></section>
+  </div>${bottomNavigation(false)}</main>`;
+  bindCarouselState();
+  bindReadingTimers();
+  if (positions) restorePositions(positions);
+  else window.scrollTo({ top: 0, behavior: "auto" });
 }
 
 function renderMissionElement(mission, learning, finished) {
@@ -1823,12 +1848,12 @@ async function mountInlineMissionMinigame() {
   }
 }
 
-async function openQuestion(number) {
+async function openBrowseQuestion(number) {
   cleanupSubscription();
+  cleanupMissionDashboard();
   state.feedStatus = isFirebaseConfigured() ? "loading" : "ready";
   state.feedError = "";
-  state.questionGroupTotal = progress.questionGroupXp(state.room, number);
-  renderQuestion(number);
+  renderBrowseQuestion(number);
 
   if (isFirebaseConfigured()) {
     const unsubscribe = await subscribeToGlobalQuestion(
@@ -1837,17 +1862,7 @@ async function openQuestion(number) {
         state.reflections.set(number, reflections);
         state.feedStatus = "ready";
         rewardReceivedHearts(number, reflections);
-        const ownReflection = reflections.find((reflection) => reflection.authorUid === participantUid());
-        const interaction = interactionFor(number);
-        if (ownReflection && !interaction.submitted) {
-          const positions = capturePositions();
-          interaction.answer = ownReflection.text;
-          interaction.submitted = true;
-          saveInteraction(number);
-          renderQuestion(number, positions);
-        } else {
-          updateReflections(number);
-        }
+        updateReflections(number);
       },
       () => {
         state.feedStatus = "error";
@@ -1857,14 +1872,6 @@ async function openQuestion(number) {
     );
     if (state.currentQuestion === number) state.unsubscribe = unsubscribe;
     else unsubscribe();
-
-    const totalUnsubscribe = await subscribeToQuestionGroupTotal(state.room, number, (total) => {
-      state.questionGroupTotal = total;
-      const value = document.querySelector("[data-question-group-total]");
-      if (value) value.textContent = `${total} XP`;
-    }, () => {});
-    if (state.currentQuestion === number) state.questionTotalUnsubscribe = totalUnsubscribe;
-    else totalUnsubscribe();
   }
 }
 
@@ -2108,8 +2115,8 @@ app.addEventListener("click", async (event) => {
     return;
   }
 
-  if (action === "open-question") {
-    await openQuestion(Number(target.dataset.question));
+  if (action === "browse-question") {
+    await openBrowseQuestion(Number(target.dataset.question));
     return;
   }
 
