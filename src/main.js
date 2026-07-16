@@ -49,7 +49,6 @@ const copy = {
     welcomeTitle: "YOUCAT Assis",
     name: "Your name",
     namePlaceholder: "How should the group call you?",
-    age: "Your age",
     room: "Group code",
     roomPlaceholder: "Choose your group",
     roomFromLink: "Your group is already connected",
@@ -139,7 +138,6 @@ const copy = {
     welcomeTitle: "YOUCAT Assis",
     name: "Seu nome",
     namePlaceholder: "Como o grupo deve chamar você?",
-    age: "Sua idade",
     room: "Código do grupo",
     roomPlaceholder: "Escolha o seu grupo",
     roomFromLink: "Seu grupo já está conectado",
@@ -661,10 +659,6 @@ function renderWelcome() {
           <label>
             <span>${c("name")}</span>
             <input name="name" type="text" autocomplete="name" maxlength="60" placeholder="${c("namePlaceholder")}" required />
-          </label>
-          <label>
-            <span>${c("age")}</span>
-            <input name="age" type="number" inputmode="numeric" min="18" max="120" value="24" required />
           </label>
           <label>
             <span>${c("room")}</span>
@@ -1910,17 +1904,16 @@ app.addEventListener("submit", async (event) => {
   if (event.target.id === "welcome-form") {
     const form = new FormData(event.target);
     const name = String(form.get("name") || "").trim();
-    const age = Number(form.get("age"));
     const room = normalizeGroup(form.get("room"));
     const welcomeError = document.querySelector("#welcome-error");
-    if (!name || age < 18 || age > 120 || !room) {
-      welcomeError.textContent = language === "pt" ? "Preencha nome, idade (18+) e um código de grupo válido." : "Enter a name, an age of 18+, and a valid group code.";
+    if (!name || !room) {
+      welcomeError.textContent = language === "pt" ? "Preencha o nome e escolha um grupo válido." : "Enter a name and choose a valid group.";
       return;
     }
 
     try {
       await ensureParticipantSession();
-      state.profile = { name, age, room };
+      state.profile = { name, room };
       state.room = room;
       progress.setProfile(state.profile);
       scheduleLeaderboardSync("", true);
@@ -1974,7 +1967,6 @@ app.addEventListener("submit", async (event) => {
         roomCode: state.room,
         questionNumber: number,
         name: state.profile.name,
-        age: state.profile.age,
         text,
       });
       interaction.submitted = true;

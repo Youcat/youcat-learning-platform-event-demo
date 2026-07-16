@@ -260,7 +260,7 @@ export async function subscribeToGlobalQuestion(questionNumber, callback, onErro
   }, onError);
 }
 
-export async function publishReflection({ roomCode, questionNumber, name, age, text }) {
+export async function publishReflection({ roomCode, questionNumber, name, text }) {
   const uid = await ensureParticipantSession();
   if (!configured) {
     return {
@@ -268,7 +268,6 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
       questionNumber,
       authorUid: uid,
       name,
-      age,
       text,
       voters: [],
       roomCode,
@@ -283,7 +282,6 @@ export async function publishReflection({ roomCode, questionNumber, name, age, t
   await services.setDoc(answerRef, {
     authorUid: uid,
     name,
-    age,
     text,
     voters: [],
     roomCode,
