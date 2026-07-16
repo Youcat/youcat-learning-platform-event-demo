@@ -1917,6 +1917,7 @@ a.minigame-index-row:focus-visible,
 }
 
 .reflections-inner {
+  position: relative;
   padding-bottom: 22px;
 }
 
@@ -2533,8 +2534,10 @@ a.minigame-index-row:focus-visible,
   font-size: 13px;
 }
 .board-heart-counter {
-  float: right;
-  margin-top: -44px;
+  position: absolute;
+  top: 4px;
+  right: 0;
+  margin: 0;
   padding: 5px 9px;
   border: 1.5px solid var(--love-red);
   border-radius: var(--wobble-radius-a);
