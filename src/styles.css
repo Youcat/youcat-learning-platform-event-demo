@@ -594,20 +594,48 @@ a.minigame-index-row:focus-visible,
 
 .welcome-logo {
   display: flex;
-  min-height: 92px;
   align-items: center;
   justify-content: center;
-  margin: 2px 0 32px;
+  margin: 0;
 }
 
 .welcome-logo img {
   display: block;
-  /* Keep the supplied wordmark at its native 136.5 : 28.947983 ratio. */
   width: min(100%, 242px);
   max-width: 242px;
   height: auto;
-  aspect-ratio: 136.5 / 28.947983;
   object-fit: contain;
+}
+
+.welcome-brand-lockup {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin: 2px 0 32px;
+  text-align: center;
+}
+
+.welcome-tagline {
+  margin: 0;
+  color: var(--love-red);
+  font-family: "Rockster", "Fira Sans", sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.welcome-demo-badge {
+  margin: 4px 0 0;
+  padding: 5px 10px;
+  border: 1px solid var(--graphite);
+  border-radius: var(--wobble-radius-a);
+  background: var(--love-red-35);
+  color: var(--love-red);
+  font-family: "Rockster", "Fira Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.1;
+  transform: rotate(-1deg);
 }
 
 .welcome-form {
@@ -2129,7 +2157,7 @@ a.minigame-index-row:focus-visible,
   text-align: center;
 }
 
-.returning-screen .welcome-logo { margin-bottom: 8px; }
+.returning-screen .welcome-brand-lockup { margin-bottom: 8px; }
 .returning-screen h1 { margin-top: 8px; }
 .returning-group { margin: 0 0 18px; color: var(--muted); }
 

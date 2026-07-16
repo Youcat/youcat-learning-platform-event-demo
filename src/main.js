@@ -45,7 +45,6 @@ const CONTENT_VERSION = 5;
 const copy = {
   en: {
     home: "Home",
-    welcomeTitle: "YOUCAT Assis",
     name: "Your name",
     namePlaceholder: "How should the group call you?",
     room: "Group code",
@@ -133,7 +132,6 @@ const copy = {
   },
   pt: {
     home: "Início",
-    welcomeTitle: "YOUCAT Assis",
     name: "Seu nome",
     namePlaceholder: "Como o grupo deve chamar você?",
     room: "Código do grupo",
@@ -626,13 +624,23 @@ function groupMark(group, compact = false) {
   return `<span class="group-mark ${compact ? "is-compact" : ""}" aria-hidden="true">${illustration ? `<img src="${illustration}" alt="" />` : `<span>${escapeHtml(group.saint.slice(0, 1))}</span><i>${escapeHtml(group.symbol)}</i>`}</span>`;
 }
 
+function welcomeBrandLockup() {
+  return `
+    <div class="welcome-brand-lockup">
+      <div class="welcome-logo"><img src="${youcatLoveLogo}" alt="YOUCAT" /></div>
+      <p class="welcome-tagline">Amor para sempre</p>
+      <p class="welcome-demo-badge">YOUCAT Assis Demo</p>
+    </div>
+  `;
+}
+
 function renderReturning() {
   const profile = state.profile;
   const group = groupByCode(profile.room);
   app.innerHTML = `
     <main class="app-shell welcome-screen returning-screen">
       <section class="welcome-content">
-        <div class="welcome-logo"><img src="${youcatLoveLogo}" alt="YOUCAT" /></div>
+        ${welcomeBrandLockup()}
         ${groupMark(group)}
         <h1>${c("continueAs")} ${escapeHtml(profile.name)}?</h1>
         <p class="returning-group">${escapeHtml(profile.room)} · ${progress.totalXp()} XP</p>
@@ -649,10 +657,7 @@ function renderWelcome() {
   app.innerHTML = `
     <main class="app-shell welcome-screen">
       <section class="welcome-content">
-        <div class="welcome-logo">
-          <img src="${youcatLoveLogo}" alt="YOUCAT" />
-        </div>
-        <h1>${c("welcomeTitle")}</h1>
+        ${welcomeBrandLockup()}
         <form id="welcome-form" class="welcome-form">
           <label>
             <span>${c("name")}</span>
