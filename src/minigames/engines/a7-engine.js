@@ -1,9 +1,11 @@
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 const REQUIRED_CONCEPTS = ["trust", "promise", "tenderness", "freedom", "truth", "covenant", "wholeness"];
-const TRAY_SLOTS = [0.08, 0.22, 0.36, 0.5, 0.64, 0.78, 0.92];
+const TRAY_SLOTS = [[0.14, 0.63], [0.38, 0.63], [0.62, 0.63], [0.86, 0.63], [0.22, 0.8], [0.5, 0.8], [0.78, 0.8]];
 const ROTATIONS = [-0.1, 0.07, -0.045, 0.11, -0.075, 0.055, -0.12];
 const ART_WIDTH = 246;
 const ART_HEIGHT = 336;
+const CANVAS_WIDTH = 360;
+const CANVAS_HEIGHT = 350;
 
 const localized = (en, pt) => ({ en, pt });
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -46,13 +48,47 @@ function conceptIds(instance) {
   return Array.isArray(ids) && ids.length === REQUIRED_CONCEPTS.length ? ids : [...REQUIRED_CONCEPTS];
 }
 
+function polygonBoundsCenter(points) {
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  return {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    y: (Math.min(...ys) + Math.max(...ys)) / 2,
+  };
+}
+
+function homePosition(concept, trayIndex, instance) {
+  const [visualX, visualY] = TRAY_SLOTS[trayIndex];
+  const center = polygonBoundsCenter(concept.polygon);
+  const scale = Number(instance?.layoutOverrides?.pane?.scale) || 0.62;
+  const xs = concept.polygon.map(([x]) => x);
+  const ys = concept.polygon.map(([, y]) => y);
+  const paneWidth = ART_WIDTH * scale;
+  const paneHeight = ART_HEIGHT * scale;
+  const edge = 8;
+  const desiredX = visualX * CANVAS_WIDTH - (center.x - 0.5) * paneWidth;
+  const desiredY = visualY * CANVAS_HEIGHT - (center.y - 0.5) * paneHeight;
+  const minimumX = edge - (Math.min(...xs) - 0.5) * paneWidth;
+  const maximumX = CANVAS_WIDTH - edge - (Math.max(...xs) - 0.5) * paneWidth;
+  const minimumY = edge - (Math.min(...ys) - 0.5) * paneHeight;
+  const maximumY = CANVAS_HEIGHT - edge - (Math.max(...ys) - 0.5) * paneHeight;
+  return {
+    x: Math.max(minimumX, Math.min(maximumX, desiredX)) / CANVAS_WIDTH,
+    y: Math.max(minimumY, Math.min(maximumY, desiredY)) / CANVAS_HEIGHT,
+  };
+}
+
 export function createA7InitialState(instance) {
   const ids = conceptIds(instance);
   const order = shuffled(ids, instance?.seed || "a7-fallback-seed");
+  const concepts = new Map((instance?.payload?.concepts || []).map((concept) => [concept.id, concept]));
   const positions = {};
   order.forEach((id, trayIndex) => {
-    const homeX = TRAY_SLOTS[trayIndex];
-    const homeY = Number(instance?.layoutOverrides?.trayY) || 0.84;
+    const home = concepts.has(id)
+      ? homePosition(concepts.get(id), trayIndex, instance)
+      : { x: TRAY_SLOTS[trayIndex][0], y: TRAY_SLOTS[trayIndex][1] };
+    const homeX = Math.max(0.02, Math.min(0.98, home.x));
+    const homeY = Math.max(0.02, Math.min(0.98, home.y));
     positions[id] = {
       x: homeX, y: homeY, homeX, homeY,
       rotation: ROTATIONS[(trayIndex + (hashSeed(instance?.seed || "") % ROTATIONS.length)) % ROTATIONS.length],
@@ -98,11 +134,6 @@ export function placeA7Shard(state, shardId, targetId, instance) {
   return { accepted: true, complete: state.completed };
 }
 
-function polygonCentroid(points) {
-  const sum = points.reduce((total, [x, y]) => ({ x: total.x + x, y: total.y + y }), { x: 0, y: 0 });
-  return { x: sum.x / points.length, y: sum.y / points.length };
-}
-
 function paneLayout(instance, width, height) {
   const scale = Number(instance.layoutOverrides?.pane?.scale) || 0.62;
   const paneWidth = ART_WIDTH * scale;
@@ -112,9 +143,13 @@ function paneLayout(instance, width, height) {
   return { scale, paneWidth, paneHeight, centerX, centerY, left: centerX - paneWidth / 2, top: centerY - paneHeight / 2 };
 }
 
-function targetCenter(concept, layout) {
-  const centroid = polygonCentroid(concept.polygon);
-  return { x: layout.left + centroid.x * layout.paneWidth, y: layout.top + centroid.y * layout.paneHeight };
+export function isA7DropNearPane({ x, y }, instance, width = CANVAS_WIDTH, height = CANVAS_HEIGHT) {
+  const layout = paneLayout(instance, width, height);
+  const margin = instance.payload.snapTolerance * Math.min(layout.paneWidth, layout.paneHeight);
+  return x >= layout.left - margin
+    && x <= layout.left + layout.paneWidth + margin
+    && y >= layout.top - margin
+    && y <= layout.top + layout.paneHeight + margin;
 }
 
 function validationErrors(payload, instance) {
@@ -134,7 +169,7 @@ function validationErrors(payload, instance) {
     });
   }
   if (!isLocalized(payload.conclusion)) errors.push("payload.conclusion must contain non-empty {en, pt}");
-  if (!Number.isFinite(payload.snapTolerance) || payload.snapTolerance < 0.03 || payload.snapTolerance > 0.08) errors.push("payload.snapTolerance must be from 0.03 to 0.08");
+  if (!Number.isFinite(payload.snapTolerance) || payload.snapTolerance < 0.1 || payload.snapTolerance > 0.5) errors.push("payload.snapTolerance must be from 0.1 to 0.5");
   const layout = instance?.layoutOverrides;
   if (!isRecord(layout) || Object.keys(layout).sort().join("|") !== "pane|showSecondaryControls|trayY") errors.push("layoutOverrides must contain exactly {pane, trayY, showSecondaryControls}");
   if (!isRecord(layout?.pane) || Object.keys(layout.pane).sort().join("|") !== "scale|x|y" || ![layout.pane.x, layout.pane.y].every((value) => Number.isFinite(value) && value > 0 && value < 1) || !Number.isFinite(layout.pane.scale) || layout.pane.scale < 0.45 || layout.pane.scale > 0.75) errors.push("layoutOverrides.pane must contain normalized x/y and a scale from 0.45 to 0.75");
@@ -158,7 +193,7 @@ export const a7Engine = Object.freeze({
         const layout = paneLayout(instance, this.scale.width, this.scale.height);
         this.a7Base = this.add.image(layout.centerX, layout.centerY, "a7-base").setDepth(1).setScale(layout.scale);
         concepts.forEach((concept, index) => {
-          const sprite = this.add.image(0, 0, `a7-layer-${index}`).setDepth(4).setInteractive({ cursor: "grab" });
+          const sprite = this.add.image(0, 0, `a7-layer-${index}`).setDepth(4).setInteractive({ cursor: "grab", pixelPerfect: true, alphaTolerance: 1 });
           sprite.setData("shardId", concept.id); this.input.setDraggable(sprite);
           sprite.on("pointerdown", () => { if (!this.a7State.referenceVisible && !this.a7State.solutionShown) this.selectShard(concept.id); });
           this.a7Sprites.set(concept.id, sprite);
@@ -171,7 +206,7 @@ export const a7Engine = Object.freeze({
           const id = object.getData("shardId"); if (!id || this.a7State.referenceVisible || this.a7State.solutionShown) return;
           this.a7Dragging = true; this.a7DragOrigin = { x: object.x, y: object.y }; this.selectShard(id);
           if (this.a7State.positions[id].placed) this.a7State.positions[id].placed = false;
-          object.setDepth(9).setScale(0.34).setRotation(0);
+          object.setDepth(9).setScale(layout.scale).setRotation(0);
         });
         this.input.on("drag", (_pointer, object, x, y) => { const id = object.getData("shardId"); if (id && !this.a7State.referenceVisible && !this.a7State.solutionShown) object.setPosition(x, y); });
         this.input.on("dragend", (_pointer, object) => {
@@ -202,12 +237,9 @@ export const a7Engine = Object.freeze({
       beginRestoration() { this.a7State.referenceVisible = false; this.accessibleFeedback = localized("The picture is hidden. Rebuild it from the seven fragments.", "A imagem foi ocultada. Reconstrua-a com os sete fragmentos."); this.redraw(); this.notify(); }
       selectShard(id) { if (!this.a7State.positions[id] || this.a7State.referenceVisible || this.a7State.solutionShown) return; this.a7State.selectedId = id; this.accessibleFeedback = localized(`Fragment ${conceptIds(instance).indexOf(id) + 1} selected. Drag it, tap its place, or use arrow keys.`, `Fragmento ${conceptIds(instance).indexOf(id) + 1} selecionado. Arraste-o, toque no lugar ou use as setas.`); this.redraw(); this.notify(); }
       tryDrop(shardId, x, y) {
-        const layout = paneLayout(instance, this.scale.width, this.scale.height);
-        const tolerance = instance.payload.snapTolerance * Math.min(layout.paneWidth, layout.paneHeight);
-        const target = concepts.find((concept) => { const center = targetCenter(concept, layout); return Math.hypot(center.x - x, center.y - y) <= tolerance; });
-        if (!target) return this.rejectPlacement(shardId);
-        const result = placeA7Shard(this.a7State, shardId, target.id, instance);
-        if (!result.accepted) return this.rejectPlacement(shardId, target.id);
+        if (!isA7DropNearPane({ x, y }, instance, this.scale.width, this.scale.height)) return this.rejectPlacement(shardId);
+        const result = placeA7Shard(this.a7State, shardId, shardId, instance);
+        if (!result.accepted) return this.rejectPlacement(shardId);
         this.accessibleFeedback = result.complete ? localized("All seven fragments are restored. Press Check when you are ready.", "Os sete fragmentos foram restaurados. Pressione Verificar quando estiver pronto.") : localized("The fragment is in place.", "O fragmento está no lugar.");
         this.redraw(); this.notify(); return result;
       }
@@ -233,10 +265,17 @@ export const a7Engine = Object.freeze({
           if (this.a7State.referenceVisible) { sprite.setVisible(false); return; }
           sprite.setVisible(true);
           if (position.placed || this.a7State.solutionShown) sprite.setPosition(layout.centerX, layout.centerY).setScale(layout.scale).setRotation(0).setAlpha(this.a7State.solutionShown && !position.placed ? 0.62 : 1).setDepth(4 + index);
-          else if (!this.a7Dragging || this.a7State.selectedId !== concept.id) sprite.setPosition(position.x * width, position.y * height).setScale(this.a7State.selectedId === concept.id ? 0.245 : 0.225).setRotation(position.rotation).setAlpha(1).setDepth(this.a7State.selectedId === concept.id ? 8 : 4);
+          else if (!this.a7Dragging || this.a7State.selectedId !== concept.id) sprite.setPosition(position.x * width, position.y * height).setScale(layout.scale).setRotation(position.rotation).setAlpha(1).setDepth(this.a7State.selectedId === concept.id ? 8 : 4);
         });
         const selected = this.a7State.selectedId && this.a7Sprites.get(this.a7State.selectedId);
-        if (selected && !this.a7State.referenceVisible && !this.a7Dragging) { this.a7Graphics.lineStyle(2, 0xd60056, 0.9); this.a7Graphics.strokeRect(selected.x - 26, selected.y - 36, 52, 72); }
+        if (selected && !this.a7State.referenceVisible && !this.a7Dragging) {
+          const concept = concepts.find((item) => item.id === this.a7State.selectedId);
+          const xs = concept.polygon.map(([x]) => x), ys = concept.polygon.map(([, y]) => y);
+          const left = selected.x + (Math.min(...xs) - 0.5) * layout.paneWidth - 6;
+          const top = selected.y + (Math.min(...ys) - 0.5) * layout.paneHeight - 6;
+          this.a7Graphics.lineStyle(2, 0xd60056, 0.9);
+          this.a7Graphics.strokeRect(left, top, (Math.max(...xs) - Math.min(...xs)) * layout.paneWidth + 12, (Math.max(...ys) - Math.min(...ys)) * layout.paneHeight + 12);
+        }
       }
     }
     return new StainedGlassRestorationScene();

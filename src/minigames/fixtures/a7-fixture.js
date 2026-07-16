@@ -53,6 +53,6 @@ export const a7Fixture = Object.freeze({
       "The restoration points beyond a task: faithful love receives the other person whole. It is a free covenant in which truth and tenderness belong together.",
       "A restauração aponta para mais do que uma tarefa: o amor fiel acolhe a outra pessoa por inteiro. É uma aliança livre, em que verdade e ternura caminham juntas.",
     ),
-    snapTolerance: 0.045,
+    snapTolerance: 0.35,
   },
 });

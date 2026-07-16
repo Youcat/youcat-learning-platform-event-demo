@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ENGINE_METHODS, validateGameInstance } from "../src/minigames/contracts.js";
-import { a7Engine, createA7InitialState, placeA7Shard, restoreA7State } from "../src/minigames/engines/a7-engine.js";
+import { a7Engine, createA7InitialState, isA7DropNearPane, placeA7Shard, restoreA7State } from "../src/minigames/engines/a7-engine.js";
 import { A7_ENGINE_ID, A7_ENGINE_VERSION, a7Fixture } from "../src/minigames/fixtures/a7-fixture.js";
 import { createA7MissionInstance, createOneSubmissionHandler } from "../src/minigames/mission-a7.js";
 import { createMinigamePersistence } from "../src/minigames/persistence.js";
@@ -48,6 +48,30 @@ test("A7 hides the target until play begins and rejects impossible moves without
   assert.deepEqual(placeA7Shard(state, "trust", "trust", a7Fixture), { accepted: false, reason: "unavailable" });
   begin(state); const result = placeA7Shard(state, "trust", "promise", a7Fixture);
   assert.deepEqual(result, { accepted: false, reason: "mismatch" }); assert.deepEqual(state.positions.trust, originalTrust); assert.equal(state.selectedId, "trust"); assert.equal(state.rejectedMoves, 1);
+});
+
+test("A7 uses a generous pane-wide snap area for mobile drops", () => {
+  assert.equal(isA7DropNearPane({ x: 180, y: 115 }, a7Fixture), true);
+  assert.equal(isA7DropNearPane({ x: 60, y: 235 }, a7Fixture), true);
+  assert.equal(isA7DropNearPane({ x: 10, y: 340 }, a7Fixture), false);
+});
+
+test("A7 full-size tray fragments remain inside the mobile canvas", () => {
+  const state = createA7InitialState(a7Fixture);
+  const paneWidth = 246 * a7Fixture.layoutOverrides.pane.scale;
+  const paneHeight = 336 * a7Fixture.layoutOverrides.pane.scale;
+  for (const concept of a7Fixture.payload.concepts) {
+    const position = state.positions[concept.id];
+    const xs = concept.polygon.map(([x]) => x);
+    const ys = concept.polygon.map(([, y]) => y);
+    const bounds = {
+      left: position.x * 360 + (Math.min(...xs) - 0.5) * paneWidth,
+      right: position.x * 360 + (Math.max(...xs) - 0.5) * paneWidth,
+      top: position.y * 350 + (Math.min(...ys) - 0.5) * paneHeight,
+      bottom: position.y * 350 + (Math.max(...ys) - 0.5) * paneHeight,
+    };
+    assert.ok(bounds.left >= 7 && bounds.right <= 353 && bounds.top >= 7 && bounds.bottom <= 343, `${concept.id} stays visible`);
+  }
 });
 
 test("serialization and resume preserve a JSON-safe movable partial restoration", () => {
