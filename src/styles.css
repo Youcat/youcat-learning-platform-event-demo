@@ -1427,27 +1427,6 @@ a.minigame-index-row:focus-visible,
   transition: opacity 160ms ease-out;
 }
 
-.wordsearch-words {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 16px;
-  padding: 0;
-  margin: 16px 0 0;
-  list-style: none;
-}
-
-.wordsearch-words li {
-  color: var(--graphite);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.wordsearch-words li.is-found {
-  color: var(--muted);
-  text-decoration: line-through 3px var(--love-red);
-}
-
 .wordsearch-status {
   min-height: 18px;
   margin: 12px 0 0;

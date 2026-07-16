@@ -1432,7 +1432,6 @@ function renderGame(number, game, gameIndex, gameState) {
           })).join("")}
         </div>
       </div>
-      <ul class="wordsearch-words">${puzzle.words.map((word) => `<li class="${foundWordIds.includes(word.id) ? "is-found" : ""}">${escapeHtml(word.label)}</li>`).join("")}</ul>
       <p class="wordsearch-status ${gameState.finished ? "is-complete" : ""}" data-wordsearch-status aria-live="polite">${gameState.finished ? c("wordSearchComplete") : ""}</p>
     </div>${gameMessage(gameState, game)}`;
   }
