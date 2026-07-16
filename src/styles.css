@@ -2532,6 +2532,21 @@ a.minigame-index-row:focus-visible,
   flex-direction: column;
   justify-content: center;
 }
+
+.mission-game-panel.is-wordsearch {
+  display: flex;
+  min-height: min(590px, calc(100dvh - var(--nav-height) - 180px));
+  flex-direction: column;
+}
+
+.mission-game-panel.is-wordsearch .wordsearch-game {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
 .reflection-skip-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
 .reflection-skip-actions .quiet-action { font-size: 12px; }
 .skip-challenge-action {
@@ -2563,6 +2578,10 @@ a.minigame-index-row:focus-visible,
 
 @media (max-height: 720px) {
   .mission-game-panel.is-image-shuffle {
+    min-height: calc(100dvh - var(--nav-height) - 172px);
+  }
+
+  .mission-game-panel.is-wordsearch {
     min-height: calc(100dvh - var(--nav-height) - 172px);
   }
 

@@ -1029,8 +1029,6 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
-  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : "";
-  const attemptNoteMarkup = attemptNote ? `<p class="one-attempt-note">${attemptNote}</p>` : "";
   if (game.type === "minigame") {
     const result = finished
       ? `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
@@ -1041,7 +1039,8 @@ function renderMissionElement(mission, learning, finished) {
   const skipAction = game.type === "image-shuffle" && !finished
     ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
     : "";
-  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel ${game.type === "image-shuffle" ? "is-image-shuffle" : ""}"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
+  const compactGameClass = game.type === "image-shuffle" || game.type === "wordsearch" ? `is-${game.type}` : "";
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><article class="carousel-panel game-panel mission-game-panel ${compactGameClass}"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
 }
 
 function renderMissionQuiz(mission, item) {
@@ -1390,7 +1389,7 @@ function renderGame(number, game, gameIndex, gameState) {
     const foundWordIds = gameState.foundWordIds || [];
     const strokes = gameState.wordSearchStrokes || [];
     const helpId = `wordsearch-help-${number}-${gameIndex}`;
-    return `<p class="game-help" id="${helpId}">${c("wordSearchHelp")}</p><div class="wordsearch-game" data-wordsearch data-question="${number}" data-game="${gameIndex}" data-disabled="${disabled}">
+    return `<span class="sr-only" id="${helpId}">${c("wordSearchHelp")}</span><div class="wordsearch-game" data-wordsearch data-question="${number}" data-game="${gameIndex}" data-disabled="${disabled}">
       <p class="wordsearch-progress">${foundWordIds.length}/${puzzle.words.length}</p>
       <div class="wordsearch-board" data-wordsearch-board aria-describedby="${helpId}">
         <svg class="wordsearch-strokes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
