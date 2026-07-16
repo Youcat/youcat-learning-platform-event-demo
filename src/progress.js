@@ -1,5 +1,7 @@
-const STORAGE_KEY = "youcat-assis-progress-v2";
-const VERSION = 2;
+// Start the July event from a clean client-side slate. Older local data remains
+// inaccessible to the app and therefore cannot repopulate the reset database.
+const STORAGE_KEY = "youcat-assis-progress-v3";
+const VERSION = 3;
 
 export const ACHIEVEMENTS = [
   { id: "first-steps", xp: 25, pt: "Primeiros passos", en: "First steps" },

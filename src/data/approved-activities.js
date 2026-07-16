@@ -99,10 +99,10 @@ const activities = {
 
   59: {
     games: [
-      { type: "match", title: t("What does this behavior communicate?", "O que este comportamento comunica?"), prompt: t("Match each behavior with what it communicates.", "Associe cada comportamento ao que ele comunica."), pairs: [
-        [t("Warm, transparent friendship", "Amizade calorosa e transparente"), t("Seeks the other’s good without creating a hidden claim.", "Procura o bem do outro sem criar uma pretensão escondida.")],
-        [t("Repeated ambiguous flirting", "Flerte ambíguo repetido"), t("Enjoys closeness while leaving expectations unclear.", "Aproveita a proximidade mantendo as expectativas pouco claras.")],
-        [t("A truthful boundary", "Um limite verdadeiro"), t("May limit closeness to protect both people’s freedom.", "Pode limitar a proximidade para proteger a liberdade de ambos.")],
+      { type: "match", title: t("What does this behavior communicate?", "O que este comportamento comunica?"), prompt: t("Associate each expression with what it communicates.", "Associe cada expressão ao que ela comunica."), pairs: [
+        [t("Flirting", "Flerte"), t("I want your attention and love, but I do not commit my heart.", "Quero sua atenção e seu amor, mas não comprometo meu coração.")],
+        [t("Good boundaries", "Limites saudáveis"), t("I want to respect your and my freedom as a space for our friendship.", "Quero respeitar a sua e a minha liberdade como espaço para a nossa amizade.")],
+        [t("An act of genuine friendship", "Um gesto de amizade genuína"), t("I want to share an important part of my life with you.", "Quero compartilhar com você uma parte importante da minha vida.")],
       ] },
       { type: "image-shuffle", title: t("Reveal an illustration about transparency", "Revele uma ilustração sobre transparência"), prompt: t("Reconstruct a friendship scene in an open, ordinary setting.", "Reconstrua uma cena de amizade num ambiente aberto e cotidiano."), answer: ["1", "2", "3", "4"], start: ["4", "2", "1", "3"], reveal: t("Would this friendship still feel truthful if someone else walked into the room?", "Esta amizade ainda pareceria verdadeira se outra pessoa entrasse na sala?"), insight: t("Privacy can be healthy; secrecy that protects ambiguity is a warning sign.", "A privacidade pode ser saudável; o segredo que protege a ambiguidade é um sinal de alerta.") },
       { type: "reveal", title: t("Transparent, ambiguous, or boundary needed?", "Transparente, ambíguo ou precisa de limite?"), prompt: t("Classify each behavior.", "Classifique cada comportamento."), categories: [t("Transparent", "Transparente"), t("Ambiguous", "Ambíguo"), t("Boundary needed", "Precisa de limite")], cards: [

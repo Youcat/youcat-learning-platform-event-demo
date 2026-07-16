@@ -93,6 +93,7 @@ const copy = {
     wordSearchAttempt: "Find every word to complete this team attempt. Exploratory strokes do not count against you.",
     imageShuffleHelp: "Move a piece next to the open space. Take your time—only the completed picture counts.",
     imageShuffleAttempt: "Move only neighbouring pieces into the open space. You can take as many moves as you need.",
+    skipChallenge: "Skip this challenge",
     imageShuffleMoves: "moves",
     imageShuffleRestart: "Shuffle again",
     imageShuffleReference: "View picture",
@@ -124,7 +125,6 @@ const copy = {
     waitingChallenge: "Your teammates are working on the available challenges. The next one will appear automatically.",
     teamProgress: "Team progress",
     challenge: "Team challenge",
-    oneAttempt: "This challenge is completed for your team after this attempt—right or wrong.",
     missionXp: "XP earned in this mission",
     declineReflection: "I prefer not to answer",
     notNow: "Not now",
@@ -182,6 +182,7 @@ const copy = {
     wordSearchAttempt: "Encontre todas as palavras para concluir esta tentativa da equipe. Traços exploratórios não contam contra você.",
     imageShuffleHelp: "Mova uma peça ao lado do espaço vazio. Sem pressa — só a imagem completa conta.",
     imageShuffleAttempt: "Mova apenas peças vizinhas para o espaço vazio. Você pode fazer quantos movimentos precisar.",
+    skipChallenge: "Pular este desafio",
     imageShuffleMoves: "movimentos",
     imageShuffleRestart: "Embaralhar novamente",
     imageShuffleReference: "Ver imagem",
@@ -213,7 +214,6 @@ const copy = {
     waitingChallenge: "Seus companheiros estão trabalhando nos desafios disponíveis. O próximo aparecerá automaticamente.",
     teamProgress: "Progresso da equipe",
     challenge: "Desafio da equipe",
-    oneAttempt: "Este desafio será concluído para sua equipe depois desta tentativa — certa ou errada.",
     missionXp: "XP conquistado nesta missão",
     declineReflection: "Prefiro não responder",
     notNow: "Agora não",
@@ -1000,10 +1000,11 @@ function renderMissionElement(mission, learning, finished) {
     </div></section>`;
   }
   if (mission.challengeKind === "quiz") {
-    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${c("oneAttempt")}</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
-  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : c("oneAttempt");
+  const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : "";
+  const attemptNoteMarkup = attemptNote ? `<p class="one-attempt-note">${attemptNote}</p>` : "";
   if (game.type === "minigame") {
     const label = language === "pt" ? "Abrir jogo" : "Open game";
     const support = language === "pt"
@@ -1012,9 +1013,12 @@ function renderMissionElement(mission, learning, finished) {
     const result = finished
       ? `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
       : `<p class="game-help">${support}</p><button type="button" class="primary-action minigame-launch-action" data-action="launch-minigame">${label}</button>`;
-    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}</article></div></section>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}</article></div></section>`;
   }
-  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><p class="one-attempt-note">${attemptNote}</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}</article></div></section>`;
+  const skipAction = game.type === "image-shuffle" && !finished
+    ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
+    : "";
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
 }
 
 function renderMissionQuiz(mission, item) {
@@ -1048,12 +1052,12 @@ function saveMissionInteraction() {
   if (state.activeMission && state.missionInteraction) progress.saveInteraction(missionStorageKey(state.activeMission), state.missionInteraction);
 }
 
-async function requestNextMission() {
+async function requestNextMission(excludeMissionId = "") {
   if (state.missionClaiming) return;
   state.missionClaiming = true;
   state.missionStatus = "loading";
   try {
-    const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers });
+    const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId });
     if (mission?.type === "complete") {
       state.missionStatus = "complete";
       showJourneyComplete();
@@ -1134,7 +1138,7 @@ function noteMissionActivity() {
   if (state.activeMission) state.lastMissionActivity = Date.now();
 }
 
-async function completeTeamAttempt(correct, { render = true } = {}) {
+async function completeTeamAttempt(correct, { render = true, positions = capturePositions() } = {}) {
   const mission = state.activeMission;
   if (!mission || mission.type !== "shared") return;
   const xp = correct ? mission.xp : 0;
@@ -1146,7 +1150,7 @@ async function completeTeamAttempt(correct, { render = true } = {}) {
     state.activeMission = null;
     clearInterval(state.missionRenewTimer);
     if (!render) return;
-    renderQuestion(mission.questionNumber);
+    renderQuestion(mission.questionNumber, positions);
     // Leave the result in view first. The overview is already available below for
     // anyone who wants to continue immediately, then opens itself after feedback.
     setTimeout(() => {
@@ -1157,7 +1161,7 @@ async function completeTeamAttempt(correct, { render = true } = {}) {
   } catch (error) {
     console.error("Unable to complete team challenge", error);
     state.missionInteraction = loadMissionInteraction(mission);
-    renderQuestion(mission.questionNumber);
+    renderQuestion(mission.questionNumber, positions);
   }
 }
 
@@ -1993,6 +1997,23 @@ app.addEventListener("click", async (event) => {
     state.completedMission = null;
     state.missionInteraction = null;
     await requestNextMission();
+    return;
+  }
+
+  if (action === "skip-challenge") {
+    const mission = state.activeMission;
+    if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
+    target.disabled = true;
+    try {
+      await releaseActiveMission(mission);
+      cleanupMissionDashboard();
+      state.activeMission = null;
+      state.missionInteraction = null;
+      await requestNextMission(mission.id);
+    } catch (error) {
+      console.error("Unable to skip team challenge", error);
+      target.disabled = false;
+    }
     return;
   }
 

@@ -320,12 +320,12 @@ function emitLocalMissionGroup(roomCode) {
   listeners.forEach((callback) => callback(structuredClone(localGroup(roomCode))));
 }
 
-function chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now }) {
+function chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now, excludeMissionId = "" }) {
   const candidates = [];
   for (const challenge of sharedChallenges) {
     const saved = group.challenges?.[challenge.id];
     const available = !saved || saved.status !== "completed" && (saved.status !== "reserved" || Number(saved.leaseUntil || 0) <= now);
-    if (available) candidates.push({ ...challenge, type: "shared", groupCode: roomCode });
+    if (available && challenge.id !== excludeMissionId) candidates.push({ ...challenge, type: "shared", groupCode: roomCode });
   }
   for (const questionNumber of questions) {
     const key = String(questionNumber);
@@ -338,7 +338,7 @@ function chooseMission({ participant, group, event, sharedChallenges, questions,
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-export async function claimRandomMission({ roomCode, sharedChallenges, questions }) {
+export async function claimRandomMission({ roomCode, sharedChallenges, questions, excludeMissionId = "" }) {
   const uid = await ensureParticipantSession();
   const now = Date.now();
   if (!configured) {
@@ -346,7 +346,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     const group = localGroup(roomCode);
     if (!participant.active) { participant.active = true; localMissionEvent.activeCount += 1; }
     if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
-    const mission = chooseMission({ participant, group, event: localMissionEvent, sharedChallenges, questions, roomCode, now });
+    const mission = chooseMission({ participant, group, event: localMissionEvent, sharedChallenges, questions, roomCode, now, excludeMissionId });
     if (!mission) {
       const complete = sharedChallenges.every((item) => group.challenges?.[item.id]?.status === "completed")
         && questions.every((number) => participant.reflectionStatus?.[number] && participant.boardCompleted?.[number]);
@@ -372,7 +372,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
     if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
     if (!participant.active) { participant.active = true; event.activeCount += 1; }
-    const mission = chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now });
+    const mission = chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now, excludeMissionId });
     if (!mission) {
       transaction.set(participantRef, { ...participant, activeMission: null, updatedAt: services.serverTimestamp() }, { merge: true });
       transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });

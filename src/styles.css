@@ -2519,6 +2519,12 @@ a.minigame-index-row:focus-visible,
 }
 .reflection-skip-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
 .reflection-skip-actions .quiet-action { font-size: 12px; }
+.skip-challenge-action {
+  display: block;
+  width: fit-content;
+  margin: 18px auto 4px;
+  font-size: 13px;
+}
 .board-heart-counter {
   float: right;
   margin-top: -44px;
