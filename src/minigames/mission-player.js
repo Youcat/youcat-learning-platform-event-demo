@@ -23,7 +23,7 @@ export function applyMissionMinigameResult(interaction, result) {
   return { accepted: true, correct };
 }
 
-export async function startMissionMinigame({ mount, mission, activity, language, onResult, onClose }) {
+export async function startMissionMinigame({ mount, mission, activity, language, onResult, onClose, embedded = false }) {
   const instance = missionInstanceForActivity({ mission, activity });
   return launchGameStage({
     mount,
@@ -32,5 +32,6 @@ export async function startMissionMinigame({ mount, mission, activity, language,
     language,
     onResult,
     onClose,
+    embedded,
   });
 }

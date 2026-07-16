@@ -100,6 +100,31 @@ textarea:focus-visible {
   overflow-x: hidden;
 }
 
+.minigame-stage-shell.is-embedded {
+  width: 100%;
+  min-height: 0;
+  margin: 12px 0 0;
+}
+
+.minigame-stage-shell.is-embedded .minigame-canvas-region {
+  border-top: 1px solid var(--border-soft);
+}
+
+.minigame-stage-shell.is-embedded .minigame-stage-controls {
+  padding: 14px 0 4px;
+}
+
+.minigame-stage-shell.is-embedded .minigame-canvas-region,
+.minigame-stage-shell.is-embedded .minigame-canvas-host {
+  min-height: 250px;
+}
+
+.minigame-stage-shell.is-embedded[data-minigame-engine="B14"] .minigame-canvas-region,
+.minigame-stage-shell.is-embedded[data-minigame-engine="B14"] .minigame-canvas-host {
+  min-height: 470px;
+  max-height: 470px;
+}
+
 .minigame-overlay {
   position: fixed;
   z-index: 1000;
@@ -1901,6 +1926,12 @@ a.minigame-index-row:focus-visible,
   background: rgba(214, 0, 86, .035);
 }
 .mission-group-leaderboard .ranking-note { margin: 12px 0; }
+.mission-group-leaderboard .group-ranking-list li { padding-right: 8px; padding-left: 8px; }
+.mission-group-leaderboard .group-ranking-list li.is-current-group {
+  border: 1.5px solid var(--love-red);
+  border-radius: var(--wobble-radius-b);
+  background: var(--love-red-35);
+}
 
 .next-question-action {
   margin-top: 34px;
@@ -2430,27 +2461,9 @@ a.minigame-index-row:focus-visible,
 /* Random team missions */
 
 .mission-launch {
-  display: grid;
-  gap: 12px;
   margin: 22px 28px 10px;
-  padding: 18px 16px;
-  border: 1.5px solid var(--graphite);
-  border-radius: var(--wobble-radius-b);
-  background: rgba(214, 0, 86, .035);
-  transform: rotate(-.18deg);
 }
-.mission-launch::before {
-  content: "";
-  width: 58%;
-  height: 13px;
-  margin: -4px 0 -16px 5px;
-  background: var(--love-red-35);
-  clip-path: var(--marker-cut-a);
-  transform: rotate(-1deg);
-}
-.mission-launch p { position: relative; margin: 0; color: var(--muted); font-size: 13px; line-height: 19px; }
-.mission-launch .primary-action { width: 100%; margin-top: 3px; }
-.mission-waiting:empty { display: none; }
+.mission-launch .primary-action { width: 100%; }
 
 .question-card {
   display: grid;

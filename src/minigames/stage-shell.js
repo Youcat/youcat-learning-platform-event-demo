@@ -4,8 +4,8 @@ import { createResultAdapter } from "./result-adapter.js";
 import { loadPhaserRuntime } from "./runtime.js";
 
 const copy = {
-  en: { back: "Back", lab: "Game Lab", check: "Check", loading: "Loading game…", submitted: "Mission submitted", locked: "This mission already has its one submission.", invalid: "That move is not available. Your progress is unchanged.", ringMoved: "Band moved to the selected mark." },
-  pt: { back: "Voltar", lab: "Laboratório de Jogos", check: "Verificar", loading: "Carregando jogo…", submitted: "Missão enviada", locked: "Esta missão já recebeu sua única resposta.", invalid: "Esse movimento não está disponível. Seu progresso não mudou.", ringMoved: "Faixa movida para a marca escolhida." },
+  en: { back: "Back", lab: "Game Lab", check: "Check", finishChallenge: "Finish challenge", loading: "Loading game…", challengeFinished: "Challenge completed", challengeLocked: "This challenge already has its one submission.", invalid: "That move is not available. Your progress is unchanged.", ringMoved: "Band moved to the selected mark." },
+  pt: { back: "Voltar", lab: "Laboratório de Jogos", check: "Verificar", finishChallenge: "Concluir desafio", loading: "Carregando jogo…", challengeFinished: "Desafio concluído", challengeLocked: "Este desafio já recebeu sua única tentativa.", invalid: "Esse movimento não está disponível. Seu progresso não mudou.", ringMoved: "Faixa movida para a marca escolhida." },
 };
 
 function tr(value, language) {
@@ -59,6 +59,7 @@ export async function launchGameStage({
   persistence = createMinigamePersistence(),
   onResult,
   onClose,
+  embedded = false,
 }) {
   assertGameInstance(instance);
   const locale = language === "en" ? "en" : "pt";
@@ -76,8 +77,8 @@ export async function launchGameStage({
   const adaptResult = createResultAdapter({ onLabResult: onResult, onMissionResult: onResult });
 
   document.documentElement.lang = locale === "pt" ? "pt-BR" : "en";
-  mount.innerHTML = `<main class="minigame-stage-shell ${reducedMotion ? "is-reduced-motion" : ""}" data-minigame-mode="${instance.mode}" data-minigame-engine="${escapeHtml(instance.engineId)}">
-    <header class="minigame-stage-header">
+  mount.innerHTML = `<main class="minigame-stage-shell ${embedded ? "is-embedded" : ""} ${reducedMotion ? "is-reduced-motion" : ""}" data-minigame-mode="${instance.mode}" data-minigame-engine="${escapeHtml(instance.engineId)}">
+    ${embedded ? "" : `<header class="minigame-stage-header">
       <button type="button" class="minigame-back" data-stage-action="close">← ${copy[locale].back}</button>
       <p>${instance.mode === "lab" ? copy[locale].lab : `YOUCAT Love Forever ${instance.questionNumber}`}</p>
       <span>${instance.mode === "lab" ? "LAB" : `${instance.xp} XP`}</span>
@@ -85,14 +86,15 @@ export async function launchGameStage({
     <section class="minigame-stage-copy" aria-labelledby="minigame-title">
       <h1 id="minigame-title">${escapeHtml(tr(instance.title, locale))}</h1>
       <p id="minigame-prompt">${escapeHtml(tr(instance.prompt, locale))}</p>
-    </section>
+    </section>`}
     <section class="minigame-canvas-region" aria-label="${escapeHtml(tr(instance.title, locale))}">
+      ${embedded ? `<p id="minigame-prompt" class="sr-only">${escapeHtml(tr(instance.prompt, locale))}</p>` : ""}
       <div class="minigame-loading" data-stage-loading role="status">${copy[locale].loading}</div>
       <div class="minigame-canvas-host" data-stage-canvas></div>
     </section>
     <footer class="minigame-stage-controls">
-      <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].submitted : copy[locale].check}</button>
-      <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].locked : ""}</p>
+      <button type="button" class="minigame-check" data-stage-action="check" ${instance.mode === "mission" && submitted ? "disabled" : ""}>${instance.mode === "mission" && submitted ? copy[locale].challengeFinished : instance.mode === "mission" ? copy[locale].finishChallenge : copy[locale].check}</button>
+      <p class="minigame-feedback" data-stage-feedback role="status" aria-live="polite">${instance.mode === "mission" && submitted ? copy[locale].challengeLocked : ""}</p>
       <p class="minigame-insight" data-stage-insight ${resultShown ? "" : "hidden"}>${escapeHtml(tr(instance.insight, locale))}</p>
     </footer>
   </main>`;
@@ -166,7 +168,7 @@ export async function launchGameStage({
   async function submit() {
     const submission = nextSubmissionState({ mode: instance.mode, submitted });
     if (!submission.accepted) {
-      feedback.textContent = copy[locale].locked;
+      feedback.textContent = copy[locale].challengeLocked;
       return;
     }
     submitted = submission.submitted;
@@ -179,7 +181,7 @@ export async function launchGameStage({
       scene.setLocked?.(true);
       scene.revealSolution?.();
       checkButton.disabled = true;
-      checkButton.textContent = copy[locale].submitted;
+      checkButton.textContent = copy[locale].challengeFinished;
     }
     persist();
     await adaptResult(instance, evaluation, { hintsUsed });

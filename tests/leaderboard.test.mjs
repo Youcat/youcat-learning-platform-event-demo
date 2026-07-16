@@ -2,13 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { rankGroupSummaries, rankMembers } from "../src/leaderboard.js";
 
-test("event groups require three contributors and rank by average", () => {
+test("active event groups require two contributors and rank by total XP", () => {
   const ranked = rankGroupSummaries([
-    { groupCode: "A", totalXp: 120, participants: 3, averageXp: 40 },
+    { groupCode: "A", totalXp: 120, participants: 2, averageXp: 60 },
     { groupCode: "B", totalXp: 100, participants: 2, averageXp: 50 },
-    { groupCode: "C", totalXp: 150, participants: 3, averageXp: 50 },
+    { groupCode: "C", totalXp: 150, participants: 1, averageXp: 150 },
   ]);
-  assert.deepEqual(ranked.map((item) => item.code), ["C", "A"]);
+  assert.deepEqual(ranked.map((item) => item.code), ["A", "B"]);
 });
 
 test("member ties are stable by display name", () => {

@@ -94,7 +94,7 @@ const copy = {
     wordSearchAttempt: "Find every word to complete this team attempt. Exploratory strokes do not count against you.",
     imageShuffleHelp: "Move a piece next to the open space. Take your time—only the completed picture counts.",
     imageShuffleAttempt: "Move only neighbouring pieces into the open space. You can take as many moves as you need.",
-    skipChallenge: "Skip this challenge",
+    skipChallenge: "Skip challenge",
     imageShuffleMoves: "moves",
     imageShuffleRestart: "Shuffle again",
     imageShuffleReference: "View picture",
@@ -109,6 +109,7 @@ const copy = {
     newPerson: "New person on this device",
     leaderboard: "Leaderboard",
     yourGroup: "Your group",
+    groupRanking: "Group ranking",
     eventGroups: "Event groups",
     practiceAgain: "Practice again",
     missedXp: "No XP this time",
@@ -183,7 +184,7 @@ const copy = {
     wordSearchAttempt: "Encontre todas as palavras para concluir esta tentativa da equipe. Traços exploratórios não contam contra você.",
     imageShuffleHelp: "Mova uma peça ao lado do espaço vazio. Sem pressa — só a imagem completa conta.",
     imageShuffleAttempt: "Mova apenas peças vizinhas para o espaço vazio. Você pode fazer quantos movimentos precisar.",
-    skipChallenge: "Pular este desafio",
+    skipChallenge: "Pular desafio",
     imageShuffleMoves: "movimentos",
     imageShuffleRestart: "Embaralhar novamente",
     imageShuffleReference: "Ver imagem",
@@ -198,6 +199,7 @@ const copy = {
     newPerson: "Nova pessoa neste dispositivo",
     leaderboard: "Classificação",
     yourGroup: "Seu grupo",
+    groupRanking: "Classificação dos grupos",
     eventGroups: "Grupos do evento",
     practiceAgain: "Praticar novamente",
     missedXp: "Sem XP desta vez",
@@ -482,25 +484,27 @@ function saveInteraction(number) {
   progress.saveInteraction(number, interactionFor(number));
 }
 
-function scheduleLeaderboardSync(previousRoom = "", immediate = false) {
+async function syncLeaderboardNow(previousRoom = "") {
   if (!state.profile) return;
+  await syncLeaderboard({
+    profile: {
+      ...state.profile,
+      room: state.room,
+      displayName: displayNameForLeaderboard(state.profile.name),
+    },
+    totalXp: progress.totalXp(),
+    groupXp: progress.allGroupXp(),
+    questionXp: progress.allGroupQuestionXp(),
+    previousRoom,
+  });
+}
+
+function scheduleLeaderboardSync(previousRoom = "", immediate = false) {
   clearTimeout(state.syncTimer);
-  state.syncTimer = setTimeout(async () => {
-    try {
-      await syncLeaderboard({
-        profile: {
-          ...state.profile,
-          room: state.room,
-          displayName: displayNameForLeaderboard(state.profile.name),
-        },
-        totalXp: progress.totalXp(),
-        groupXp: progress.allGroupXp(),
-        questionXp: progress.allGroupQuestionXp(),
-        previousRoom,
-      });
-    } catch (error) {
+  state.syncTimer = setTimeout(() => {
+    void syncLeaderboardNow(previousRoom).catch((error) => {
       console.warn("Leaderboard sync will retry later", error);
-    }
+    });
   }, immediate ? 0 : 10_000);
 }
 
@@ -721,9 +725,7 @@ function renderHome() {
       </section>
       ${renderAchievementShelf()}
       <section class="mission-launch">
-        <p>${language === "pt" ? "Cada missão é escolhida aleatoriamente entre os desafios ainda disponíveis." : "Each mission is chosen randomly from the challenges still available."}</p>
         <button type="button" class="primary-action" data-action="next-mission" ${state.missionClaiming ? "disabled" : ""}>${c("getChallenge")}</button>
-        <p class="mission-waiting" role="status">${state.missionStatus === "waiting" ? c("waitingChallenge") : ""}</p>
       </section>
       <a class="minigame-lab-home-link" href="?lab=index&amp;lang=${language}">${c("testMinigames")} →</a>
       <section class="question-list" aria-label="${c("teamProgress")}">${cards}</section>
@@ -811,7 +813,7 @@ function cleanupLeaderboardSubscription() {
 }
 
 function groupRankings() {
-  return rankGroupSummaries(state.leaderboardContributions, 3);
+  return rankGroupSummaries(state.leaderboardContributions, 2);
 }
 
 function currentGroupTotal() {
@@ -876,8 +878,8 @@ function renderLeaderboard(resetScroll = true) {
       </section>
       <section class="ranking-section event-ranking">
         <h2>${c("eventGroups")}</h2>
-        <p class="ranking-note">Média por participante ativo · mínimo de 3 participantes</p>
-        <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.average.toFixed(1)} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão após três participantes ganharem XP.</li>`}</ol>
+        <p class="ranking-note">XP total · mínimo de 2 participantes com XP</p>
+        <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.total} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão quando duas pessoas contribuírem com XP.</li>`}</ol>
       </section>
       ${bottomNavigation(false)}
     </main>`;
@@ -1004,6 +1006,7 @@ function renderQuestion(number, positions = null) {
   bindReadingTimers();
   bindMissionLease();
   restorePositions(positions);
+  void mountInlineMissionMinigame();
 }
 
 function renderMissionElement(mission, learning, finished) {
@@ -1035,14 +1038,11 @@ function renderMissionElement(mission, learning, finished) {
   const attemptNote = game.type === "wordsearch" ? c("wordSearchAttempt") : game.type === "image-shuffle" ? c("imageShuffleAttempt") : "";
   const attemptNoteMarkup = attemptNote ? `<p class="one-attempt-note">${attemptNote}</p>` : "";
   if (game.type === "minigame") {
-    const label = language === "pt" ? "Abrir jogo" : "Open game";
-    const support = language === "pt"
-      ? "O progresso é salvo se você sair antes de verificar. Verificar envia a única tentativa da missão."
-      : "Progress is saved if you leave before Check. Check submits the mission’s single attempt.";
     const result = finished
       ? `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
-      : `<p class="game-help">${support}</p><button type="button" class="primary-action minigame-launch-action" data-action="launch-minigame">${label}</button>`;
-    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}</article></div></section>`;
+      : `<div class="inline-minigame-host" data-inline-minigame-host data-mission-id="${escapeHtml(mission.id)}"><p class="game-help">${language === "pt" ? "Carregando desafio…" : "Loading challenge…"}</p></div>`;
+    const skipAction = finished ? "" : `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${attemptNoteMarkup}<article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}${skipAction}</article></div></section>`;
   }
   const skipAction = game.type === "image-shuffle" && !finished
     ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
@@ -1060,7 +1060,9 @@ function renderMissionQuiz(mission, item) {
 
 function renderMissionGroupLeaderboard() {
   if (state.leaderboardStatus === "loading" || state.leaderboardStatus === "idle") return `<p class="ranking-note">${c("loading")}</p>`;
-  return `<ol class="ranking-list">${state.leaderboardMembers.map((member, index) => `<li><b>${index + 1}</b><span>${escapeHtml(member.displayName)}</span><strong>${member.personalXp} XP</strong></li>`).join("") || `<li class="ranking-empty">Ainda não há XP neste grupo.</li>`}</ol>`;
+  const groups = groupRankings();
+  if (!groups.length) return `<p class="ranking-empty">${language === "pt" ? "A classificação começa quando duas pessoas de um grupo contribuem com XP." : "The ranking begins when two people in a group contribute XP."}</p>`;
+  return `<ol class="ranking-list group-ranking-list">${groups.map((group, index) => `<li class="${group.code === state.room ? "is-current-group" : ""}">${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.total} XP</strong></li>`).join("")}</ol>`;
 }
 
 function updateMissionGroupLeaderboard() {
@@ -1069,9 +1071,7 @@ function updateMissionGroupLeaderboard() {
 }
 
 function renderMissionOverview() {
-  const group = groupByCode(state.room);
-  return `<section class="feed-section overview-section mission-leaderboard-section" data-section="overview"><div class="section-inner overview-inner"><p class="section-kicker">3 · ${c("leaderboard")}</p><h2>${c("yourGroup")}</h2>
-    <div class="mission-group-identity">${groupMark(group)}<div><strong>${escapeHtml(state.room)}</strong><span>${escapeHtml(group.saint)}</span></div></div>
+  return `<section class="feed-section overview-section mission-leaderboard-section" data-section="overview"><div class="section-inner overview-inner"><p class="section-kicker">3 · ${c("leaderboard")}</p><h2>${c("groupRanking")}</h2>
     <div class="mission-group-leaderboard" data-mission-group-leaderboard>${renderMissionGroupLeaderboard()}</div>
     <button type="button" class="primary-action next-question-action" data-action="next-mission">${c("nextChallenge")}</button>
   </div></section>`;
@@ -1210,6 +1210,11 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
 async function finishReflectionMission(status) {
   const mission = state.activeMission;
   if (!mission || mission.type !== "reflection") return;
+  try {
+    await syncLeaderboardNow();
+  } catch (error) {
+    console.warn("Unable to synchronise XP before reflection completion", error);
+  }
   await finishPersonalMission({ mission, reflectionStatus: status });
   state.completedMission = mission;
   state.activeMission = null;
@@ -1319,13 +1324,8 @@ function renderGamesCarousel(number, learning, interaction) {
 function renderGame(number, game, gameIndex, gameState) {
   const disabled = gameState.attempted || gameState.finished;
   if (game.type === "minigame") {
-    const active = state.activeMission?.type === "shared"
-      && state.activeMission.questionNumber === number
-      && state.activeMission.challengeKind === "game"
-      && state.activeMission.challengeIndex === gameIndex;
     if (disabled) return gameMessage(gameState, game);
-    const help = language === "pt" ? "Abra o jogo quando esta atividade for a missão da equipe." : "Open the game when this activity is the team mission.";
-    return `<div class="minigame-mission-launch"><p>${help}</p><button type="button" class="primary-action" data-action="launch-minigame" ${active ? "" : "disabled"}>${language === "pt" ? "Abrir jogo" : "Open game"}</button></div>`;
+    return `<p class="game-help">${language === "pt" ? "Este desafio aparece diretamente quando for selecionado para sua equipe." : "This challenge appears directly when it is selected for your team."}</p>`;
   }
   if (["sequence", "order"].includes(game.type)) {
     const displayItems = (game.start || game.items.map((item) => item.id)).map((id) => game.items.find((item) => item.id === id));
@@ -1755,39 +1755,43 @@ function rerenderQuestion() {
   renderQuestion(state.currentQuestion, positions);
 }
 
-async function launchMissionMinigame() {
+function destroyActiveMinigame() {
+  state.activeMinigameController?.destroy();
+  state.activeMinigameController = null;
+}
+
+async function mountInlineMissionMinigame() {
   const mission = state.activeMission;
   if (!mission || mission.type !== "shared" || mission.challengeKind !== "game" || state.missionInteraction?.attempted || state.activeMinigameController) return;
   const activity = learningByNumber.get(mission.questionNumber)?.games?.[mission.challengeIndex];
   if (activity?.type !== "minigame") return;
+  const host = document.querySelector(`[data-inline-minigame-host][data-mission-id="${mission.id}"]`);
+  if (!host) return;
   const missionNumber = mission.questionNumber;
-  const positions = capturePositions();
   const { applyMissionMinigameResult, startMissionMinigame } = await import("./minigames/mission-player.js");
-  document.body.classList.add("is-minigame-open");
+  if (!host.isConnected || state.activeMission?.id !== mission.id || state.activeMinigameController) return;
   let controller = null;
   let completionTimer = null;
   const close = () => {
     clearTimeout(completionTimer);
     controller?.destroy();
     if (state.activeMinigameController === controller) state.activeMinigameController = null;
-    document.body.classList.remove("is-minigame-open");
-    renderQuestion(missionNumber, positions);
   };
   const continueToMissionLeaderboard = () => {
     controller?.destroy();
     if (state.activeMinigameController === controller) state.activeMinigameController = null;
-    document.body.classList.remove("is-minigame-open");
     renderQuestion(missionNumber);
     void connectLeaderboards(true);
     requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
   };
   try {
     controller = await startMissionMinigame({
-      mount: app,
+      mount: host,
       mission,
       activity,
       language,
       onClose: close,
+      embedded: true,
       onResult: async (result) => {
         const accepted = applyMissionMinigameResult(state.missionInteraction, result);
         if (!accepted.accepted) return;
@@ -1798,9 +1802,12 @@ async function launchMissionMinigame() {
         }, 3000);
       },
     });
+    if (!host.isConnected || state.activeMission?.id !== mission.id) {
+      controller.destroy();
+      return;
+    }
     state.activeMinigameController = controller;
   } catch (error) {
-    document.body.classList.remove("is-minigame-open");
     controller?.destroy();
     state.activeMinigameController = null;
     throw error;
@@ -2049,7 +2056,10 @@ app.addEventListener("click", async (event) => {
   }
 
   if (action === "home") {
-    if (state.profile) renderHome();
+    if (state.profile) {
+      destroyActiveMinigame();
+      renderHome();
+    }
     return;
   }
 
@@ -2065,6 +2075,7 @@ app.addEventListener("click", async (event) => {
     if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
     target.disabled = true;
     try {
+      destroyActiveMinigame();
       await skipSharedMission(mission);
       cleanupMissionDashboard();
       state.activeMission = null;
@@ -2072,17 +2083,6 @@ app.addEventListener("click", async (event) => {
       await requestNextMission(mission.id);
     } catch (error) {
       console.error("Unable to skip team challenge", error);
-      target.disabled = false;
-    }
-    return;
-  }
-
-  if (action === "launch-minigame") {
-    target.disabled = true;
-    try {
-      await launchMissionMinigame();
-    } catch (error) {
-      console.error("Unable to launch mission minigame", error);
       target.disabled = false;
     }
     return;
