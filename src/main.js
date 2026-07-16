@@ -971,11 +971,9 @@ async function loadGlobalPage(number) {
 }
 
 function reflectionXp(length) {
-  if (length < 1) return 0;
-  if (length < 50) return 3;
-  if (length < 100) return 5;
-  if (length < 200) return 7;
-  return 10;
+  if (length > 100) return 10;
+  if (length > 30) return 5;
+  return 0;
 }
 
 function renderQuestion(number, positions = null) {
