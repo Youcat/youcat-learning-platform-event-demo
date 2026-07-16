@@ -711,7 +711,7 @@ function renderHome() {
         <p class="brand-kicker">YOUCAT</p>
         <h1>${c("teamProgress")}</h1>
         <button type="button" class="room-chip" data-action="change-group">${c("roomLabel")} ${escapeHtml(state.room)}</button>
-        <strong class="home-xp">${progress.totalXp()} XP</strong>
+        <strong class="home-xp">${currentGroupTotal()} XP</strong>
       </header>
       <section class="group-home-card">
         ${groupMark(groupByCode(state.room), true)}
@@ -843,6 +843,10 @@ async function connectLeaderboards(rerender = false) {
       state.leaderboardContributions = groups;
       if (previousTotal < 500 && currentGroupTotal() >= 500) showGroupGoalCelebration();
       state.leaderboardStatus = "ready";
+      if (state.view === "home") {
+        const homeXp = document.querySelector(".home-xp");
+        if (homeXp) homeXp.textContent = `${currentGroupTotal()} XP`;
+      }
       if (state.view === "leaderboard") renderLeaderboard(false);
       if (state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
     }, () => {
