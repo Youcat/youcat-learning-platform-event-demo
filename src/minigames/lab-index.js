@@ -5,7 +5,7 @@ const FOUNDATION_ENGINE_ID = "foundation-skeleton";
 export const PLANNED_MINIGAME_ENGINES = Object.freeze([
   { engineId: "A2", title: { en: "Prune what chokes love", pt: "Pode o que sufoca o amor" } },
   { engineId: "A4", title: { en: "Living Symbols", pt: "Símbolos vivos" } },
-  { engineId: "A7", title: { en: "Restore the whole person", pt: "Restaure a pessoa inteira" } },
+  { engineId: "A7", title: { en: "Restore the relationship", pt: "Restaure a relação" } },
   { engineId: "B14", title: { en: "Roots, trunk, branches & fruit", pt: "Raízes, tronco, ramos e fruto" } },
   { engineId: "C20", title: { en: "River of Decisions", pt: "Rio das Decisões" } },
   { engineId: "C30", title: { en: "Covenant Rings", pt: "Anéis da Aliança" } },

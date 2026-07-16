@@ -1,4 +1,6 @@
 const LAYERS = Object.freeze(["roots", "trunk", "branches", "fruit"]);
+const CANVAS_WIDTH = 360;
+const CANVAS_HEIGHT = 470;
 
 function localized(en, pt) {
   return { en, pt };
@@ -23,20 +25,19 @@ export const B14_DEFAULT_PAYLOAD = Object.freeze({
     { id: "communion", label: localized("Deeper communion", "Comunhão mais profunda"), layer: "fruit" },
   ],
   targets: [
-    { id: "root-left", layer: "roots", x: 0.17, y: 0.74 },
-    { id: "root-centre", layer: "roots", x: 0.5, y: 0.8 },
-    { id: "root-right", layer: "roots", x: 0.83, y: 0.74 },
-    { id: "trunk-centre", layer: "trunk", x: 0.5, y: 0.51 },
-    { id: "branch-left", layer: "branches", x: 0.11, y: 0.28 },
-    { id: "branch-mid-left", layer: "branches", x: 0.36, y: 0.2 },
-    { id: "branch-mid-right", layer: "branches", x: 0.64, y: 0.2 },
-    { id: "branch-right", layer: "branches", x: 0.89, y: 0.28 },
-    { id: "fruit-top", layer: "fruit", x: 0.5, y: 0.075 },
+    { id: "root-left", layer: "roots", x: 0.2, y: 0.64 },
+    { id: "root-centre", layer: "roots", x: 0.5, y: 0.69 },
+    { id: "root-right", layer: "roots", x: 0.8, y: 0.64 },
+    { id: "trunk-centre", layer: "trunk", x: 0.5, y: 0.48 },
+    { id: "branch-left", layer: "branches", x: 0.13, y: 0.29 },
+    { id: "branch-mid-left", layer: "branches", x: 0.37, y: 0.22 },
+    { id: "branch-mid-right", layer: "branches", x: 0.63, y: 0.22 },
+    { id: "branch-right", layer: "branches", x: 0.87, y: 0.29 },
+    { id: "fruit-top", layer: "fruit", x: 0.5, y: 0.1 },
   ],
 });
 
 const FEEDBACK = Object.freeze({
-  locked: localized("That layer has not grown yet.", "Essa camada ainda não cresceu."),
   wrongLayer: localized("That word belongs in another layer.", "Essa palavra pertence a outra camada."),
   unknown: localized("That move is not available.", "Esse movimento não está disponível."),
   placed: localized("Placed. Continue growing the tree.", "Colocado. Continue fazendo a árvore crescer."),
@@ -103,7 +104,7 @@ function payloadErrors(payload, instance) {
     if (!hasExactKeys(target, ["id", "layer", "x", "y"])) errors.push(`payload.targets[${index}] has unknown or missing fields`);
     if (typeof target?.id !== "string" || !target.id.trim() || targetIds.has(target.id)) errors.push(`payload.targets[${index}].id must be unique`);
     if (!layerIds.has(target?.layer)) errors.push(`payload.targets[${index}].layer is unknown`);
-    if (!Number.isFinite(target?.x) || target.x < 0.05 || target.x > 0.95 || !Number.isFinite(target?.y) || target.y < 0.04 || target.y > 0.84) {
+    if (!Number.isFinite(target?.x) || target.x < 0.05 || target.x > 0.95 || !Number.isFinite(target?.y) || target.y < 0.04 || target.y > 0.76) {
       errors.push(`payload.targets[${index}] must use safe normalized coordinates`);
     }
     if (targetCounts[target?.layer] !== undefined) targetCounts[target.layer] += 1;
@@ -179,8 +180,7 @@ export function isB14LayerComplete(state, payload, layerId) {
 }
 
 export function isB14LayerUnlocked(state, payload, layerId) {
-  const layer = payload.layers.find((candidate) => candidate.id === layerId);
-  return Boolean(layer) && layer.requires.every((required) => isB14LayerComplete(state, payload, required));
+  return Boolean(payload.layers.find((candidate) => candidate.id === layerId));
 }
 
 export function activeB14Layer(state, payload) {
@@ -199,7 +199,6 @@ export function restoreB14State(savedState, payloadInput, seed) {
   const used = new Set();
 
   for (const layerId of LAYERS) {
-    if (!isB14LayerUnlocked(clean, payload, layerId)) break;
     for (const target of targetsForLayer(payload, layerId)) {
       const itemId = incoming[target.id];
       const item = payload.items.find((candidate) => candidate.id === itemId);
@@ -223,7 +222,6 @@ export function applyB14Move(state, payloadInput, itemId, targetId) {
   const item = payload.items.find((candidate) => candidate.id === itemId);
   const target = payload.targets.find((candidate) => candidate.id === targetId);
   if (!item || !target) return { ok: false, reason: "unknown", feedback: FEEDBACK.unknown };
-  if (!isB14LayerUnlocked(state, payload, target.layer)) return { ok: false, reason: "locked", feedback: FEEDBACK.locked };
   if (item.layer !== target.layer) return { ok: false, reason: "wrongLayer", feedback: FEEDBACK.wrongLayer };
 
   const currentTargetId = Object.keys(state.placements).find((id) => state.placements[id] === itemId);
@@ -262,31 +260,20 @@ function layerProgress(state, payload, layerId) {
   return { placed: items.filter((item) => placed.has(item.id)).length, total: items.length };
 }
 
-function hintCopy(state, payload, hintIndex) {
-  const layerId = activeB14Layer(state, payload);
-  const layer = payload.layers.find((candidate) => candidate.id === layerId);
-  if (!layer) return localized("The tree is complete. Check your work.", "A árvore está completa. Verifique o seu trabalho.");
-  const progress = layerProgress(state, payload, layerId);
-  if (hintIndex === 0) {
-    return localized(
-      `Work on ${layer.label.en.toLowerCase()} next: ${progress.total - progress.placed} placement${progress.total - progress.placed === 1 ? "" : "s"} remain.`,
-      `Agora complete ${layer.label.pt.toLowerCase()}: falt${progress.total - progress.placed === 1 ? "a" : "am"} ${progress.total - progress.placed} colocaç${progress.total - progress.placed === 1 ? "ão" : "ões"}.`,
-    );
-  }
-  return localized("One fitting word has been placed for you.", "Uma palavra adequada foi colocada para você.");
-}
-
 function targetSize(layerId) {
-  if (layerId === "fruit") return { width: 168, height: 40 };
-  if (layerId === "trunk") return { width: 106, height: 36 };
-  if (layerId === "roots") return { width: 96, height: 34 };
-  return { width: 78, height: 38 };
+  if (layerId === "fruit") return { width: 170, height: 44 };
+  if (layerId === "trunk") return { width: 118, height: 42 };
+  if (layerId === "roots") return { width: 100, height: 40 };
+  return { width: 80, height: 42 };
 }
 
-function trayPositions(layerId, count) {
-  if (layerId === "branches") return [48, 136, 224, 312].slice(0, count).map((x) => ({ x, y: 328 }));
-  if (layerId === "roots") return [58, 180, 302].slice(0, count).map((x) => ({ x, y: 328 }));
-  return [{ x: 180, y: 328 }];
+function trayPositions(count) {
+  const positions = [
+    { x: 62, y: 372 }, { x: 180, y: 372 }, { x: 298, y: 372 },
+    { x: 62, y: 412 }, { x: 180, y: 412 }, { x: 298, y: 412 },
+    { x: 62, y: 450 }, { x: 180, y: 450 }, { x: 298, y: 450 },
+  ];
+  return positions.slice(0, count);
 }
 
 function sceneFeedback(scene, feedback) {
@@ -295,6 +282,8 @@ function sceneFeedback(scene, feedback) {
 }
 
 export const b14Engine = Object.freeze({
+  hintsAvailable: false,
+  canvasSize: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
   validate(payload, instance) {
     const errors = payloadErrors(payload, instance);
     return { ok: errors.length === 0, errors };
@@ -321,13 +310,13 @@ export const b14Engine = Object.freeze({
 
       create() {
         if (this.textures.exists("b14-approved-tree")) {
-          this.b14Artwork = this.add.image(180, 174, "b14-approved-tree").setDisplaySize(350, 350).setAlpha(0.075);
+          this.b14Artwork = this.add.image(180, 222, "b14-approved-tree").setDisplaySize(350, 450).setAlpha(0.3);
         }
         this.b14Tree = this.add.graphics();
         this.b14LayerLabel = this.add.text(10, 7, "", {
           color: "#6f6a61",
           fontFamily: "Fira Sans, Source Sans 3, sans-serif",
-          fontSize: "12px",
+          fontSize: "13px",
           fontStyle: "600",
         });
         this.redraw();
@@ -347,8 +336,7 @@ export const b14Engine = Object.freeze({
       keyboardSelect(event, direction) {
         if (!this.keyboardHasFocus()) return;
         event.preventDefault();
-        const activeLayerId = activeB14Layer(this.b14State, this.b14Payload);
-        const candidates = this.b14State.itemOrder.filter((id) => this.b14Payload.items.find((item) => item.id === id)?.layer === activeLayerId);
+        const candidates = this.b14State.itemOrder;
         if (!candidates.length) return;
         const current = Math.max(0, candidates.indexOf(this.b14State.selectedItemId));
         this.b14State.selectedItemId = candidates[(current + direction + candidates.length) % candidates.length];
@@ -359,20 +347,18 @@ export const b14Engine = Object.freeze({
       keyboardAdvance(event) {
         if (!this.keyboardHasFocus()) return;
         event.preventDefault();
-        const activeLayerId = activeB14Layer(this.b14State, this.b14Payload);
-        if (!activeLayerId) return;
         const placed = new Set(Object.values(this.b14State.placements));
         const pending = this.b14State.itemOrder.filter((id) => {
-          const item = this.b14Payload.items.find((candidate) => candidate.id === id);
-          return item?.layer === activeLayerId && !placed.has(id);
+          return !placed.has(id);
         });
         if (!this.b14State.selectedItemId) {
-          this.b14State.selectedItemId = pending[0] || itemsForLayer(this.b14Payload, activeLayerId)[0]?.id || null;
+          this.b14State.selectedItemId = pending[0] || null;
           this.redraw();
           this.notify();
           return;
         }
-        const target = targetsForLayer(this.b14Payload, activeLayerId).find((candidate) => !this.b14State.placements[candidate.id]);
+        const item = this.b14Payload.items.find((candidate) => candidate.id === this.b14State.selectedItemId);
+        const target = targetsForLayer(this.b14Payload, item?.layer).find((candidate) => !this.b14State.placements[candidate.id]);
         if (target) this.placeItem(this.b14State.selectedItemId, target.id);
       }
 
@@ -400,59 +386,35 @@ export const b14Engine = Object.freeze({
       }
 
       drawTree() {
-        const point = (id) => {
-          const target = this.b14Payload.targets.find((candidate) => candidate.id === id);
-          return { x: target.x * 360, y: target.y * 350 };
-        };
-        const trunk = point("trunk-centre");
-        const fruit = point("fruit-top");
         this.b14Tree.clear();
-        this.b14Tree.lineStyle(3, 0x22201d, 0.72);
-        this.b14Tree.lineBetween(trunk.x - 9, 258, trunk.x - 4, 106);
-        this.b14Tree.lineBetween(trunk.x + 9, 258, trunk.x + 4, 106);
-        for (const target of targetsForLayer(this.b14Payload, "branches")) {
-          const end = { x: target.x * 360, y: target.y * 350 };
-          this.b14Tree.lineBetween(trunk.x, 134, end.x, end.y + 9);
-        }
-        for (const target of targetsForLayer(this.b14Payload, "roots")) {
-          const end = { x: target.x * 360, y: target.y * 350 };
-          this.b14Tree.lineBetween(trunk.x, 245, end.x, end.y - 7);
-        }
-        this.b14Tree.lineBetween(trunk.x, 106, fruit.x, fruit.y + 12);
       }
 
       addTarget(target) {
         const { width, height } = targetSize(target.layer);
-        const x = target.x * 360;
-        const y = target.y * 350;
-        const unlocked = isB14LayerUnlocked(this.b14State, this.b14Payload, target.layer);
-        const active = activeB14Layer(this.b14State, this.b14Payload) === target.layer;
+        const x = target.x * CANVAS_WIDTH;
+        const y = target.y * CANVAS_HEIGHT;
         const occupied = Boolean(this.b14State.placements[target.id]);
         const outline = this.add.graphics();
         outline.fillStyle(0xffffff, occupied ? 0.96 : 0.74);
         outline.fillRoundedRect(x - width / 2, y - height / 2, width, height, 6);
-        outline.lineStyle(active && this.b14State.hintLevel ? 3 : 1.5, active ? 0xd60056 : 0x6f6a61, unlocked ? 0.9 : 0.28);
+        outline.lineStyle(occupied ? 1.5 : 2, occupied ? 0x22201d : 0xd60056, occupied ? 0.9 : 0.78);
         outline.strokeRoundedRect(x - width / 2, y - height / 2, width, height, 6);
         this.b14Objects.push(outline);
 
-        const zone = this.add.zone(x, y, Math.max(52, width), Math.max(52, height)).setInteractive({ cursor: unlocked ? "pointer" : "default" });
+        const zone = this.add.zone(x, y, Math.max(52, width), Math.max(52, height)).setInteractive({ cursor: "pointer" });
         zone.on("pointerdown", () => {
           if (this.b14State.selectedItemId) this.placeItem(this.b14State.selectedItemId, target.id);
-          else if (!unlocked) {
-            sceneFeedback(this, FEEDBACK.locked);
-            this.notify();
-          }
         });
         this.b14Objects.push(zone);
 
         if (!occupied) {
           const layer = this.b14Payload.layers.find((candidate) => candidate.id === target.layer);
           const emptyLabel = this.add.text(x, y, labelFor(layer.label, this.b14Language), {
-            color: unlocked ? "#6f6a61" : "#918b80",
+            color: "#6f6a61",
             fontFamily: "Fira Sans, Source Sans 3, sans-serif",
-            fontSize: target.layer === "branches" ? "10px" : "11px",
+            fontSize: target.layer === "branches" ? "12px" : "13px",
             align: "center",
-          }).setOrigin(0.5).setAlpha(unlocked ? 0.8 : 0.42);
+          }).setOrigin(0.5).setAlpha(0.86);
           this.b14Objects.push(emptyLabel);
         }
       }
@@ -468,7 +430,7 @@ export const b14Engine = Object.freeze({
         const text = this.add.text(0, 0, labelFor(item.label, this.b14Language), {
           color: "#22201d",
           fontFamily: "Fira Sans, Source Sans 3, sans-serif",
-          fontSize: item.layer === "branches" ? "10px" : "11px",
+          fontSize: item.layer === "branches" ? "12px" : "13px",
           fontStyle: "600",
           align: "center",
           wordWrap: { width: width - 8, useAdvancedWrap: true },
@@ -480,11 +442,23 @@ export const b14Engine = Object.freeze({
           container.setAlpha(this.b14State.selectedItemId === item.id ? 0.78 : 1);
           this.notify();
         });
-        container.on("dragstart", () => { this.b14State.selectedItemId = item.id; });
+        container.on("dragstart", () => {
+          this.b14State.selectedItemId = item.id;
+          this.b14DragOrigin = { x: container.x, y: container.y };
+        });
         container.on("drag", (_pointer, dragX, dragY) => container.setPosition(dragX, dragY));
         container.on("dragend", () => {
+          const moved = this.b14DragOrigin
+            ? Math.hypot(container.x - this.b14DragOrigin.x, container.y - this.b14DragOrigin.y)
+            : 0;
+          this.b14DragOrigin = null;
+          if (moved < 6) {
+            this.redraw();
+            this.notify();
+            return;
+          }
           const nearest = this.b14Payload.targets
-            .map((target) => ({ target, distance: Math.hypot(container.x - target.x * 360, container.y - target.y * 350) }))
+            .map((target) => ({ target, distance: Math.hypot(container.x - target.x * CANVAS_WIDTH, container.y - target.y * CANVAS_HEIGHT) }))
             .sort((a, b) => a.distance - b.distance)[0];
           if (nearest?.distance <= 58) this.placeItem(item.id, nearest.target.id);
           else {
@@ -500,31 +474,27 @@ export const b14Engine = Object.freeze({
         if (!this.b14Tree) return;
         this.clearObjects();
         this.drawTree();
-        this.b14Artwork?.setAlpha(this.b14State.completed || this.b14State.solutionShown ? 0.17 : 0.075);
-        const activeLayerId = activeB14Layer(this.b14State, this.b14Payload);
-        const activeLayer = this.b14Payload.layers.find((layer) => layer.id === activeLayerId);
-        this.b14LayerLabel.setText(activeLayer
-          ? localized(`Growing now: ${activeLayer.label.en}`, `Crescendo agora: ${activeLayer.label.pt}`)[this.b14Language]
-          : localized("Hierarchy complete", "Hierarquia completa")[this.b14Language]);
+        this.b14Artwork?.setAlpha(this.b14State.completed || this.b14State.solutionShown ? 0.36 : 0.3);
+        this.b14LayerLabel.setText(this.b14State.completed
+          ? localized("The tree is complete", "A árvore está completa")[this.b14Language]
+          : localized("Every word already has a place", "Cada palavra já tem o seu lugar")[this.b14Language]);
 
         this.b14Payload.targets.forEach((target) => this.addTarget(target));
         const positionsByItem = new Map();
         Object.entries(this.b14State.placements).forEach(([targetId, itemId]) => {
           const target = this.b14Payload.targets.find((candidate) => candidate.id === targetId);
-          if (target) positionsByItem.set(itemId, { x: target.x * 360, y: target.y * 350 });
+          if (target) positionsByItem.set(itemId, { x: target.x * CANVAS_WIDTH, y: target.y * CANVAS_HEIGHT });
         });
         this.b14Payload.items.forEach((item) => {
           const position = positionsByItem.get(item.id);
           if (position) this.addItem(item, position.x, position.y, true);
         });
-        if (activeLayerId) {
-          const placed = new Set(Object.values(this.b14State.placements));
-          const pending = this.b14State.itemOrder
-            .map((id) => this.b14Payload.items.find((item) => item.id === id))
-            .filter((item) => item?.layer === activeLayerId && !placed.has(item.id));
-          const tray = trayPositions(activeLayerId, pending.length);
-          pending.forEach((item, index) => this.addItem(item, tray[index].x, tray[index].y, false));
-        }
+        const placed = new Set(Object.values(this.b14State.placements));
+        const pending = this.b14State.itemOrder
+          .map((id) => this.b14Payload.items.find((item) => item.id === id))
+          .filter((item) => item && !placed.has(item.id));
+        const tray = trayPositions(pending.length);
+        pending.forEach((item, index) => this.addItem(item, tray[index].x, tray[index].y, false));
       }
     }
 
@@ -560,8 +530,8 @@ export const b14Engine = Object.freeze({
     if (correct) {
       scene.b14State.completed = true;
       scene.accessibleFeedback = localized(
-        "The whole tree is growing: roots, trunk, branches, and fruit belong together.",
-        "A árvore inteira está crescendo: raízes, tronco, ramos e fruto estão unidos.",
+        "Beautiful. Every part belongs to the same living tree.",
+        "Que bonito. Cada parte pertence à mesma árvore viva.",
       );
     } else if (instance.mode === "mission") {
       completeB14Solution(scene.b14State, payload);
@@ -573,8 +543,8 @@ export const b14Engine = Object.freeze({
       const layerId = activeB14Layer(scene.b14State, payload);
       const layer = payload.layers.find((candidate) => candidate.id === layerId);
       scene.accessibleFeedback = localized(
-        `The hierarchy is not complete. Finish ${layer?.label.en.toLowerCase() || "the tree"} before checking again.`,
-        `A hierarquia ainda não está completa. Termine ${layer?.label.pt.toLowerCase() || "a árvore"} antes de verificar novamente.`,
+        "You are close. Every word has a place on this tree—take your time and try again.",
+        "Você está perto. Cada palavra tem um lugar nesta árvore—sem pressa, tente outra vez.",
       );
     }
     scene.redraw?.();
@@ -585,40 +555,23 @@ export const b14Engine = Object.freeze({
   getAccessibleActions(scene) {
     if (!scene?.b14State || scene.b14State.completed || scene.b14State.solutionShown) return [];
     const payload = scene.b14Payload;
-    const layerId = activeB14Layer(scene.b14State, payload);
-    if (!layerId) return [];
     const placed = new Set(Object.values(scene.b14State.placements));
-    const openTargets = targetsForLayer(payload, layerId).filter((target) => !scene.b14State.placements[target.id]);
     const pending = scene.b14State.itemOrder
       .map((id) => payload.items.find((item) => item.id === id))
-      .filter((item) => item?.layer === layerId && !placed.has(item.id));
-    return pending.map((item, index) => ({
+      .filter((item) => item && !placed.has(item.id));
+    return pending.map((item) => {
+      const openTarget = targetsForLayer(payload, item.layer).find((target) => !scene.b14State.placements[target.id]);
+      return {
       id: `place-${item.id}`,
       label: localized(`Place ${item.label.en}`, `Colocar ${item.label.pt}`),
-      disabled: !openTargets.length,
-      run: () => scene.placeItem(item.id, openTargets[Math.min(index, openTargets.length - 1)]?.id),
-    }));
+      disabled: !openTarget,
+      run: () => scene.placeItem(item.id, openTarget?.id),
+      };
+    });
   },
 
-  showHint(scene, hintIndex) {
-    const payload = scene.b14Payload;
-    const normalizedIndex = hintIndex === 1 ? 1 : 0;
-    const message = hintCopy(scene.b14State, payload, normalizedIndex);
-    scene.b14State.hintLevel = Math.max(scene.b14State.hintLevel, normalizedIndex + 1);
-    if (normalizedIndex === 1) {
-      const layerId = activeB14Layer(scene.b14State, payload);
-      const placed = new Set(Object.values(scene.b14State.placements));
-      const itemId = scene.b14State.itemOrder.find((id) => {
-        const item = payload.items.find((candidate) => candidate.id === id);
-        return item?.layer === layerId && !placed.has(id);
-      });
-      const target = targetsForLayer(payload, layerId).find((candidate) => !scene.b14State.placements[candidate.id]);
-      if (itemId && target) applyB14Move(scene.b14State, payload, itemId, target.id);
-    }
-    scene.accessibleFeedback = message;
-    scene.redraw?.();
-    scene.notify?.();
-    return message;
+  showHint(scene) {
+    return localized("This game gives you the whole tree from the start.", "Este jogo mostra a árvore inteira desde o início.");
   },
 
   destroy(scene) {

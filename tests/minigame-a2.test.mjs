@@ -57,14 +57,14 @@ test("A2 fixture and production registration satisfy the exact contract", () => 
 });
 
 test("A2 schema rejects malformed payloads while normalization supplies a safe fallback", () => {
-  const invalid = { concepts: [{ id: "only-one" }], targets: { keep: { x: 2, y: 2 } }, extra: true };
+  const invalid = { concepts: [{ id: "only-one" }], targets: { basket: { x: 2, y: 2 } }, extra: true };
   const validation = a2Engine.validate(invalid, a2Fixture);
   assert.equal(validation.ok, false);
   assert.match(validation.errors.join("\n"), /exactly ten/);
   assert.match(validation.errors.join("\n"), /targets/);
   const fallback = normalizeA2Payload(invalid);
   assert.deepEqual(fallback.concepts, A2_CONCEPTS);
-  assert.deepEqual(fallback.targets, { keep: { x: 0.24, y: 0.9 }, prune: { x: 0.76, y: 0.9 } });
+  assert.deepEqual(fallback.targets, { basket: { x: 0.78, y: 0.79 } });
 });
 
 test("seeded generation is deterministic, varied across seeds, and always solvable", () => {
@@ -101,8 +101,8 @@ test("serialization and resume are JSON-safe and malformed saved state falls bac
   assert.equal(scene.a2State.decisions[firstBranch.id], "keep");
   assert.equal(scene.a2State.hintLevel, 1);
   a2Engine.restoreState(scene, { decisions: { [firstBranch.id]: "impossible" }, selectedId: "missing", hintLevel: 99 }, a2Fixture);
-  assert.equal(scene.a2State.decisions[firstBranch.id], "undecided");
-  assert.equal(scene.a2State.selectedId, scene.a2Puzzle.branches[0].id);
+  assert.equal(scene.a2State.decisions[firstBranch.id], "keep");
+  assert.equal(scene.a2State.selectedId, null);
   assert.equal(scene.a2State.hintLevel, 2);
 });
 
@@ -121,7 +121,7 @@ test("Reset and Replay both recreate the deterministic clean run", () => {
 test("two hints escalate from a principle to one concrete highlighted branch", () => {
   const scene = fakeScene();
   const first = a2Engine.showHint(scene, 0, a2Fixture);
-  assert.match(first.en, /God/);
+  assert.match(first.en, /close you in/);
   assert.equal(scene.a2State.hintLevel, 1);
   assert.equal(scene.a2State.hintFocus, null);
   const second = a2Engine.showHint(scene, 1, a2Fixture);
@@ -131,12 +131,12 @@ test("two hints escalate from a principle to one concrete highlighted branch", (
   assert.equal(scene.a2State.selectedId, "isolation");
 });
 
-test("evaluation distinguishes incomplete, completed-incorrect, and completed-correct states", () => {
-  const incomplete = fakeScene();
-  const incompleteResult = a2Engine.evaluate(incomplete, a2Fixture);
-  assert.equal(incompleteResult.correct, false);
-  assert.equal(incompleteResult.complete, false);
-  assert.match(incompleteResult.feedback.en, /10 branches/);
+test("untouched leaves stay on the tree and Check distinguishes incorrect from correct states", () => {
+  const untouched = fakeScene();
+  const untouchedResult = a2Engine.evaluate(untouched, a2Fixture);
+  assert.equal(untouchedResult.correct, false);
+  assert.equal(untouchedResult.complete, true);
+  assert.equal(untouched.a2State.locked, false);
 
   const incorrect = fakeScene();
   for (const branch of incorrect.a2Puzzle.branches) incorrect.a2State.decisions[branch.id] = "keep";

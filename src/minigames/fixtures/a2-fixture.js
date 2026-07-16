@@ -26,12 +26,12 @@ const sharedDefinition = {
   seed: "assis-a2-prune-love-001",
   xp: 9,
   title: {
-    en: "Prune what chokes love",
-    pt: "Pode o que sufoca o amor",
+    en: "Prune the leaves that choke love",
+    pt: "Pode as folhas que sufocam o amor",
   },
   prompt: {
-    en: "Drag each leaf to Keep or Prune. Keep what opens freedom; prune what feeds isolation or defeat. You can also tap a leaf, then a target.",
-    pt: "Arraste cada folha para Manter ou Podar. Mantenha o que abre à liberdade; pode o que alimenta isolamento ou derrota. Também pode tocar numa folha e depois num alvo.",
+    en: "Drag leaves that choke love into the wastebasket.",
+    pt: "Arraste para o cesto as folhas que sufocam o amor.",
   },
   insight: {
     en: "Freedom grows through a concrete plan, friendship, prayer, wise filters, and the courage to begin again. Trigger loops, isolation, secrecy, passivity, and despair choke it.",
@@ -42,8 +42,7 @@ const sharedDefinition = {
   payload: {
     concepts: A2_CONCEPTS,
     targets: {
-      keep: { x: 0.24, y: 0.9 },
-      prune: { x: 0.76, y: 0.9 },
+      basket: { x: 0.78, y: 0.79 },
     },
   },
 };

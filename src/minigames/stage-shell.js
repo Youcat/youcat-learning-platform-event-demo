@@ -64,6 +64,7 @@ export async function launchGameStage({
   const locale = language === "en" ? "en" : "pt";
   const engine = registry.resolve(instance, { allowNonProduction: instance.mode === "lab" });
   validateEnginePayload(engine, instance);
+  const canvasSize = engine.canvasSize || { width: 360, height: 350 };
   const saved = persistence.load(instance);
   const hintsUsed = 0;
   let submitted = Boolean(saved?.submitted);
@@ -145,8 +146,8 @@ export async function launchGameStage({
   game = new Phaser.Game({
     type: Phaser.CANVAS,
     parent: canvasHost,
-    width: 360,
-    height: 350,
+    width: canvasSize.width,
+    height: canvasSize.height,
     backgroundColor: "#ffffff",
     audio: { noAudio: true },
     banner: false,

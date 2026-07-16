@@ -203,6 +203,26 @@ textarea:focus-visible {
   outline-offset: -4px;
 }
 
+.minigame-stage-shell[data-minigame-engine="A2"] .minigame-canvas-region,
+.minigame-stage-shell[data-minigame-engine="A2"] .minigame-canvas-host {
+  min-height: 0;
+  max-height: none;
+}
+
+.minigame-stage-shell[data-minigame-engine="A2"] .minigame-canvas-region {
+  flex: 1 1 auto;
+}
+
+.minigame-stage-shell[data-minigame-engine="B14"] .minigame-canvas-region,
+.minigame-stage-shell[data-minigame-engine="B14"] .minigame-canvas-host {
+  min-height: 470px;
+  max-height: 470px;
+}
+
+.minigame-stage-shell[data-minigame-engine="B14"] .minigame-canvas-region {
+  flex: 0 0 470px;
+}
+
 .minigame-loading {
   position: absolute;
   z-index: 2;

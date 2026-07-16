@@ -21,14 +21,14 @@ Fixture: `?lab=A7&lang=en` / `?lab=A7&lang=pt`
 
 | Result | Evidence |
 | --- | --- |
-| Pass | EN/PT first screen names the objective, drag, tap-select/tap-target, and accessible controls. |
-| Pass | Check, Hint, feedback, Reset, Replay, and accessible actions are HTML. |
+| Pass | EN/PT first screen names the objective and the drag, tap, and direct-canvas keyboard paths. |
+| Pass | Check and live feedback remain HTML; Reset, Replay, Hint, and the accessible-controls section are absent. |
 | Pass | Live pointer drag placed a matching shard. |
 | Pass | Live wrong-target drag was rejected immediately and returned the shard safely. |
 | Pass | Live tap on the Freedom shard followed by its silhouette placed it. |
 | Pass | Live canvas Arrow/number selection plus Enter placement worked. |
-| Pass | Live HTML action selection and placement worked. |
-| Pass | All HTML targets measured at least 44 CSS px high and have the shared visible focus treatment. |
+| Pass | Direct-canvas number selection, arrow movement, and Enter placement completed all seven fragments. |
+| Pass | Back and Check meet the shared minimum target sizes and have visible focus treatment. |
 | Pass | No hover, audio, countdown, speed, or motion dependency. |
 
 ## Accessibility and comfort
@@ -36,8 +36,8 @@ Fixture: `?lab=A7&lang=en` / `?lab=A7&lang=pt`
 | Result | Evidence |
 | --- | --- |
 | Pass | Canvas is focusable, role `application`, and has a localized objective/instruction label. |
-| Pass | DOM order is Back → canvas → shard actions → Reset/Replay/Hint → Check. |
-| Pass | Every operable state is exposed through visible localized HTML buttons. |
+| Pass | DOM order is Back → title and prompt → canvas → Check → feedback and insight. |
+| Pass | Pointer/touch and direct-canvas keyboard paths cover the complete interaction without a separate controls panel. |
 | Pass | Feedback uses `role=status` and `aria-live=polite`; meaning is expressed in text, not color alone. |
 | Pass | Enlarged-text browser check reported no clipped heading, paragraph, or button content. |
 | Pass | Engine has no animation or transition; the shell also applies its reduced-motion rule. |
@@ -49,8 +49,8 @@ Fixture: `?lab=A7&lang=en` / `?lab=A7&lang=pt`
 | --- | --- |
 | Pass | Partial state is JSON-safe and restored from local versioned persistence. |
 | Pass | Another engine version is ignored safely; malformed saved state resets to the seeded initial state. |
-| Pass | Lab supplies Reset, Replay, exactly two escalating hints, and repeatable Check. |
-| Pass | Mission hides Reset/Replay, accepts one Check, reveals solution/insight, and normalizes one result. |
+| Pass | Lab provides repeatable Check without Reset, Replay, Hint, or an accessible-controls section. |
+| Pass | Mission accepts one Check, reveals solution/insight, and normalizes one result. |
 | Pass | Exiting before mission submission leaves the active mission and persisted engine state intact. |
 | Pass | XP is absent from `evaluate`; the result adapter awards mission XP only for correct+complete. |
 | Pass | Fixture is bundled and A7 is registered exactly as `A7@1.0.0`, production enabled. |
@@ -60,7 +60,7 @@ Fixture: `?lab=A7&lang=en` / `?lab=A7&lang=pt`
 
 | Result | Evidence |
 | --- | --- |
-| Pass | `npm run check`: 37/37 tests passed. |
+| Pass | `npm run check`: 106/106 tests passed. |
 | Pass | `npm run build`: succeeded; Phaser emitted as a separate lazy chunk. |
 | Pass | Final running-browser screenshots: initial, meaningful partial, completed/debrief at 390×844. |
 | Pass | Portuguese at 390×844 has no horizontal overflow; localized button text is not clipped. |

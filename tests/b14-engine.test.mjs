@@ -82,15 +82,15 @@ test("B14 is guaranteed solvable and accepts free ordering inside roots and bran
   assert.equal(state.placements["branch-left"], "care");
 });
 
-test("B14 rejects impossible moves immediately without corrupting recoverable state", () => {
+test("B14 keeps all terms available and rejects only impossible layer mismatches", () => {
   const payload = normalizeB14Payload(b14Fixture.payload);
   const state = createB14InitialState(payload, b14Fixture.seed);
-  assert.equal(applyB14Move(state, payload, "gratitude", "branch-left").reason, "locked");
-  assert.equal(applyB14Move(state, payload, "grace", "trunk-centre").reason, "locked");
-  assert.deepEqual(state.placements, {});
+  assert.equal(applyB14Move(state, payload, "gratitude", "branch-left").ok, true);
+  assert.equal(applyB14Move(state, payload, "grace", "trunk-centre").reason, "wrongLayer");
+  assert.deepEqual(state.placements, { "branch-left": "gratitude" });
   assert.equal(applyB14Move(state, payload, "grace", "root-left").ok, true);
   assert.equal(applyB14Move(state, payload, "decision", "root-centre").reason, "wrongLayer");
-  assert.deepEqual(state.placements, { "root-left": "grace" });
+  assert.deepEqual(state.placements, { "branch-left": "gratitude", "root-left": "grace" });
 });
 
 test("B14 keeps scored play freely rearrangeable by swapping compatible placements", () => {
@@ -121,7 +121,7 @@ test("B14 serialization is JSON-safe and partial state resumes while malformed s
   assert.equal(restored.b14State.selectedItemId, "truth");
 
   const malformed = restoreB14State({ placements: { "branch-left": "gratitude", "root-left": "unknown" }, hintLevel: 99 }, scene.b14Payload, b14Fixture.seed);
-  assert.deepEqual(malformed.placements, {});
+  assert.deepEqual(malformed.placements, { "branch-left": "gratitude" });
   assert.equal(malformed.hintLevel, 2);
 });
 
@@ -136,15 +136,16 @@ test("B14 Reset and Replay recreate the same clean seeded run", () => {
   assert.deepEqual(reset.itemOrder, seededB14ItemOrder(b14Fixture.payload, b14Fixture.seed));
 });
 
-test("B14 provides two escalating hints", () => {
+test("B14 deliberately offers no content hint or automatic placement", () => {
   const scene = fakeScene();
   const first = b14Engine.showHint(scene, 0, b14Fixture);
-  assert.match(first.en, /roots/i);
+  assert.equal(b14Engine.hintsAvailable, false);
+  assert.match(first.en, /whole tree/i);
   assert.equal(Object.keys(scene.b14State.placements).length, 0);
   const second = b14Engine.showHint(scene, 1, b14Fixture);
-  assert.match(second.en, /placed/i);
-  assert.equal(Object.keys(scene.b14State.placements).length, 1);
-  assert.equal(scene.b14State.hintLevel, 2);
+  assert.match(second.en, /whole tree/i);
+  assert.equal(Object.keys(scene.b14State.placements).length, 0);
+  assert.equal(scene.b14State.hintLevel, 0);
 });
 
 test("B14 evaluates incomplete, correct, and completed states only on Check", () => {

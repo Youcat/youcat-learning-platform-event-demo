@@ -2,7 +2,7 @@ import { B14_DEFAULT_PAYLOAD } from "../engines/b14.js";
 
 export const B14_FIXTURE_ID = "B14";
 
-const baseImage = new URL("../../assets/minigames/b14/mature-love-tree.webp", import.meta.url).href;
+const baseImage = new URL("../../assets/minigames/b14/real-growth-tree.webp", import.meta.url).href;
 
 const shared = {
   questionNumber: 140,
@@ -15,8 +15,8 @@ const shared = {
     pt: "Raízes, tronco, ramos e fruto",
   },
   prompt: {
-    en: "Grow love layer by layer. Drag each word to the tree, or tap a word and then its target. Complete the roots first.",
-    pt: "Faça o amor crescer camada por camada. Arraste cada palavra até a árvore ou toque numa palavra e depois no alvo. Comece pelas raízes.",
+    en: "Place every word on the living tree. Drag a word to its place, tap a word and then its place, or use the keyboard.",
+    pt: "Coloque cada palavra na árvore viva. Arraste uma palavra até o seu lugar, toque numa palavra e depois no seu lugar, ou use o teclado.",
   },
   insight: {
     en: "God sustains love at its roots. Decision gives it form; gratitude, forgiveness, respect, and care open a deeper communion.",
