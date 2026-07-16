@@ -384,6 +384,7 @@ const state = {
   heartRewardsUnsubscribe: null,
   activeMission: null,
   completedMission: null,
+  missionCompletionIssue: "",
   missionInteraction: null,
   missionStartXp: 0,
   missionGroupState: { challenges: {}, progress: {} },
@@ -1065,13 +1066,16 @@ function renderMissionElement(mission, learning, finished) {
       <button type="button" class="primary-action finish-board-action" data-action="finish-board" ${finished ? "disabled" : ""}>${c("finishBoard")}</button>
     </div></section>`;
   }
+  const unavailableMessage = state.missionCompletionIssue
+    ? `<div class="answer-explanation is-wrong"><strong>${language === "pt" ? "Desafio já concluído" : "Challenge already completed"}</strong><p>${language === "pt" ? "Outro membro da equipe concluiu este desafio antes que o resultado pudesse ser enviado. Nenhum XP foi adicionado nesta tentativa." : "Another team member completed this challenge before this result could be submitted. No XP was added for this attempt."}</p></div>`
+    : "";
   if (mission.challengeKind === "quiz") {
-    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
+    return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p>${unavailableMessage || renderMissionQuiz(mission, learning.quiz[0])}</div></section>`;
   }
   const game = learning.games[mission.challengeIndex];
   if (game.type === "minigame") {
     const result = finished
-      ? `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
+      ? unavailableMessage || `<div class="answer-explanation ${state.missionInteraction.currentCorrect ? "is-correct" : "is-wrong"}"><strong>${state.missionInteraction.currentCorrect ? `✓ ${c("correct")}` : `× ${c("missedXp")}`}</strong>${game.insight ? `<p>${escapeHtml(tr(game.insight))}</p>` : ""}</div>`
       : `<div class="inline-minigame-host" data-inline-minigame-host data-mission-id="${escapeHtml(mission.id)}"><p class="game-help">${language === "pt" ? "Carregando desafio…" : "Loading challenge…"}</p></div>`;
     const skipAction = finished ? "" : `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`;
     return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><article class="carousel-panel game-panel mission-game-panel"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${result}${skipAction}</article></div></section>`;
@@ -1080,7 +1084,7 @@ function renderMissionElement(mission, learning, finished) {
     ? `<button type="button" class="quiet-action skip-challenge-action" data-action="skip-challenge">${c("skipChallenge")}</button>`
     : "";
   const compactGameClass = game.type === "image-shuffle" || game.type === "wordsearch" ? `is-${game.type}` : "";
-  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><article class="carousel-panel game-panel mission-game-panel ${compactGameClass}"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
+  return `<section class="feed-section" data-section="challenge"><div class="section-inner section-with-carousel"><p class="section-kicker">2 · ${c("challenge")} · ${mission.xp} XP</p><article class="carousel-panel game-panel mission-game-panel ${compactGameClass}"><h2>${escapeHtml(tr(game.title || game.prompt))}</h2>${game.title ? `<p class="game-prompt">${escapeHtml(tr(game.prompt))}</p>` : ""}${unavailableMessage || renderGame(mission.questionNumber, game, mission.challengeIndex, state.missionInteraction)}${skipAction}</article></div></section>`;
 }
 
 function renderMissionQuiz(mission, item) {
@@ -1220,6 +1224,7 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
   const xp = correct ? mission.xp : 0;
   try {
     await completeSharedMission({ mission, correct, xpAwarded: xp });
+    state.missionCompletionIssue = "";
     if (xp) grantReward(`team:${mission.groupCode}:${mission.id}`, xp, { type: "team-challenge", question: mission.questionNumber });
     saveMissionInteraction();
     state.completedMission = mission;
@@ -1237,6 +1242,16 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
     }, 3000);
   } catch (error) {
     console.error("Unable to complete team challenge", error);
+    if (String(error?.message || "").includes("mission-not-owned")) {
+      state.missionCompletionIssue = "unavailable";
+      state.completedMission = mission;
+      state.activeMission = null;
+      clearInterval(state.missionRenewTimer);
+      renderQuestion(mission.questionNumber, positions);
+      void connectLeaderboards(true);
+      requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+      return;
+    }
     state.missionInteraction = loadMissionInteraction(mission);
     renderQuestion(mission.questionNumber, positions);
   }
@@ -2092,6 +2107,7 @@ app.addEventListener("click", async (event) => {
 
   if (action === "next-mission") {
     state.completedMission = null;
+    state.missionCompletionIssue = "";
     state.missionInteraction = null;
     await requestNextMission();
     return;

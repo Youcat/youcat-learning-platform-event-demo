@@ -410,7 +410,15 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     const participant = localParticipant(uid, roomCode);
     const group = localGroup(roomCode);
     if (!participant.active) { participant.active = true; localMissionEvent.activeCount += 1; }
-    if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
+    const activeMission = participant.activeMission;
+    const activeSharedChallenge = activeMission?.type === "shared" ? group.challenges?.[activeMission.id] : null;
+    const activeMissionIsStillOwned = activeMission?.expiresAt > now
+      && activeMission.groupCode === roomCode
+      && (activeMission.type !== "shared" || (activeSharedChallenge?.status === "reserved" && activeSharedChallenge.reservedBy === uid));
+    if (activeMissionIsStillOwned) return activeMission;
+    // Recover from an obsolete reservation instead of reviving a team task that
+    // another device has already completed or released.
+    if (activeMission?.type === "shared") participant.activeMission = null;
     const mission = chooseMission({ participant, group, event: localMissionEvent, sharedChallenges, questions, roomCode, now, excludeMissionId });
     if (!mission) {
       const complete = sharedChallenges.every((item) => ["completed", "skipped"].includes(group.challenges?.[item.id]?.status))
