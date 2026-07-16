@@ -30,6 +30,17 @@ test("not now returns a reflection to the pool, while declining resolves it", as
   assert.equal(resolved, null);
 });
 
+test("submitting a reflection resolves the mission and clears its lease", async () => {
+  await resetParticipantSession();
+  const first = await claimRandomMission({ roomCode: "Assis-Sao-Jose", sharedChallenges: [], questions: [25] });
+  assert.equal(first.type, "reflection");
+
+  await finishPersonalMission({ mission: first, reflectionStatus: "submitted" });
+
+  const next = await claimRandomMission({ roomCode: "Assis-Sao-Jose", sharedChallenges: [], questions: [25] });
+  assert.equal(next, null);
+});
+
 test("skipping a team challenge removes it permanently for the whole group", async () => {
   await resetParticipantSession();
   const challenges = [{ id: "68__game__3", questionNumber: 68, challengeKind: "game", challengeIndex: 3, xp: 8 }];
