@@ -836,23 +836,38 @@ async function connectHeartRewards() {
   }, () => {});
 }
 
+async function bootstrapParticipantSession() {
+  try {
+    await withNetworkDeadline(ensureParticipantSession(), 6_000);
+    scheduleLeaderboardSync("", true);
+    void connectHeartRewards();
+  } catch (error) {
+    console.warn("Participant session will synchronize when the connection recovers.", error);
+    scheduleLeaderboardSync("", true);
+  }
+}
+
 async function connectMissionDashboard() {
   cleanupMissionDashboard();
-  state.missionDashboardUnsubscribe = await subscribeToMissionGroup(state.room, (group) => {
-    state.missionGroupState = group;
-    questionNumbers.forEach((number) => {
-      const completed = Number(group.progress?.[number] || 0);
-      const ring = document.querySelector(`[data-team-progress="${number}"]`);
-      if (!ring) return;
-      ring.style.setProperty("--team-progress", Math.min(1, completed / 5));
-      const value = ring.querySelector("strong");
-      if (value) value.textContent = `${completed}/5`;
-    });
-    if (state.view === "home" && state.missionStatus === "waiting") {
-      const button = document.querySelector('[data-action="next-mission"]');
-      if (button) button.disabled = false;
-    }
-  }, () => {});
+  try {
+    state.missionDashboardUnsubscribe = await subscribeToMissionGroup(state.room, (group) => {
+      state.missionGroupState = group;
+      questionNumbers.forEach((number) => {
+        const completed = Number(group.progress?.[number] || 0);
+        const ring = document.querySelector(`[data-team-progress="${number}"]`);
+        if (!ring) return;
+        ring.style.setProperty("--team-progress", Math.min(1, completed / 5));
+        const value = ring.querySelector("strong");
+        if (value) value.textContent = `${completed}/5`;
+      });
+      if (state.view === "home" && state.missionStatus === "waiting") {
+        const button = document.querySelector('[data-action="next-mission"]');
+        if (button) button.disabled = false;
+      }
+    }, () => {});
+  } catch (error) {
+    console.warn("Team progress will refresh after reconnection.", error);
+  }
 }
 
 async function refreshReflectionCounts() {
@@ -2076,18 +2091,12 @@ app.addEventListener("submit", async (event) => {
       return;
     }
 
-    try {
-      await ensureParticipantSession();
-      state.profile = { name, room };
-      state.room = room;
-      progress.setProfile(state.profile);
-      scheduleLeaderboardSync("", true);
-      void connectHeartRewards();
-      renderHome();
-    } catch (error) {
-      console.error("Unable to join Firebase group", error);
-      welcomeError.textContent = language === "pt" ? "Não foi possível entrar no grupo. Tente novamente." : "Could not join the group. Please try again.";
-    }
+    state.profile = { name, room };
+    state.room = room;
+    progress.setProfile(state.profile);
+    scheduleLeaderboardSync("", true);
+    renderHome();
+    void bootstrapParticipantSession();
     return;
   }
 
@@ -2169,15 +2178,10 @@ app.addEventListener("click", async (event) => {
   const action = target.dataset.action;
 
   if (action === "continue-profile") {
-    try {
-      await ensureParticipantSession();
-      state.room = state.profile.room;
-      scheduleLeaderboardSync("", true);
-      void connectHeartRewards();
-      renderHome();
-    } catch {
-      renderWelcome();
-    }
+    state.room = state.profile.room;
+    scheduleLeaderboardSync("", true);
+    renderHome();
+    void bootstrapParticipantSession();
     return;
   }
 

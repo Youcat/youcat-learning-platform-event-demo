@@ -1,7 +1,9 @@
 import { performance } from "node:perf_hooks";
+import { readFileSync } from "node:fs";
 import { deleteApp, initializeApp } from "firebase/app";
 import {
   connectAuthEmulator,
+  deleteUser,
   getAuth,
   inMemoryPersistence,
   setPersistence,
@@ -12,7 +14,9 @@ import {
   collection,
   collectionGroup,
   connectFirestoreEmulator,
+  disableNetwork,
   doc,
+  enableNetwork,
   getCountFromServer,
   getFirestore,
   getDocs,
@@ -35,10 +39,15 @@ const questions = (process.env.LOAD_QUESTIONS || "3,14,25,34,59,68,83,126,127,14
   .map(Number)
   .filter(Number.isInteger);
 const heartsPerQuestion = positiveInteger(process.env.LOAD_HEARTS_PER_QUESTION, 3);
-const projectId = process.env.GCLOUD_PROJECT || "demo-youcat-loadtest";
+const productionTarget = process.env.LOAD_TARGET === "production";
+const productionConfig = productionTarget ? readViteEnvironment() : null;
+const projectId = productionConfig?.projectId || process.env.GCLOUD_PROJECT || "demo-youcat-loadtest";
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 const timeoutMs = positiveInteger(process.env.LOAD_TIMEOUT_MS, 60_000);
+const delayedUsers = Math.min(userCount, Number(process.env.LOAD_DELAYED_USERS || 0));
+const maximumDelayMs = Math.max(0, Number(process.env.LOAD_MAX_DELAY_MS || 0));
+const recoveryDelayMs = Math.max(0, Number(process.env.LOAD_RECOVERY_DELAY_MS || 0));
 
 if (userCount % roomSize !== 0) throw new Error("LOAD_USERS must be divisible by LOAD_ROOM_SIZE.");
 if (!questions.length) throw new Error("LOAD_QUESTIONS must include at least one question number.");
@@ -53,6 +62,7 @@ const samples = {
   leaderboardWrites: [],
   leaderboardPropagation: [],
   challengeWrites: [],
+  connectionRecovery: [],
 };
 const errors = [];
 let snapshotCallbacks = 0;
@@ -60,6 +70,7 @@ const startedAt = performance.now();
 
 console.log(`Starting ${userCount} users in ${userCount / roomSize} rooms.`);
 console.log(`${questions.length} questions per user, ${heartsPerQuestion * questions.length} hearts per user.`);
+console.log(`Target: ${productionTarget ? "production Firebase" : "local emulators"}.`);
 
 const users = await Promise.all(Array.from({ length: userCount }, (_, index) => createUser(index)));
 await runMeasured("authentication", () => Promise.all(users.map(authenticateUser)));
@@ -73,6 +84,8 @@ await withTimeout(leaderboardListeners.ready, "leaderboard propagation");
 samples.leaderboardPropagation.push(performance.now() - leaderboardStart);
 leaderboardListeners.unsubscribe();
 console.log("Leaderboard: complete.");
+
+if (recoveryDelayMs) await verifyConnectionRecovery(users[0]);
 
 console.log("Challenges: reserving and completing independent per-challenge documents.");
 await publishGroupChallenges();
@@ -98,7 +111,7 @@ for (const questionNumber of questions) {
   console.log(`Question ${questionNumber}: complete.`);
 }
 
-await Promise.all(users.map((user) => deleteApp(user.app)));
+await Promise.all(users.map(cleanUpUser));
 
 const elapsedMs = performance.now() - startedAt;
 const result = {
@@ -123,19 +136,21 @@ const result = {
 
 console.log("\nLOAD_TEST_RESULT");
 console.log(JSON.stringify(result, null, 2));
-if (errors.length) process.exitCode = 1;
+process.exit(errors.length ? 1 : 0);
 
 async function createUser(index) {
-  const app = initializeApp({
+  const app = initializeApp(productionConfig || {
     apiKey: "demo-key",
     authDomain: `${projectId}.firebaseapp.com`,
     projectId,
   }, `load-user-${index}`);
   const auth = getAuth(app);
-  connectAuthEmulator(auth, `http://${authHost}`, { disableWarnings: true });
   const db = getFirestore(app);
-  const [host, port] = firestoreHost.split(":");
-  connectFirestoreEmulator(db, host, Number(port));
+  if (!productionTarget) {
+    connectAuthEmulator(auth, `http://${authHost}`, { disableWarnings: true });
+    const [host, port] = firestoreHost.split(":");
+    connectFirestoreEmulator(db, host, Number(port));
+  }
   return {
     app,
     auth,
@@ -303,6 +318,7 @@ function openFeed(user, questionNumber) {
 }
 
 async function publishAnswer(user, questionNumber) {
+  await applyClientDelay(user, questionNumber);
   const start = performance.now();
   try {
     const answerRef = doc(user.db, "rooms", user.roomCode, "questions", String(questionNumber), "reflections", user.uid);
@@ -326,6 +342,7 @@ function publishHearts(user, questionNumber) {
   const roomStart = Math.floor(user.index / roomSize) * roomSize;
   const position = user.index % roomSize;
   return Array.from({ length: heartsPerQuestion }, async (_, offset) => {
+    await applyClientDelay(user, questionNumber, offset + 1);
     const targetPosition = (position + offset + 1) % roomSize;
     const target = users[roomStart + targetPosition];
     const start = performance.now();
@@ -345,6 +362,64 @@ function publishHearts(user, questionNumber) {
       throw error;
     }
   });
+}
+
+async function verifyConnectionRecovery(user) {
+  const start = performance.now();
+  await disableNetwork(user.db);
+  const queuedWrite = setDoc(doc(user.db, "missionParticipants", user.uid), {
+    uid: user.uid,
+    currentGroup: user.roomCode,
+    active: true,
+    connectionRecoveryTestedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  const recoveryTimer = setTimeout(() => { void enableNetwork(user.db); }, recoveryDelayMs);
+  try {
+    await withTimeout(queuedWrite, "delayed connection recovery");
+    samples.connectionRecovery.push(performance.now() - start);
+  } finally {
+    clearTimeout(recoveryTimer);
+    await enableNetwork(user.db);
+  }
+}
+
+async function applyClientDelay(user, questionNumber, offset = 0) {
+  if (!delayedUsers || user.index < userCount - delayedUsers || !maximumDelayMs) return;
+  const delayRange = Math.max(250, maximumDelayMs);
+  const delay = 250 + ((user.index + questionNumber + offset) * 137) % delayRange;
+  await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+async function cleanUpUser(user) {
+  if (productionTarget && user.auth.currentUser) {
+    try {
+      await deleteUser(user.auth.currentUser);
+    } catch (error) {
+      recordError("auth-cleanup", user.index, error);
+    }
+  }
+  await deleteApp(user.app);
+}
+
+function readViteEnvironment() {
+  const values = Object.fromEntries(readFileSync(new URL("../.env.local", import.meta.url), "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.match(/^([A-Z0-9_]+)=(.*)$/))
+    .filter(Boolean)
+    .map(([, key, value]) => [key, value.trim()]));
+  const config = {
+    apiKey: values.VITE_FIREBASE_API_KEY,
+    authDomain: values.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: values.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: values.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: values.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: values.VITE_FIREBASE_APP_ID,
+  };
+  if (Object.values(config).some((value) => !value)) {
+    throw new Error("Production load test requires complete Firebase values in .env.local.");
+  }
+  return config;
 }
 
 async function verifyGlobalOverview(user, questionNumber) {
