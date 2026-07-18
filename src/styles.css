@@ -2587,6 +2587,61 @@ a.minigame-index-row:focus-visible,
   transform: rotate(1deg);
 }
 .finish-board-action { width: 100%; margin: 18px 0 24px; }
+.finish-board-action:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.heart-completion-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(20, 19, 18, .46);
+}
+
+.heart-completion-dialog {
+  width: min(100%, 350px);
+  padding: 26px 22px 22px;
+  border: 2px solid var(--graphite);
+  border-radius: var(--wobble-radius-a);
+  background: var(--paper);
+  text-align: center;
+  transform: rotate(-.25deg);
+}
+
+.heart-completion-symbol {
+  margin-bottom: 8px;
+  color: var(--love-red);
+  font-size: 26px;
+  letter-spacing: 6px;
+}
+
+.heart-completion-dialog h2 {
+  margin: 0 0 8px;
+  font-family: "Rockster", sans-serif;
+  font-size: 27px;
+  line-height: 1.05;
+}
+
+.heart-completion-dialog p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.heart-completion-dialog .primary-action,
+.heart-completion-dialog .quiet-action {
+  width: 100%;
+  min-height: 48px;
+}
+
+.heart-completion-dialog .quiet-action {
+  margin-top: 10px;
+}
 .question-xp-summary > div:nth-child(3) { border-radius: var(--wobble-radius-a); transform: rotate(-.2deg); }
 .group-celebration .group-mark { width: 110px; height: 110px; font-size: 40px; }
 

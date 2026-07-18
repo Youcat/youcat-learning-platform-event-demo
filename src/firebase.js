@@ -2,6 +2,7 @@ import {
   calculateReflectionBoardEligibility,
   isResolvedReflectionStatus,
 } from "./reflections.js";
+import { isGroupJourneyComplete } from "./event-winner.js";
 
 const env = import.meta.env || {};
 const config = {
@@ -110,6 +111,7 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
     const missionParticipantRef = services.doc(services.db, "missionParticipants", uid);
     const missionParticipantSnapshot = await transaction.get(missionParticipantRef);
     const reflectionStatus = missionParticipantSnapshot.data()?.reflectionStatus || {};
+    const boardCompleted = missionParticipantSnapshot.data()?.boardCompleted || {};
     const reads = await Promise.all(groupList.map(async (room) => {
       const memberRef = services.doc(services.db, "leaderboardGroups", room, "members", uid);
       const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", room);
@@ -155,6 +157,7 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
         questionXp: questionXp?.[room] || {},
         active: isCurrentMember,
         reflectionStatus,
+        boardCompleted,
         updatedAt: services.serverTimestamp(),
       }, { merge: true });
 
@@ -801,7 +804,10 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
     if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
     if (reflectionStatus && !participant.reflectionStatus[key]) participant.reflectionStatus[key] = reflectionStatus;
     refreshLocalReflectionBoardEligibility(localMissionEvent);
-    if (mission.type === "board") participant.boardCompleted[key] = true;
+    if (mission.type === "board") {
+      if ((localHeartAllocations.get(`${uid}__${key}`) || []).length < 3) throw new Error("three-hearts-required");
+      participant.boardCompleted[key] = true;
+    }
     participant.activeMission = null;
     return { unlocked: Boolean(localMissionEvent.unlocked[key]) };
   }
@@ -809,11 +815,13 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
   const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", mission.groupCode);
+  const allocationRef = services.doc(services.db, "heartAllocations", `${uid}__${key}`);
   await services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, memberSnapshot, summarySnapshot] = await Promise.all([
+    const [participantSnapshot, memberSnapshot, summarySnapshot, allocationSnapshot] = await Promise.all([
       transaction.get(participantRef),
       transaction.get(memberRef),
       transaction.get(summaryRef),
+      mission.type === "board" ? transaction.get(allocationRef) : Promise.resolve(null),
     ]);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
     if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
@@ -821,13 +829,17 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
     participant.boardCompleted ||= {};
     const previousStatus = participant.reflectionStatus[key] || "";
     if (reflectionStatus && !participant.reflectionStatus[key]) participant.reflectionStatus[key] = reflectionStatus;
-    if (mission.type === "board") participant.boardCompleted[key] = true;
+    if (mission.type === "board") {
+      if ((allocationSnapshot.data()?.reflectionIds || []).length < 3) throw new Error("three-hearts-required");
+      participant.boardCompleted[key] = true;
+    }
     participant.activeMission = null;
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
     const member = memberSnapshot.data();
-    if (reflectionStatus && member) {
+    if (member && (reflectionStatus || mission.type === "board")) {
       transaction.set(memberRef, {
-        reflectionStatus: { ...(member.reflectionStatus || {}), [key]: reflectionStatus },
+        ...(reflectionStatus ? { reflectionStatus: { ...(member.reflectionStatus || {}), [key]: reflectionStatus } } : {}),
+        ...(mission.type === "board" ? { boardCompleted: { ...(member.boardCompleted || {}), [key]: true } } : {}),
         updatedAt: services.serverTimestamp(),
       }, { merge: true });
     }
@@ -844,6 +856,46 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
     await refreshReflectionBoardEligibilityFromFirestore();
   }
   return { unlocked: false };
+}
+
+export async function tryDeclareEventWinner({ roomCode, challengeIds, questions }) {
+  if (!configured) {
+    if (localMissionEvent.winnerGroup) return localMissionEvent.winnerGroup;
+    const members = [...localMissionParticipants.values()].filter((item) => item.currentGroup === roomCode);
+    if (!isGroupJourneyComplete({ members, group: localGroup(roomCode), challengeIds, questions })) return null;
+    localMissionEvent.winnerGroup = roomCode;
+    localMissionEvent.winnerXp = 0;
+    return roomCode;
+  }
+
+  const services = await getServices();
+  const membersQuery = services.query(
+    services.collection(services.db, "leaderboardGroups", roomCode, "members"),
+    services.where("active", "==", true),
+    services.limit(200),
+  );
+  const [membersSnapshot, groupSnapshot, summarySnapshot] = await Promise.all([
+    services.getDocs(membersQuery),
+    services.getDoc(services.doc(services.db, "missionGroups", roomCode)),
+    services.getDoc(services.doc(services.db, "leaderboardGroupSummaries", roomCode)),
+  ]);
+  const members = membersSnapshot.docs.map((snapshot) => snapshot.data());
+  const group = groupSnapshot.data() || { challenges: {} };
+  if (!isGroupJourneyComplete({ members, group, challengeIds, questions })) return null;
+
+  const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
+  return services.runTransaction(services.db, async (transaction) => {
+    const eventSnapshot = await transaction.get(eventRef);
+    const existing = eventSnapshot.data()?.winnerGroup;
+    if (existing) return existing;
+    transaction.set(eventRef, {
+      winnerGroup: roomCode,
+      winnerXp: Number(summarySnapshot.data()?.totalXp || 0),
+      winnerDeclaredAt: services.serverTimestamp(),
+      updatedAt: services.serverTimestamp(),
+    }, { merge: true });
+    return roomCode;
+  });
 }
 
 export async function releaseActiveMission(mission) {

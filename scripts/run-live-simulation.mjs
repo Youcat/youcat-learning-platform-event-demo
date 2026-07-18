@@ -5,6 +5,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   getFirestore,
   runTransaction,
@@ -14,6 +15,7 @@ import {
 import activities from "../src/data/approved-activities.js";
 import { GROUPS } from "../src/groups.js";
 import { REFLECTION_BOARD_UNLOCK_RATIO } from "../src/reflections.js";
+import { isGroupJourneyComplete } from "../src/event-winner.js";
 
 const ENV = Object.fromEntries(readFileSync(new URL("../.env.local", import.meta.url), "utf8")
   .split(/\r?\n/)
@@ -33,6 +35,8 @@ const config = {
 if (Object.values(config).some((value) => !value)) throw new Error("Missing Firebase configuration in .env.local.");
 
 const RUN_MINUTES = positiveInteger(process.env.SIMULATION_MINUTES, 35);
+const GROUP_COUNT = Math.min(10, positiveInteger(process.env.SIMULATION_GROUPS, 10));
+const USERS_PER_GROUP = Math.min(10, positiveInteger(process.env.SIMULATION_USERS_PER_GROUP, 10));
 const EVENT_ID = "assis-2026-07-26";
 const questionNumbers = Object.keys(activities).map(Number).sort((a, b) => a - b);
 const simulationNames = [
@@ -47,10 +51,10 @@ const simulationNames = [
   ["Lucca Moraes", "Mariana Leite", "Enzo Afonso", "Isadora Mendes", "Thiago Araujo", "Camila Lopes", "Gustavo Neiva", "Yasmin Rios", "Pedro Paulo", "Beatriz Assis"],
   ["Murilo Gouveia", "Sabrina Nunes", "Joao Gabriel", "Alice Valente", "Rodolfo Sampaio", "Leticia Prado", "Daniela Pires", "Vitor Nascimento", "Marcos Vinicius", "Juliana Farias"],
 ];
-const groupPlans = GROUPS.slice(0, 10).map((group, index) => ({
+const groupPlans = GROUPS.slice(0, GROUP_COUNT).map((group, index) => ({
   code: group.code,
   // One place is deliberately held open for Fr. Joachim in Assis-Sao-Jose.
-  names: simulationNames[index],
+  names: simulationNames[index].slice(0, index === 0 ? USERS_PER_GROUP - 1 : USERS_PER_GROUP),
 }));
 
 const sharedChallenges = questionNumbers.flatMap((questionNumber) => {
@@ -130,6 +134,7 @@ async function prepareBot(bot, index) {
     groupXp: 0,
     questionXp: {},
     reflectionStatus: {},
+    boardCompleted: {},
     active: true,
     updatedAt: serverTimestamp(),
   });
@@ -137,13 +142,15 @@ async function prepareBot(bot, index) {
 
 function scheduleFinaleSimulation() {
   const totalMs = RUN_MINUTES * 60_000;
-  const firstActionAt = 20_000;
-  const reflectionStartAt = 75_000;
-  const reflectionWindow = Math.min(1_020_000, Math.round(totalMs * 0.5));
-  const challengeStartAt = 95_000;
-  const challengeWindow = Math.min(1_480_000, Math.round(totalMs * 0.72));
-  const bonusStartAt = 150_000;
-  const bonusWindow = Math.min(1_500_000, Math.round(totalMs * 0.74));
+  const firstActionAt = 12_000;
+  const reflectionStartAt = 30_000;
+  const reflectionWindow = Math.round(totalMs * 0.30);
+  const challengeStartAt = 45_000;
+  const challengeWindow = Math.round(totalMs * 0.78);
+  const boardStartAt = reflectionStartAt + reflectionWindow + 25_000;
+  const boardWindow = Math.round(totalMs * 0.48);
+  const bonusStartAt = 70_000;
+  const bonusWindow = Math.round(totalMs * 0.70);
   const readingBonusByGroup = {
     "Assis-Sao-Jose": 175,
     "Assis-Sao-Francisco": 390,
@@ -183,10 +190,15 @@ function scheduleFinaleSimulation() {
       await refreshBoardEligibility(groupBots[0].db);
     });
 
-    // Once the reflection boards unlock, participants who have resolved a reflection visit one.
+    // Once the boards unlock, every participant gives three hearts for every question.
     groupBots.forEach((bot, index) => {
-      scheduleAction(bot, reflectionStartAt + reflectionWindow + 35_000 + index * 1_600, async () => {
-        await completeBoard(bot);
+      questionNumbers.forEach((questionNumber, boardIndex) => {
+        const offset = Math.round(((index * questionNumbers.length) + boardIndex) * boardWindow
+          / Math.max(1, groupBots.length * questionNumbers.length - 1));
+        scheduleAction(bot, boardStartAt + offset + randomInteger(0, 5_000), async () => {
+          await completeBoard(bot, questionNumber);
+          await tryDeclareWinner(plan.code);
+        });
       });
     });
 
@@ -196,6 +208,7 @@ function scheduleFinaleSimulation() {
       const offset = Math.round(index * challengeWindow / Math.max(1, sharedChallenges.length - 1));
       scheduleAction(bot, challengeStartAt + offset + randomInteger(0, 9_000), async () => {
         await completeSpecificChallenge(bot, challenge);
+        await tryDeclareWinner(plan.code);
       });
     });
 
@@ -213,7 +226,7 @@ function scheduleFinaleSimulation() {
     });
   });
 
-  // A final consistency pass makes the board status and the event winner visible before the finish.
+  // A final consistency pass makes the board status visible before the finish.
   setTimeout(async () => {
     try {
       await Promise.all(groupPlans.map((plan) => syncGroupSummary(plan.code)));
@@ -222,7 +235,6 @@ function scheduleFinaleSimulation() {
       console.warn(`Final reflection summary failed: ${error.message}`);
     }
   }, Math.max(0, totalMs - 30_000));
-  setTimeout(() => declareWinner().catch((error) => console.warn(`Winner declaration failed: ${error.message}`)), Math.max(0, totalMs - 5_000));
 }
 
 function scheduleAction(bot, delay, action) {
@@ -434,27 +446,45 @@ async function syncGroupSummary(roomCode) {
   });
 }
 
-async function declareWinner() {
-  await Promise.all(groupPlans.map((plan) => syncGroupSummary(plan.code)));
-  const db = bots[0]?.db;
-  if (!db) return;
-  const summaries = (await getDocs(collection(db, "leaderboardGroupSummaries"))).docs
-    .map((snapshot) => snapshot.data())
-    .filter((summary) => groupPlans.some((plan) => plan.code === summary.groupCode));
-  const winner = summaries.sort((left, right) => Number(right.totalXp || 0) - Number(left.totalXp || 0))[0];
-  if (!winner) return;
-  await setDoc(doc(db, "missionEvent", EVENT_ID), {
-    winnerGroup: winner.groupCode,
-    winnerXp: Number(winner.totalXp || 0),
-    winnerDeclaredAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-  console.log(`WINNER_DECLARED ${winner.groupCode} (${winner.totalXp} XP)`);
-  writeStatus("winner", { winnerGroup: winner.groupCode, winnerXp: Number(winner.totalXp || 0) });
+async function tryDeclareWinner(roomCode) {
+  const referenceBot = bots.find((bot) => bot.room === roomCode);
+  if (!referenceBot) return null;
+  const eventRef = doc(referenceBot.db, "missionEvent", EVENT_ID);
+  const existing = await getDoc(eventRef);
+  if (existing.data()?.winnerGroup) return existing.data().winnerGroup;
+  const [membersSnapshot, groupSnapshot, summarySnapshot] = await Promise.all([
+    getDocs(collection(referenceBot.db, "leaderboardGroups", roomCode, "members")),
+    getDoc(doc(referenceBot.db, "missionGroups", roomCode)),
+    getDoc(doc(referenceBot.db, "leaderboardGroupSummaries", roomCode)),
+  ]);
+  const complete = isGroupJourneyComplete({
+    members: membersSnapshot.docs.map((snapshot) => snapshot.data()),
+    group: groupSnapshot.data() || { challenges: {} },
+    challengeIds: sharedChallenges.map((challenge) => challenge.id),
+    questions: questionNumbers,
+  });
+  if (!complete) return null;
+  const winnerXp = Number(summarySnapshot.data()?.totalXp || 0);
+  const winner = await runTransaction(referenceBot.db, async (transaction) => {
+    const eventSnapshot = await transaction.get(eventRef);
+    if (eventSnapshot.data()?.winnerGroup) return eventSnapshot.data().winnerGroup;
+    transaction.set(eventRef, {
+      winnerGroup: roomCode,
+      winnerXp,
+      winnerDeclaredAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return roomCode;
+  });
+  if (winner === roomCode) {
+    console.log(`WINNER_DECLARED ${roomCode} (${winnerXp} XP)`);
+    writeStatus("winner", { winnerGroup: roomCode, winnerXp });
+  }
+  return winner;
 }
 
-async function giveSimulationHeart(bot) {
-  const questionNumber = randomItem([...bot.reflectionStatus.keys()]);
+async function giveSimulationHeart(bot, requestedQuestionNumber) {
+  const questionNumber = requestedQuestionNumber || randomItem([...bot.reflectionStatus.keys()]);
   if (!questionNumber) return false;
   const hearted = bot.heartAllocations.get(questionNumber) || new Set();
   if (hearted.size >= 3) return false;
@@ -491,16 +521,26 @@ async function giveSimulationHeart(bot) {
   return true;
 }
 
-async function completeBoard(bot) {
+async function completeBoard(bot, requestedQuestionNumber) {
   const eventSnapshot = await getDocs(collection(bot.db, "missionEvent"));
   const event = eventSnapshot.docs.find((snapshot) => snapshot.id === EVENT_ID)?.data() || {};
   const available = [...bot.reflectionStatus.keys()].filter((number) => event.unlocked?.[number] && !bot.boardCompleted.has(number));
   if (!available.length) return false;
-  const questionNumber = randomItem(available);
+  const questionNumber = available.includes(requestedQuestionNumber) ? requestedQuestionNumber : randomItem(available);
+  let attempts = 0;
+  while ((bot.heartAllocations.get(questionNumber)?.size || 0) < 3 && attempts < 12) {
+    await giveSimulationHeart(bot, questionNumber);
+    attempts += 1;
+  }
+  if ((bot.heartAllocations.get(questionNumber)?.size || 0) < 3) return false;
   bot.boardCompleted.add(questionNumber);
   await setDoc(doc(bot.db, "missionParticipants", bot.uid), {
     boardCompleted: Object.fromEntries([...bot.boardCompleted].map((number) => [number, true])),
     activeMission: null,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  await setDoc(doc(bot.db, "leaderboardGroups", bot.room, "members", bot.uid), {
+    boardCompleted: Object.fromEntries([...bot.boardCompleted].map((number) => [number, true])),
     updatedAt: serverTimestamp(),
   }, { merge: true });
   await awardXp(bot, 2, questionNumber);

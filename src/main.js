@@ -35,6 +35,7 @@ import {
   subscribeToQuestionGroupTotal,
   submitReflectionMission,
   syncLeaderboard,
+  tryDeclareEventWinner,
 } from "./firebase.js";
 
 const app = document.querySelector("#app");
@@ -89,7 +90,11 @@ const copy = {
     submit: "Share anonymously",
     submitted: "Your anonymous reflection has been shared.",
     reflections: "Reflections from everyone",
-    reflectionsBody: "No names or groups are shown. A heart gives the author +5 XP.",
+    reflectionsBody: "Choose three reflections and give one heart to each. No names or groups are shown. Each heart gives the author +5 XP.",
+    heartsCompleteTitle: "Three hearts given",
+    heartsCompleteBody: "Thank you. Your three hearts have been counted.",
+    heartNextChallenge: "Next challenge",
+    continueReadingReflections: "Continue reading reflections",
     empty: "No one has answered this question yet.",
     loading: "Connecting to the group…",
     localMode: "Local preview: Firebase is not connected yet.",
@@ -177,7 +182,11 @@ const copy = {
     submit: "Compartilhar anonimamente",
     submitted: "Sua reflexão anônima foi compartilhada.",
     reflections: "Reflexões de todos",
-    reflectionsBody: "Nenhum nome ou grupo é exibido. Um coração dá +5 XP ao autor.",
+    reflectionsBody: "Escolha três reflexões e dê um coração a cada uma. Nenhum nome ou grupo é exibido. Cada coração dá +5 XP ao autor.",
+    heartsCompleteTitle: "Três corações enviados",
+    heartsCompleteBody: "Obrigado. Seus três corações foram contabilizados.",
+    heartNextChallenge: "Próximo desafio",
+    continueReadingReflections: "Continuar lendo as reflexões",
     empty: "Ninguém respondeu a esta pergunta ainda.",
     loading: "Conectando ao grupo…",
     localMode: "Prévia local: o Firebase ainda não está conectado.",
@@ -366,6 +375,7 @@ const sharedChallenges = learningContent.flatMap((item) => [
   ...item.games.map((game, index) => ({ id: `${item.number}__game-${index}`, questionNumber: item.number, challengeKind: "game", challengeIndex: index, xp: gameXp(game) })),
 ]);
 const questionNumbers = officialContent.questions.map((item) => item.number);
+const sharedChallengeIds = sharedChallenges.map((challenge) => challenge.id);
 
 const state = {
   view: "welcome",
@@ -1071,7 +1081,7 @@ function renderMissionElement(mission, learning, finished) {
     return `<section class="feed-section reflections-section" data-section="board"><div class="section-inner reflections-inner">
       <p class="section-kicker">2 · ${c("reflections")}</p><h2>${c("reflections")}</h2><p>${c("reflectionsBody")}</p>
       <div class="board-heart-counter">♡ ${heartsGiven}/3</div><div class="feed-mode is-live">${c("liveMode")}</div><div id="reflections-list" class="reflections-list" aria-live="polite">${renderReflectionsList(mission.questionNumber)}</div>
-      <button type="button" class="primary-action finish-board-action" data-action="finish-board" ${finished ? "disabled" : ""}>${c("finishBoard")}</button>
+      <button type="button" class="primary-action finish-board-action" data-action="finish-board" ${finished || heartsGiven < 3 ? "disabled" : ""}>${c("finishBoard")}</button>
     </div></section>`;
   }
   const unavailableMessage = state.missionCompletionIssue
@@ -1235,6 +1245,7 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
     await completeSharedMission({ mission, correct, xpAwarded: xp });
     state.missionCompletionIssue = "";
     if (xp) grantReward(`team:${mission.groupCode}:${mission.id}`, xp, { type: "team-challenge", question: mission.questionNumber });
+    void checkForEventWinner(mission.groupCode);
     saveMissionInteraction();
     state.completedMission = mission;
     state.activeMission = null;
@@ -1300,13 +1311,49 @@ async function finishReflectionMission(status) {
 async function finishBoardMission() {
   const mission = state.activeMission;
   if (!mission || mission.type !== "board") return;
+  if (heartsGivenForQuestion(mission.questionNumber) < 3) return;
   await finishPersonalMission({ mission });
+  void checkForEventWinner(mission.groupCode);
   state.completedMission = mission;
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
   renderQuestion(mission.questionNumber);
   void connectLeaderboards(true);
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
+}
+
+async function checkForEventWinner(roomCode) {
+  try {
+    await tryDeclareEventWinner({ roomCode, challengeIds: sharedChallengeIds, questions: questionNumbers });
+  } catch (error) {
+    console.warn("Unable to check event winner", error);
+  }
+}
+
+function heartsGivenForQuestion(number) {
+  const uid = participantUid();
+  return (state.reflections.get(number) || [])
+    .filter((reflection) => (reflection.voters || []).includes(uid))
+    .length;
+}
+
+function showHeartCompletionDialog() {
+  if (document.querySelector("[data-heart-completion-dialog]")) return;
+  app.insertAdjacentHTML("beforeend", `
+    <div class="heart-completion-backdrop" data-heart-completion-dialog>
+      <section class="heart-completion-dialog" role="dialog" aria-modal="true" aria-labelledby="heart-completion-title">
+        <div class="heart-completion-symbol" aria-hidden="true">♥ ♥ ♥</div>
+        <h2 id="heart-completion-title">${c("heartsCompleteTitle")}</h2>
+        <p>${c("heartsCompleteBody")}</p>
+        <button type="button" class="primary-action" data-action="heart-next-challenge">${c("heartNextChallenge")}</button>
+        <button type="button" class="quiet-action" data-action="heart-continue-reading">${c("continueReadingReflections")}</button>
+      </section>
+    </div>`);
+  document.querySelector('[data-action="heart-next-challenge"]')?.focus();
+}
+
+function closeHeartCompletionDialog() {
+  document.querySelector("[data-heart-completion-dialog]")?.remove();
 }
 
 function renderReaderCarousel(number, official, learning) {
@@ -1946,6 +1993,8 @@ function updateReflections(number) {
   const heartsGiven = (state.reflections.get(number) || []).filter((item) => (item.voters || []).includes(uid)).length;
   const counter = document.querySelector(".board-heart-counter");
   if (counter) counter.textContent = `♡ ${heartsGiven}/3`;
+  const finishButton = document.querySelector('[data-action="finish-board"]');
+  if (finishButton) finishButton.disabled = heartsGiven < 3;
 }
 
 function cleanupSubscription() {
@@ -2149,6 +2198,7 @@ app.addEventListener("click", async (event) => {
     try {
       destroyActiveMinigame();
       await skipSharedMission(mission);
+      void checkForEventWinner(mission.groupCode);
       cleanupMissionDashboard();
       state.activeMission = null;
       state.missionInteraction = null;
@@ -2172,6 +2222,18 @@ app.addEventListener("click", async (event) => {
 
   if (action === "finish-board") {
     await finishBoardMission();
+    return;
+  }
+
+  if (action === "heart-next-challenge") {
+    target.disabled = true;
+    await finishBoardMission();
+    return;
+  }
+
+  if (action === "heart-continue-reading") {
+    closeHeartCompletionDialog();
+    document.querySelector(".board-heart-counter")?.focus?.();
     return;
   }
 
@@ -2251,11 +2313,14 @@ app.addEventListener("click", async (event) => {
         const reflection = state.globalReflections.find((item) => item.id === target.dataset.reflection);
         if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
         if (state.view === "global") renderGlobalOverview(number);
-      } else if (!isFirebaseConfigured()) {
+      } else {
         const reflections = state.reflections.get(number) || [];
         const reflection = reflections.find((item) => item.id === target.dataset.reflection);
         if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
         updateReflections(number);
+      }
+      if (result.count === 3 && state.activeMission?.type === "board" && state.activeMission.questionNumber === number) {
+        showHeartCompletionDialog();
       }
     } catch {
       target.disabled = false;

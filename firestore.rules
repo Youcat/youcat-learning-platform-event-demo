@@ -94,7 +94,7 @@ service cloud.firestore {
         && validRoom(roomId)
         && participantId == request.auth.uid
         && request.resource.data.keys().hasOnly([
-          "uid", "groupCode", "displayName", "personalXp", "groupXp", "questionXp", "active", "reflectionStatus", "updatedAt"
+          "uid", "groupCode", "displayName", "personalXp", "groupXp", "questionXp", "active", "reflectionStatus", "boardCompleted", "updatedAt"
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.groupCode == roomId
@@ -111,6 +111,8 @@ service cloud.firestore {
         && request.resource.data.active is bool
         && (!request.resource.data.keys().hasAny(["reflectionStatus"])
           || request.resource.data.reflectionStatus is map)
+        && (!request.resource.data.keys().hasAny(["boardCompleted"])
+          || request.resource.data.boardCompleted is map)
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
