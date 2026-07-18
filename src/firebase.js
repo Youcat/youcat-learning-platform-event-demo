@@ -405,13 +405,11 @@ export async function submitReflectionMission({ mission, name, text }) {
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const answerRef = services.doc(services.db, "rooms", mission.groupCode, "questions", key, "reflections", uid);
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
-  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", mission.groupCode);
   const result = await services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, answerSnapshot, memberSnapshot, summarySnapshot] = await Promise.all([
+    const [participantSnapshot, answerSnapshot, memberSnapshot] = await Promise.all([
       transaction.get(participantRef),
       transaction.get(answerRef),
       transaction.get(memberRef),
-      transaction.get(summaryRef),
     ]);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
     if (participant.activeMission?.id !== mission.id || participant.activeMission?.type !== "reflection") {
@@ -419,7 +417,6 @@ export async function submitReflectionMission({ mission, name, text }) {
     }
     if (answerSnapshot.exists() && answerSnapshot.data()?.authorUid !== uid) throw new Error("reflection-owner-mismatch");
 
-    const previousStatus = participant.reflectionStatus?.[key] || "";
     const member = memberSnapshot.data();
     const memberStatuses = { ...(member?.reflectionStatus || {}), [key]: "submitted" };
     participant.reflectionStatus = { ...(participant.reflectionStatus || {}), [key]: "submitted" };
@@ -438,17 +435,11 @@ export async function submitReflectionMission({ mission, name, text }) {
     }
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
     if (member) transaction.set(memberRef, { reflectionStatus: memberStatuses, updatedAt: services.serverTimestamp() }, { merge: true });
-    if (member?.active) {
-      const summary = { groupCode: mission.groupCode, ...(summarySnapshot.data() || {}) };
-      transaction.set(summaryRef, {
-        ...nextSummaryAfterResolution(summary, key, !isResolvedReflectionStatus(previousStatus)),
-        updatedAt: services.serverTimestamp(),
-      });
-    }
     return answerSnapshot.exists() ? answerSnapshot.data() : null;
   });
-  await rebuildGroupMembershipSummary(mission.groupCode);
-  await refreshReflectionBoardEligibilityFromFirestore();
+  void rebuildGroupMembershipSummary(mission.groupCode)
+    .then(() => refreshReflectionBoardEligibilityFromFirestore())
+    .catch((error) => console.warn("Unable to refresh reflection eligibility", error));
   return {
     id: uid,
     authorUid: uid,
@@ -543,32 +534,37 @@ export async function giveHeart({ roomCode, questionNumber, reflectionId }) {
   const services = await getServices();
   const answerRef = services.doc(services.db, "rooms", roomCode, "questions", String(questionNumber), "reflections", reflectionId);
   const allocationRef = services.doc(services.db, "heartAllocations", `${uid}__${questionNumber}`);
-  return services.runTransaction(services.db, async (transaction) => {
-    const [answerSnapshot, allocationSnapshot] = await Promise.all([transaction.get(answerRef), transaction.get(allocationRef)]);
-    if (!answerSnapshot.exists()) throw new Error("reflection-missing");
-    const answer = answerSnapshot.data();
-    if (answer.authorUid === uid) throw new Error("own-reflection");
-    const reflectionIds = allocationSnapshot.data()?.reflectionIds || [];
-    if (reflectionIds.includes(reflectionId) || reflectionIds.length >= 3) throw new Error("heart-limit");
-    const nextIds = [...reflectionIds, reflectionId];
-    transaction.update(answerRef, { voters: services.arrayUnion(uid) });
-    transaction.set(allocationRef, {
-      uid,
-      questionNumber: String(questionNumber),
-      reflectionIds: nextIds,
-      updatedAt: services.serverTimestamp(),
-    });
-    const rewardRef = services.doc(services.db, "heartRewards", `${answer.authorUid}__${questionNumber}__${uid}`);
-    transaction.set(rewardRef, {
-      authorUid: answer.authorUid,
-      voterUid: uid,
-      reflectionId,
-      questionNumber: String(questionNumber),
-      xp: 5,
-      createdAt: services.serverTimestamp(),
-    });
-    return { uid, count: nextIds.length, bonus: nextIds.length === 3 };
+  const [answerSnapshot, allocationSnapshot] = await Promise.all([
+    services.getDoc(answerRef),
+    services.getDoc(allocationRef),
+  ]);
+  if (!answerSnapshot.exists()) throw new Error("reflection-missing");
+  const answer = answerSnapshot.data();
+  if (answer.authorUid === uid) throw new Error("own-reflection");
+  const reflectionIds = allocationSnapshot.data()?.reflectionIds || [];
+  if (reflectionIds.includes(reflectionId) || reflectionIds.length >= 3) throw new Error("heart-limit");
+  const nextIds = [...reflectionIds, reflectionId];
+  const rewardRef = services.doc(services.db, "heartRewards", `${answer.authorUid}__${questionNumber}__${uid}`);
+  // Atomic array transforms do not need an optimistic transaction. This avoids
+  // retry storms when many people heart the same popular reflection.
+  const batch = services.writeBatch(services.db);
+  batch.update(answerRef, { voters: services.arrayUnion(uid) });
+  batch.set(allocationRef, {
+    uid,
+    questionNumber: String(questionNumber),
+    reflectionIds: nextIds,
+    updatedAt: services.serverTimestamp(),
   });
+  batch.set(rewardRef, {
+    authorUid: answer.authorUid,
+    voterUid: uid,
+    reflectionId,
+    questionNumber: String(questionNumber),
+    xp: 5,
+    createdAt: services.serverTimestamp(),
+  });
+  await batch.commit();
+  return { uid, count: nextIds.length, bonus: nextIds.length === 3 };
 }
 
 export async function subscribeToHeartRewards(authorUid, callback, onError) {
@@ -672,19 +668,22 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const groupRef = services.doc(services.db, "missionGroups", roomCode);
   const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
+  // This document is shared by every participant. Keeping it outside the
+  // reservation transaction prevents unrelated reflection updates from
+  // restarting mission claims across all groups.
+  const eventSnapshot = await services.getDoc(eventRef);
+  const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
   return services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, groupSnapshot, eventSnapshot] = await Promise.all([
-      transaction.get(participantRef), transaction.get(groupRef), transaction.get(eventRef),
+    const [participantSnapshot, groupSnapshot] = await Promise.all([
+      transaction.get(participantRef), transaction.get(groupRef),
     ]);
     const participant = { uid, currentGroup: roomCode, active: false, activeMission: null, reflectionStatus: {}, boardCompleted: {}, ...(participantSnapshot.data() || {}) };
     const group = { groupCode: roomCode, challenges: {}, progress: {}, ...(groupSnapshot.data() || {}) };
-    const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
     if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
-    if (!participant.active) { participant.active = true; event.activeCount += 1; }
+    if (!participant.active) participant.active = true;
     const mission = chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now, excludeMissionId });
     if (!mission) {
       transaction.set(participantRef, { ...participant, activeMission: null, updatedAt: services.serverTimestamp() }, { merge: true });
-      transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
       const complete = sharedChallenges.every((item) => ["completed", "skipped"].includes(group.challenges?.[item.id]?.status))
         && questions.every((number) => participant.reflectionStatus?.[number] && participant.boardCompleted?.[number]);
       return complete ? { type: "complete" } : null;
@@ -695,7 +694,6 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
     if (mission.type === "shared") group.challenges[mission.id] = { status: "reserved", reservedBy: uid, leaseUntil: mission.expiresAt };
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
     transaction.set(groupRef, { ...group, updatedAt: services.serverTimestamp() }, { merge: true });
-    transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
     return mission;
   });
 }
@@ -814,20 +812,17 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   const services = await getServices();
   const participantRef = services.doc(services.db, "missionParticipants", uid);
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
-  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", mission.groupCode);
   const allocationRef = services.doc(services.db, "heartAllocations", `${uid}__${key}`);
   await services.runTransaction(services.db, async (transaction) => {
-    const [participantSnapshot, memberSnapshot, summarySnapshot, allocationSnapshot] = await Promise.all([
+    const [participantSnapshot, memberSnapshot, allocationSnapshot] = await Promise.all([
       transaction.get(participantRef),
       transaction.get(memberRef),
-      transaction.get(summaryRef),
       mission.type === "board" ? transaction.get(allocationRef) : Promise.resolve(null),
     ]);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
     if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
     participant.reflectionStatus ||= {};
     participant.boardCompleted ||= {};
-    const previousStatus = participant.reflectionStatus[key] || "";
     if (reflectionStatus && !participant.reflectionStatus[key]) participant.reflectionStatus[key] = reflectionStatus;
     if (mission.type === "board") {
       if ((allocationSnapshot.data()?.reflectionIds || []).length < 3) throw new Error("three-hearts-required");
@@ -843,17 +838,11 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
         updatedAt: services.serverTimestamp(),
       }, { merge: true });
     }
-    if (reflectionStatus && member?.active && !isResolvedReflectionStatus(previousStatus)) {
-      const summary = { groupCode: mission.groupCode, ...(summarySnapshot.data() || {}) };
-      transaction.set(summaryRef, {
-        ...nextSummaryAfterResolution(summary, key, true),
-        updatedAt: services.serverTimestamp(),
-      });
-    }
   });
   if (reflectionStatus) {
-    await rebuildGroupMembershipSummary(mission.groupCode);
-    await refreshReflectionBoardEligibilityFromFirestore();
+    void rebuildGroupMembershipSummary(mission.groupCode)
+      .then(() => refreshReflectionBoardEligibilityFromFirestore())
+      .catch((error) => console.warn("Unable to refresh reflection eligibility", error));
   }
   return { unlocked: false };
 }
