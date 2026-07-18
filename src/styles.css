@@ -1232,6 +1232,17 @@ a.minigame-index-row:focus-visible,
   overscroll-behavior-y: auto;
 }
 
+.panel-scroll.has-reader-overscroll { overscroll-behavior-y: contain; }
+
+.reader-panel.is-pulling-forward .panel-scroll {
+  transform: translateY(-3px);
+  transition: transform 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-panel.is-pulling-forward .panel-scroll { transform: none; }
+}
+
 .panel-scroll p {
   margin: 0 0 36px;
   color: var(--graphite);
@@ -2453,6 +2464,12 @@ a.minigame-index-row:focus-visible,
 .ranking-section + .ranking-section { border-top: 2px solid var(--border-soft); }
 .ranking-section h2 { margin: 0 0 14px; font-family: "Rockster", sans-serif; font-size: 21px; }
 .ranking-note { margin: -7px 0 15px; color: var(--muted); font-size: 12px; }
+.event-winner { display: flex; align-items: center; gap: 11px; margin: 0 0 18px; padding: 12px 13px; border: 1px solid var(--love-red); background: rgba(214, 0, 86, .08); clip-path: var(--marker-cut-a); }
+.event-winner .group-mark { width: 42px; height: 42px; flex: 0 0 42px; }
+.event-winner span { display: grid; min-width: 0; gap: 2px; }
+.event-winner small { color: var(--love-red); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.event-winner strong { overflow: hidden; font-family: "Rockster", sans-serif; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.event-winner > b { margin-left: auto; white-space: nowrap; color: var(--love-red); }
 .ranking-list { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
 .ranking-list li { display: flex; min-height: 48px; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
 .ranking-list li:nth-child(3n + 1) { transform: rotate(-.15deg); }

@@ -32,6 +32,11 @@ export function normalizeGroup(value) {
   return GROUP_CODES.has(normalized) ? normalized : "";
 }
 
+export function groupDisplayName(value) {
+  const code = typeof value === "object" ? value?.code : value;
+  return String(code || "").replace(/^Assis-/, "");
+}
+
 export function displayNameForLeaderboard(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "Participante";

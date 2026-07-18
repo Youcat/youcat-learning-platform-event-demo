@@ -160,6 +160,14 @@ test("B14 evaluates incomplete, correct, and completed states only on Check", ()
   assert.equal(scene.b14State.completed, true);
 });
 
+test("B14 automatically submits a completed tree in a team mission", () => {
+  const scene = fakeScene(b14MissionDefinition);
+  assert.equal(b14Engine.shouldAutoSubmit(scene, b14MissionDefinition), false);
+  solveInReverseWithinLayers(scene.b14State, scene.b14Payload);
+  assert.equal(b14Engine.shouldAutoSubmit(scene, b14MissionDefinition), true);
+  assert.equal(b14Engine.shouldAutoSubmit(scene, b14Fixture), false);
+});
+
 test("B14 mission submission locks after one Check, shows the solution, and awards XP only for success", () => {
   assert.equal(submissionAllowed(b14MissionDefinition, false), true);
   assert.equal(submissionAllowed(b14MissionDefinition, true), false);

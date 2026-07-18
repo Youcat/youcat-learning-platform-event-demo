@@ -38,9 +38,10 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 1
         && request.resource.data.name.size() <= 60
-        && request.resource.data.age is int
-        && request.resource.data.age >= 18
-        && request.resource.data.age <= 120
+        && (!request.resource.data.keys().hasAny(["age"])
+          || (request.resource.data.age is int
+            && request.resource.data.age >= 18
+            && request.resource.data.age <= 120))
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 1
         && request.resource.data.text.size() <= 300
@@ -93,7 +94,7 @@ service cloud.firestore {
         && validRoom(roomId)
         && participantId == request.auth.uid
         && request.resource.data.keys().hasOnly([
-          "uid", "groupCode", "displayName", "personalXp", "groupXp", "questionXp", "active", "updatedAt"
+          "uid", "groupCode", "displayName", "personalXp", "groupXp", "questionXp", "active", "reflectionStatus", "updatedAt"
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.groupCode == roomId
@@ -108,6 +109,8 @@ service cloud.firestore {
         && request.resource.data.groupXp <= 20000
         && request.resource.data.questionXp is map
         && request.resource.data.active is bool
+        && (!request.resource.data.keys().hasAny(["reflectionStatus"])
+          || request.resource.data.reflectionStatus is map)
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
@@ -117,7 +120,7 @@ service cloud.firestore {
       allow create, update: if signedIn()
         && validRoom(roomId)
         && request.resource.data.keys().hasOnly([
-          "groupCode", "totalXp", "participants", "averageXp", "updatedAt"
+          "groupCode", "totalXp", "participants", "members", "reflectionResolved", "averageXp", "updatedAt"
         ])
         && request.resource.data.groupCode == roomId
         && request.resource.data.totalXp is number
@@ -126,6 +129,12 @@ service cloud.firestore {
         && request.resource.data.participants is int
         && request.resource.data.participants >= 0
         && request.resource.data.participants <= 200
+        && (!request.resource.data.keys().hasAny(["members"])
+          || (request.resource.data.members is int
+            && request.resource.data.members >= 0
+            && request.resource.data.members <= 200))
+        && (!request.resource.data.keys().hasAny(["reflectionResolved"])
+          || request.resource.data.reflectionResolved is map)
         && request.resource.data.averageXp is number
         && request.resource.data.averageXp >= 0
         && request.resource.data.averageXp <= 20000

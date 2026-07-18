@@ -12,6 +12,14 @@
   "fieldOverrides": [
     {
       "collectionGroup": "reflections",
+      "fieldPath": "authorUid",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "reflections",
       "fieldPath": "questionNumber",
       "indexes": [
         { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },

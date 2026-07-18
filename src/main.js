@@ -6,22 +6,24 @@ import "@fontsource/fira-sans/latin-800.css";
 import "./styles.css";
 import officialContent from "./data/official-content.json";
 import learningContent from "./data/learning-content.js";
-import { GROUPS, displayNameForLeaderboard, groupByCode, normalizeGroup } from "./groups.js";
+import { GROUPS, displayNameForLeaderboard, groupByCode, groupDisplayName, normalizeGroup } from "./groups.js";
 import { rankGroupSummaries, rankMembers } from "./leaderboard.js";
 import { ACHIEVEMENTS, createProgressStore, readingReward } from "./progress.js";
 import { createWordSearch, pathBetweenCells, simplifyPath, validateStroke } from "./wordsearch.js";
 import { isSolved, moveTile, movableTileIndices, shuffleBoard, tileBackground } from "./image-shuffle.js";
+import { bindReaderOverscroll } from "./reader-overscroll.js";
 import {
   ensureParticipantSession,
   claimRandomMission,
   completeSharedMission,
+  deactivateParticipantMembership,
   finishPersonalMission,
   getGlobalReflections,
   getQuestionReflectionCounts,
   giveHeart,
   isFirebaseConfigured,
   participantUid,
-  publishReflection,
+  reconcileParticipantReflections,
   releaseActiveMission,
   renewMission,
   resetParticipantSession,
@@ -31,6 +33,7 @@ import {
   subscribeToLeaderboards,
   subscribeToMissionGroup,
   subscribeToQuestionGroupTotal,
+  submitReflectionMission,
   syncLeaderboard,
 } from "./firebase.js";
 
@@ -119,6 +122,7 @@ const copy = {
     yourGroup: "Your group",
     groupRanking: "Group ranking",
     eventGroups: "Event groups",
+    eventWinner: "Event winner",
     practiceAgain: "Practice again",
     missedXp: "No XP this time",
     solution: "Correct solution",
@@ -206,6 +210,7 @@ const copy = {
     yourGroup: "Seu grupo",
     groupRanking: "Classificação dos grupos",
     eventGroups: "Grupos do evento",
+    eventWinner: "Grupo vencedor",
     practiceAgain: "Praticar novamente",
     missedXp: "Sem XP desta vez",
     solution: "Solução correta",
@@ -395,6 +400,7 @@ const state = {
   leaderboardUnsubscribe: null,
   leaderboardMembers: [],
   leaderboardContributions: [],
+  eventWinner: null,
   leaderboardStatus: "idle",
   groupGoalCelebrated: false,
   readingCleanup: null,
@@ -628,7 +634,7 @@ function bottomNavigation(disabled = false) {
 }
 
 function groupOptions(selected = state.room) {
-  return GROUPS.map((group) => `<option value="${group.code}" ${group.code === selected ? "selected" : ""}>${escapeHtml(group.code)}</option>`).join("");
+  return GROUPS.map((group) => `<option value="${group.code}" ${group.code === selected ? "selected" : ""}>${escapeHtml(groupDisplayName(group))}</option>`).join("");
 }
 
 function groupMark(group, compact = false) {
@@ -655,7 +661,7 @@ function renderReturning() {
         ${welcomeBrandLockup()}
         ${groupMark(group)}
         <h1>${c("continueAs")} ${escapeHtml(profile.name)}?</h1>
-        <p class="returning-group">${escapeHtml(profile.room)} · ${progress.totalXp()} XP</p>
+        <p class="returning-group">${escapeHtml(groupDisplayName(profile.room))} · ${progress.totalXp()} XP</p>
         <button type="button" class="primary-action" data-action="continue-profile">${c("enter")}</button>
         <button type="button" class="secondary-action" data-action="change-group">${c("changeGroup")}</button>
         <button type="button" class="quiet-action" data-action="new-person">${c("newPerson")}</button>
@@ -678,7 +684,7 @@ function renderWelcome() {
           <label>
             <span>${c("room")}</span>
             <select name="room" required>${groupOptions(initialRoom || state.room)}</select>
-            ${initialRoom ? `<small>${c("roomFromLink")}: <strong>${escapeHtml(initialRoom)}</strong></small>` : ""}
+            ${initialRoom ? `<small>${c("roomFromLink")}: <strong>${escapeHtml(groupDisplayName(initialRoom))}</strong></small>` : ""}
           </label>
           <button class="primary-action" type="submit">${c("enter")}</button>
           <p id="welcome-error" class="form-error" role="alert"></p>
@@ -724,7 +730,7 @@ function renderHome() {
       <header class="home-heading">
         <p class="brand-kicker">YOUCAT</p>
         <h1>${c("teamProgress")}</h1>
-        <button type="button" class="room-chip" data-action="change-group">${c("roomLabel")} ${escapeHtml(state.room)}</button>
+        <button type="button" class="room-chip" data-action="change-group">${c("roomLabel")} ${escapeHtml(groupDisplayName(state.room))}</button>
         <strong class="home-xp">${currentGroupTotal()} XP</strong>
       </header>
       <section class="group-home-card">
@@ -850,10 +856,11 @@ async function connectLeaderboards(rerender = false) {
   }
   state.leaderboardStatus = "loading";
   try {
-    state.leaderboardUnsubscribe = await subscribeToLeaderboards(state.room, ({ members, groups }) => {
+    state.leaderboardUnsubscribe = await subscribeToLeaderboards(state.room, ({ members, groups, winner }) => {
       const previousTotal = currentGroupTotal();
       state.leaderboardMembers = rankMembers(members);
       state.leaderboardContributions = groups;
+      state.eventWinner = winner;
       if (previousTotal < 500 && currentGroupTotal() >= 500) showGroupGoalCelebration();
       state.leaderboardStatus = "ready";
       if (state.view === "home") {
@@ -884,14 +891,15 @@ function renderLeaderboard(resetScroll = true) {
         <div class="group-goal"><span>${c("groupGoal")}: ${Math.min(groupTotal, 500)}/500 XP</span><i style="--goal:${Math.min(100, groupTotal / 5)}%"></i></div>
       </header>
       <section class="ranking-section">
-        <h2>${c("yourGroup")} · ${escapeHtml(state.room)}</h2>
+        <h2>${c("yourGroup")} · ${escapeHtml(groupDisplayName(state.room))}</h2>
         ${state.leaderboardStatus === "loading" ? `<p>${c("loading")}</p>` : ""}
         <ol class="ranking-list">${members.map((member, index) => `<li><b>${index + 1}</b><span>${escapeHtml(member.displayName)}</span><strong>${member.personalXp} XP</strong></li>`).join("") || `<li class="ranking-empty">Ainda não há XP neste grupo.</li>`}</ol>
       </section>
       <section class="ranking-section event-ranking">
         <h2>${c("eventGroups")}</h2>
+        ${state.eventWinner ? `<div class="event-winner">${groupMark(groupByCode(state.eventWinner.groupCode), true)}<span><small>${c("eventWinner")}</small><strong>${escapeHtml(groupByCode(state.eventWinner.groupCode).saint)}</strong></span><b>${state.eventWinner.totalXp} XP</b></div>` : ""}
         <p class="ranking-note">XP total · mínimo de 2 participantes com XP</p>
-        <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.total} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão quando duas pessoas contribuírem com XP.</li>`}</ol>
+        <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(groupDisplayName(group.code))}</span><strong>${group.total} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão quando duas pessoas contribuírem com XP.</li>`}</ol>
       </section>
       ${bottomNavigation(false)}
     </main>`;
@@ -906,7 +914,7 @@ function renderGroupChooser() {
       <form id="group-form" class="group-grid">
         ${GROUPS.map((group) => `<label class="group-choice ${group.code === state.room ? "is-selected" : ""}">
           <input type="radio" name="room" value="${group.code}" ${group.code === state.room ? "checked" : ""} />
-          ${groupMark(group)}<span><strong>${escapeHtml(group.saint)}</strong><small>${escapeHtml(group.code)}</small></span>
+          ${groupMark(group)}<span><strong>${escapeHtml(group.saint)}</strong><small>${escapeHtml(groupDisplayName(group))}</small></span>
         </label>`).join("")}
         <label class="sound-setting"><input type="checkbox" name="sound" ${progress.soundEnabled() ? "checked" : ""} /><span>${c("sound")}</span></label>
         <button class="primary-action" type="submit">${c("enter")}</button>
@@ -1099,7 +1107,7 @@ function renderMissionGroupLeaderboard() {
   if (state.leaderboardStatus === "loading" || state.leaderboardStatus === "idle") return `<p class="ranking-note">${c("loading")}</p>`;
   const groups = groupRankings();
   if (!groups.length) return `<p class="ranking-empty">${language === "pt" ? "A classificação começa quando duas pessoas de um grupo contribuem com XP." : "The ranking begins when two people in a group contribute XP."}</p>`;
-  return `<ol class="ranking-list group-ranking-list">${groups.map((group, index) => `<li class="${group.code === state.room ? "is-current-group" : ""}">${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(group.code)}</span><strong>${group.total} XP</strong></li>`).join("")}</ol>`;
+  return `<ol class="ranking-list group-ranking-list">${groups.map((group, index) => `<li class="${group.code === state.room ? "is-current-group" : ""}">${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(groupDisplayName(group.code))}</span><strong>${group.total} XP</strong></li>`).join("")}</ol>`;
 }
 
 function updateMissionGroupLeaderboard() {
@@ -1137,6 +1145,7 @@ async function requestNextMission(excludeMissionId = "") {
   renderHome();
   try {
     if (state.pendingMissionCompletion) await state.pendingMissionCompletion;
+    await reconcileParticipantReflections(state.room);
     const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId });
     if (mission?.type === "complete") {
       state.missionStatus = "complete";
@@ -1257,9 +1266,8 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
   }
 }
 
-function finishReflectionMission(status) {
-  const mission = state.activeMission;
-  if (!mission || mission.type !== "reflection") return Promise.resolve();
+function completePersonalMissionUi(mission) {
+  state.submitting = false;
   state.completedMission = mission;
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
@@ -1267,24 +1275,26 @@ function finishReflectionMission(status) {
   void connectLeaderboards(true);
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
   scheduleLeaderboardSync("", true);
+}
 
-  const completion = (async () => {
-    try {
-      await finishPersonalMission({ mission, reflectionStatus: status });
-    } catch (error) {
-      console.error("Unable to finalise reflection mission", error);
-      try {
-        await releaseActiveMission(mission);
-      } catch (releaseError) {
-        console.warn("Unable to release reflection mission", releaseError);
-      }
-    }
-  })();
-  const trackedCompletion = completion.finally(() => {
-    if (state.pendingMissionCompletion === trackedCompletion) state.pendingMissionCompletion = null;
-  });
-  state.pendingMissionCompletion = trackedCompletion;
-  return trackedCompletion;
+async function finishReflectionMission(status) {
+  const mission = state.activeMission;
+  if (!mission || mission.type !== "reflection") return;
+  const positions = capturePositions();
+  state.submitting = true;
+  renderQuestion(mission.questionNumber, positions);
+  try {
+    await finishPersonalMission({ mission, reflectionStatus: status });
+    completePersonalMissionUi(mission);
+  } catch (error) {
+    console.error("Unable to finalise reflection mission", error);
+    state.submitting = false;
+    renderQuestion(mission.questionNumber, positions);
+    const message = document.querySelector("#answer-message");
+    if (message) message.textContent = language === "pt"
+      ? "Não foi possível guardar sua escolha. Tente novamente."
+      : "Your choice could not be saved. Please try again.";
+  }
 }
 
 async function finishBoardMission() {
@@ -1739,6 +1749,16 @@ function bindReadingTimers() {
     };
     scroller?.addEventListener("scroll", onScroll, { passive: true });
     cleanups.push(() => { clearTimeout(scrollTimer); scroller?.removeEventListener("scroll", onScroll); });
+    if (scroller) {
+      cleanups.push(bindReaderOverscroll(scroller, {
+        onAdvance: () => {
+          const nextSection = scroller.closest(".feed-section")?.nextElementSibling;
+          if (!nextSection) return;
+          const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+          nextSection.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+        },
+      }));
+    }
   });
 
   let last = performance.now();
@@ -2001,32 +2021,32 @@ app.addEventListener("submit", async (event) => {
 
     state.submitting = true;
     interaction.answer = text;
-    renderQuestion(number, positions);
-    const publication = publishReflection({
-      roomCode: state.room,
-      questionNumber: number,
-      name: state.profile.name,
-      text,
-    });
-
-    interaction.submitted = true;
     saveInteraction(number);
-    const xpAwarded = reflectionXp(text.length);
-    grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
-
-    void finishReflectionMission("submitted");
-    state.submitting = false;
-
-    void publication.then((result) => {
-      if (!isFirebaseConfigured()) {
-        const local = state.reflections.get(number) || [];
-        state.reflections.set(number, [{ ...result, id: result.id }, ...local]);
-      }
-    }).catch((error) => {
+    renderQuestion(number, positions);
+    try {
+      const result = await submitReflectionMission({
+        mission,
+        name: state.profile.name,
+        text,
+      });
+      const local = state.reflections.get(number) || [];
+      state.reflections.set(number, [{ ...result, id: result.id }, ...local.filter((item) => item.id !== result.id)]);
+      interaction.submitted = true;
+      saveInteraction(number);
+      const xpAwarded = reflectionXp(text.length);
+      grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
+      completePersonalMissionUi(mission);
+    } catch (error) {
       console.error("Unable to publish reflection", error);
+      state.submitting = false;
       interaction.answer = text;
       saveInteraction(number);
-    });
+      renderQuestion(number, positions);
+      const failureMessage = document.querySelector("#answer-message");
+      if (failureMessage) failureMessage.textContent = language === "pt"
+        ? "Não foi possível compartilhar sua reflexão. Seu texto continua aqui — tente novamente."
+        : "Your reflection could not be shared. Your text is still here — please try again.";
+    }
   }
 });
 
@@ -2068,6 +2088,7 @@ app.addEventListener("click", async (event) => {
     cleanupLeaderboardSubscription();
     cleanupHeartRewards();
     if (state.activeMission) await releaseActiveMission(state.activeMission);
+    await deactivateParticipantMembership(state.room);
     progress.reset();
     await resetParticipantSession();
     state.profile = null;

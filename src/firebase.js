@@ -1,3 +1,8 @@
+import {
+  calculateReflectionBoardEligibility,
+  isResolvedReflectionStatus,
+} from "./reflections.js";
+
 const env = import.meta.env || {};
 const config = {
   apiKey: env.VITE_FIREBASE_API_KEY,
@@ -17,24 +22,14 @@ const localMissionParticipants = new Map();
 const localMissionListeners = new Map();
 const localMissionEvent = { activeCount: 0, resolved: {}, resolvedByGroup: {}, unlocked: {} };
 const localHeartAllocations = new Map();
+const reconciledReflectionUsers = new Set();
 const MISSION_LEASE_MS = 5 * 60 * 1000;
 
 function refreshReflectionBoardEligibility(event, summaries) {
-  const activeGroups = summaries.filter((group) => Number(group.participants || 0) >= 2);
-  const activeGroupCodes = new Set(activeGroups.map((group) => group.groupCode));
-  const eligibleCount = activeGroups.reduce((total, group) => total + Number(group.participants || 0), 0);
-  const keys = Object.keys(event.resolvedByGroup || {});
-  event.resolved ||= {};
-  event.eligibleParticipantCount ||= {};
-  event.unlocked ||= {};
-  keys.forEach((key) => {
-    const resolvedCount = Object.entries(event.resolvedByGroup[key] || {})
-      .filter(([groupCode]) => activeGroupCodes.has(groupCode))
-      .reduce((total, [, count]) => total + Number(count || 0), 0);
-    event.resolved[key] = resolvedCount;
-    event.eligibleParticipantCount[key] = eligibleCount;
-    if (eligibleCount > 0 && resolvedCount / eligibleCount >= 0.9) event.unlocked[key] = true;
-  });
+  const result = calculateReflectionBoardEligibility(summaries, event.unlocked || {});
+  event.resolved = result.resolved;
+  event.eligibleParticipantCount = result.eligibleParticipantCount;
+  event.unlocked = result.unlocked;
 }
 
 async function getServices() {
@@ -47,9 +42,18 @@ async function getServices() {
     ]).then(([appModule, authModule, firestoreModule]) => {
       const app = appModule.initializeApp(config);
       auth = authModule.getAuth(app);
+      const db = firestoreModule.getFirestore(app);
+      if (env.VITE_USE_FIREBASE_EMULATORS === "true") {
+        authModule.connectAuthEmulator(auth, `http://${env.VITE_AUTH_EMULATOR_HOST || "127.0.0.1"}:${env.VITE_AUTH_EMULATOR_PORT || "9099"}`, { disableWarnings: true });
+        firestoreModule.connectFirestoreEmulator(
+          db,
+          env.VITE_FIRESTORE_EMULATOR_HOST || "127.0.0.1",
+          Number(env.VITE_FIRESTORE_EMULATOR_PORT || 8080),
+        );
+      }
       return {
         auth,
-        db: firestoreModule.getFirestore(app),
+        db,
         ...authModule,
         ...firestoreModule,
       };
@@ -94,14 +98,18 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
     const participant = localParticipant(uid, profile.room);
     participant.currentGroup = profile.room;
     participant.groupXp = Number(groupXp?.[profile.room] || 0);
+    participant.active = true;
+    refreshLocalReflectionBoardEligibility(localMissionEvent);
     return uid;
   }
   const services = await getServices();
   const groups = new Set([...Object.keys(groupXp || {}), profile.room]);
   if (previousRoom) groups.add(previousRoom);
   const groupList = [...groups];
-  let groupActivityChanged = false;
   await services.runTransaction(services.db, async (transaction) => {
+    const missionParticipantRef = services.doc(services.db, "missionParticipants", uid);
+    const missionParticipantSnapshot = await transaction.get(missionParticipantRef);
+    const reflectionStatus = missionParticipantSnapshot.data()?.reflectionStatus || {};
     const reads = await Promise.all(groupList.map(async (room) => {
       const memberRef = services.doc(services.db, "leaderboardGroups", room, "members", uid);
       const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", room);
@@ -133,7 +141,11 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
 
     reads.forEach(({ room, memberRef, summaryRef, memberSnapshot, summarySnapshot }) => {
       const nextGroupXp = Number(groupXp?.[room] || 0);
-      const previousGroupXp = Number(memberSnapshot.data()?.groupXp || 0);
+      const previousMember = memberSnapshot.data() || {};
+      const previousGroupXp = Number(previousMember.groupXp || 0);
+      const wasCurrentMember = Boolean(previousMember.active);
+      const isCurrentMember = room === profile.room;
+      const previousStatuses = previousMember.reflectionStatus || {};
       transaction.set(memberRef, {
         uid,
         groupCode: room,
@@ -141,7 +153,8 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
         personalXp: totalXp,
         groupXp: nextGroupXp,
         questionXp: questionXp?.[room] || {},
-        active: room === profile.room,
+        active: isCurrentMember,
+        reflectionStatus,
         updatedAt: services.serverTimestamp(),
       }, { merge: true });
 
@@ -149,17 +162,28 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
       const total = Math.max(0, Number(previousSummary.totalXp || 0) + nextGroupXp - previousGroupXp);
       const becameActive = previousGroupXp < 1 && nextGroupXp >= 1;
       const becameInactive = previousGroupXp >= 1 && nextGroupXp < 1;
-      if (becameActive || becameInactive) groupActivityChanged = true;
       const participants = Math.max(0, Number(previousSummary.participants || 0) + (becameActive ? 1 : 0) - (becameInactive ? 1 : 0));
-      if (total > 0 || summarySnapshot.exists()) {
-        transaction.set(summaryRef, {
-          groupCode: room,
-          totalXp: total,
-          participants,
-          averageXp: participants ? total / participants : 0,
-          updatedAt: services.serverTimestamp(),
+      const members = Math.max(0, Number(previousSummary.members || 0) + (isCurrentMember ? 1 : 0) - (wasCurrentMember ? 1 : 0));
+      const resolved = { ...(previousSummary.reflectionResolved || {}) };
+      if (wasCurrentMember) {
+        Object.entries(previousStatuses).forEach(([key, status]) => {
+          if (isResolvedReflectionStatus(status)) resolved[key] = Math.max(0, Number(resolved[key] || 0) - 1);
         });
       }
+      if (isCurrentMember) {
+        Object.entries(reflectionStatus).forEach(([key, status]) => {
+          if (isResolvedReflectionStatus(status)) resolved[key] = Number(resolved[key] || 0) + 1;
+        });
+      }
+      transaction.set(summaryRef, {
+        groupCode: room,
+        totalXp: total,
+        participants,
+        members,
+        reflectionResolved: resolved,
+        averageXp: participants ? total / participants : 0,
+        updatedAt: services.serverTimestamp(),
+      });
     });
 
     questionReads.forEach(({ room, questionNumber, summaryRef, snapshot }) => {
@@ -177,8 +201,80 @@ export async function syncLeaderboard({ profile, totalXp, groupXp, questionXp = 
       }
     });
   });
-  if (groupActivityChanged) await refreshReflectionBoardEligibilityFromFirestore();
+  await Promise.all(groupList.map((room) => rebuildGroupMembershipSummary(room)));
+  await refreshReflectionBoardEligibilityFromFirestore();
   return uid;
+}
+
+async function rebuildGroupMembershipSummary(roomCode) {
+  if (!configured) return;
+  const services = await getServices();
+  const membersQuery = services.query(
+    services.collection(services.db, "leaderboardGroups", roomCode, "members"),
+    services.where("active", "==", true),
+    services.limit(200),
+  );
+  const membersSnapshot = await services.getDocs(membersQuery);
+  const members = membersSnapshot.docs.map((item) => item.data());
+  const reflectionResolved = {};
+  members.forEach((member) => {
+    Object.entries(member.reflectionStatus || {}).forEach(([key, status]) => {
+      if (isResolvedReflectionStatus(status)) reflectionResolved[key] = Number(reflectionResolved[key] || 0) + 1;
+    });
+  });
+  const contributors = members.filter((member) => Number(member.groupXp || 0) > 0).length;
+  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", roomCode);
+  await services.runTransaction(services.db, async (transaction) => {
+    const summarySnapshot = await transaction.get(summaryRef);
+    const totalXp = Number(summarySnapshot.data()?.totalXp || 0);
+    transaction.set(summaryRef, {
+      groupCode: roomCode,
+      totalXp,
+      participants: contributors,
+      members: members.length,
+      reflectionResolved,
+      averageXp: contributors ? totalXp / contributors : 0,
+      updatedAt: services.serverTimestamp(),
+    });
+  });
+}
+
+export async function deactivateParticipantMembership(roomCode) {
+  const uid = await ensureParticipantSession();
+  if (!roomCode) return;
+  if (!configured) {
+    const participant = localMissionParticipants.get(uid);
+    if (participant) participant.active = false;
+    refreshLocalReflectionBoardEligibility(localMissionEvent);
+    return;
+  }
+  const services = await getServices();
+  const memberRef = services.doc(services.db, "leaderboardGroups", roomCode, "members", uid);
+  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", roomCode);
+  await services.runTransaction(services.db, async (transaction) => {
+    const [memberSnapshot, summarySnapshot] = await Promise.all([
+      transaction.get(memberRef),
+      transaction.get(summaryRef),
+    ]);
+    const member = memberSnapshot.data();
+    if (!member?.active) return;
+    const summary = summarySnapshot.data() || {};
+    const resolved = { ...(summary.reflectionResolved || {}) };
+    Object.entries(member.reflectionStatus || {}).forEach(([key, status]) => {
+      if (isResolvedReflectionStatus(status)) resolved[key] = Math.max(0, Number(resolved[key] || 0) - 1);
+    });
+    const contributed = Number(member.groupXp || 0) > 0;
+    transaction.set(memberRef, { active: false, updatedAt: services.serverTimestamp() }, { merge: true });
+    transaction.set(summaryRef, {
+      ...nextSummaryAfterResolution({ groupCode: roomCode, ...summary }, "", false),
+      participants: Math.max(0, Number(summary.participants || 0) - (contributed ? 1 : 0)),
+      members: Math.max(0, Number(summary.members || 0) - 1),
+      reflectionResolved: resolved,
+      updatedAt: services.serverTimestamp(),
+    });
+  });
+  await rebuildGroupMembershipSummary(roomCode);
+  await refreshReflectionBoardEligibilityFromFirestore();
 }
 
 async function refreshReflectionBoardEligibilityFromFirestore() {
@@ -186,11 +282,9 @@ async function refreshReflectionBoardEligibilityFromFirestore() {
   const services = await getServices();
   const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
   const groupSummaries = services.collection(services.db, "leaderboardGroupSummaries");
+  const summariesSnapshot = await services.getDocs(groupSummaries);
   await services.runTransaction(services.db, async (transaction) => {
-    const [eventSnapshot, summariesSnapshot] = await Promise.all([
-      transaction.get(eventRef),
-      transaction.get(groupSummaries),
-    ]);
+    const eventSnapshot = await transaction.get(eventRef);
     const event = { resolvedByGroup: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
     refreshReflectionBoardEligibility(event, summariesSnapshot.docs.map((snapshot) => snapshot.data()));
     transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
@@ -218,7 +312,8 @@ export async function subscribeToLeaderboards(roomCode, callback, onError) {
   );
   let members = [];
   let groups = [];
-  const emit = () => callback({ members, groups });
+  let winner = null;
+  const emit = () => callback({ members, groups, winner });
   const unsubMembers = services.onSnapshot(membersQuery, (snapshot) => {
     members = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
     emit();
@@ -227,7 +322,15 @@ export async function subscribeToLeaderboards(roomCode, callback, onError) {
     groups = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
     emit();
   }, onError);
-  return () => { unsubMembers(); unsubEvent(); };
+  const winnerRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
+  const unsubWinner = services.onSnapshot(winnerRef, (snapshot) => {
+    winner = snapshot.data()?.winnerGroup ? {
+      groupCode: snapshot.data().winnerGroup,
+      totalXp: Number(snapshot.data()?.winnerXp || 0),
+    } : null;
+    emit();
+  }, onError);
+  return () => { unsubMembers(); unsubEvent(); unsubWinner(); };
 }
 
 export async function subscribeToRoom(roomCode, questionNumber, callback, onError) {
@@ -260,35 +363,168 @@ export async function subscribeToGlobalQuestion(questionNumber, callback, onErro
   }, onError);
 }
 
-export async function publishReflection({ roomCode, questionNumber, name, text }) {
+function nextSummaryAfterResolution(summary, key, shouldIncrement) {
+  const reflectionResolved = { ...(summary.reflectionResolved || {}) };
+  if (shouldIncrement) reflectionResolved[key] = Number(reflectionResolved[key] || 0) + 1;
+  return {
+    groupCode: summary.groupCode,
+    totalXp: Number(summary.totalXp || 0),
+    participants: Number(summary.participants || 0),
+    members: Number(summary.members || 0),
+    reflectionResolved,
+    averageXp: Number(summary.averageXp || 0),
+  };
+}
+
+export async function submitReflectionMission({ mission, name, text }) {
   const uid = await ensureParticipantSession();
+  const key = String(mission.questionNumber);
+  if (!text || text.length > 300) throw new Error("invalid-reflection");
   if (!configured) {
+    const participant = localParticipant(uid, mission.groupCode);
+    if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
+    participant.reflectionStatus[key] = "submitted";
+    participant.activeMission = null;
+    refreshLocalReflectionBoardEligibility(localMissionEvent);
     return {
-      id: `${questionNumber}_${uid}`,
-      questionNumber,
+      id: uid,
       authorUid: uid,
       name,
       text,
       voters: [],
-      roomCode,
-      questionNumber: String(questionNumber),
+      roomCode: mission.groupCode,
+      questionNumber: key,
       createdAt: { toMillis: () => Date.now() },
     };
   }
 
   const services = await getServices();
-  const answerId = uid;
-  const answerRef = services.doc(services.db, "rooms", roomCode, "questions", String(questionNumber), "reflections", answerId);
-  await services.setDoc(answerRef, {
+  const participantRef = services.doc(services.db, "missionParticipants", uid);
+  const answerRef = services.doc(services.db, "rooms", mission.groupCode, "questions", key, "reflections", uid);
+  const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
+  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", mission.groupCode);
+  const result = await services.runTransaction(services.db, async (transaction) => {
+    const [participantSnapshot, answerSnapshot, memberSnapshot, summarySnapshot] = await Promise.all([
+      transaction.get(participantRef),
+      transaction.get(answerRef),
+      transaction.get(memberRef),
+      transaction.get(summaryRef),
+    ]);
+    const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
+    if (participant.activeMission?.id !== mission.id || participant.activeMission?.type !== "reflection") {
+      throw new Error("mission-not-owned");
+    }
+    if (answerSnapshot.exists() && answerSnapshot.data()?.authorUid !== uid) throw new Error("reflection-owner-mismatch");
+
+    const previousStatus = participant.reflectionStatus?.[key] || "";
+    const member = memberSnapshot.data();
+    const memberStatuses = { ...(member?.reflectionStatus || {}), [key]: "submitted" };
+    participant.reflectionStatus = { ...(participant.reflectionStatus || {}), [key]: "submitted" };
+    participant.activeMission = null;
+
+    if (!answerSnapshot.exists()) {
+      transaction.set(answerRef, {
+        authorUid: uid,
+        name,
+        text,
+        voters: [],
+        roomCode: mission.groupCode,
+        questionNumber: key,
+        createdAt: services.serverTimestamp(),
+      });
+    }
+    transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
+    if (member) transaction.set(memberRef, { reflectionStatus: memberStatuses, updatedAt: services.serverTimestamp() }, { merge: true });
+    if (member?.active) {
+      const summary = { groupCode: mission.groupCode, ...(summarySnapshot.data() || {}) };
+      transaction.set(summaryRef, {
+        ...nextSummaryAfterResolution(summary, key, !isResolvedReflectionStatus(previousStatus)),
+        updatedAt: services.serverTimestamp(),
+      });
+    }
+    return answerSnapshot.exists() ? answerSnapshot.data() : null;
+  });
+  await rebuildGroupMembershipSummary(mission.groupCode);
+  await refreshReflectionBoardEligibilityFromFirestore();
+  return {
+    id: uid,
     authorUid: uid,
     name,
     text,
-    voters: [],
-    roomCode,
-    questionNumber: String(questionNumber),
-    createdAt: services.serverTimestamp(),
+    voters: result?.voters || [],
+    roomCode: mission.groupCode,
+    questionNumber: key,
+    createdAt: result?.createdAt || { toMillis: () => Date.now() },
+  };
+}
+
+export async function reconcileParticipantReflections(roomCode) {
+  const uid = await ensureParticipantSession();
+  if (reconciledReflectionUsers.has(uid)) return [];
+  if (!configured) return [];
+  const services = await getServices();
+  const participantRef = services.doc(services.db, "missionParticipants", uid);
+  const participantSnapshot = await services.getDoc(participantRef);
+  const participant = participantSnapshot.data();
+  const submittedKeys = Object.entries(participant?.reflectionStatus || {})
+    .filter(([, status]) => status === "submitted")
+    .map(([key]) => String(key));
+  if (!submittedKeys.length) {
+    reconciledReflectionUsers.add(uid);
+    return [];
+  }
+
+  const ownReflections = await services.getDocs(services.query(
+    services.collectionGroup(services.db, "reflections"),
+    services.where("authorUid", "==", uid),
+    services.limit(50),
+  ));
+  const existingKeys = new Set(ownReflections.docs.map((item) => String(item.data()?.questionNumber || "")));
+  const missingKeys = submittedKeys.filter((key) => !existingKeys.has(key));
+  if (!missingKeys.length) {
+    reconciledReflectionUsers.add(uid);
+    return [];
+  }
+
+  const memberRef = services.doc(services.db, "leaderboardGroups", roomCode, "members", uid);
+  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", roomCode);
+  await services.runTransaction(services.db, async (transaction) => {
+    const [freshParticipantSnapshot, memberSnapshot, summarySnapshot] = await Promise.all([
+      transaction.get(participantRef),
+      transaction.get(memberRef),
+      transaction.get(summaryRef),
+    ]);
+    const freshParticipant = freshParticipantSnapshot.data() || {};
+    const reflectionStatus = { ...(freshParticipant.reflectionStatus || {}) };
+    const boardCompleted = { ...(freshParticipant.boardCompleted || {}) };
+    missingKeys.forEach((key) => {
+      if (reflectionStatus[key] === "submitted") delete reflectionStatus[key];
+      delete boardCompleted[key];
+    });
+    transaction.set(participantRef, { reflectionStatus, boardCompleted, updatedAt: services.serverTimestamp() }, { merge: true });
+
+    const member = memberSnapshot.data();
+    if (member) {
+      const memberStatuses = { ...(member.reflectionStatus || {}) };
+      missingKeys.forEach((key) => { if (memberStatuses[key] === "submitted") delete memberStatuses[key]; });
+      transaction.set(memberRef, { reflectionStatus: memberStatuses, updatedAt: services.serverTimestamp() }, { merge: true });
+      if (member.active) {
+        const summary = { groupCode: roomCode, ...(summarySnapshot.data() || {}) };
+        const reflectionResolved = { ...(summary.reflectionResolved || {}) };
+        missingKeys.forEach((key) => {
+          reflectionResolved[key] = Math.max(0, Number(reflectionResolved[key] || 0) - 1);
+        });
+        transaction.set(summaryRef, {
+          ...nextSummaryAfterResolution({ ...summary, reflectionResolved }, "", false),
+          updatedAt: services.serverTimestamp(),
+        });
+      }
+    }
   });
-  return { id: answerId };
+  await rebuildGroupMembershipSummary(roomCode);
+  await refreshReflectionBoardEligibilityFromFirestore();
+  reconciledReflectionUsers.add(uid);
+  return missingKeys;
 }
 
 export async function giveHeart({ roomCode, questionNumber, reflectionId }) {
@@ -351,28 +587,23 @@ function localParticipant(uid, roomCode) {
 }
 
 function refreshLocalReflectionBoardEligibility(event) {
-  const contributorsByGroup = new Map();
+  const summariesByGroup = new Map();
   localMissionParticipants.forEach((participant) => {
-    if (!participant.active || Number(participant.groupXp || 0) <= 0) return;
-    contributorsByGroup.set(participant.currentGroup, Number(contributorsByGroup.get(participant.currentGroup) || 0) + 1);
+    if (!participant.active) return;
+    const summary = summariesByGroup.get(participant.currentGroup) || {
+      groupCode: participant.currentGroup,
+      participants: 0,
+      members: 0,
+      reflectionResolved: {},
+    };
+    summary.members += 1;
+    if (Number(participant.groupXp || 0) > 0) summary.participants += 1;
+    Object.entries(participant.reflectionStatus || {}).forEach(([key, status]) => {
+      if (isResolvedReflectionStatus(status)) summary.reflectionResolved[key] = Number(summary.reflectionResolved[key] || 0) + 1;
+    });
+    summariesByGroup.set(participant.currentGroup, summary);
   });
-  const activeGroups = new Set([...contributorsByGroup.entries()]
-    .filter(([, contributors]) => contributors >= 2)
-    .map(([groupCode]) => groupCode));
-  const eligibleCount = [...contributorsByGroup.entries()]
-    .filter(([groupCode]) => activeGroups.has(groupCode))
-    .reduce((total, [, contributors]) => total + contributors, 0);
-  event.resolved ||= {};
-  event.eligibleParticipantCount ||= {};
-  event.unlocked ||= {};
-  Object.keys(event.resolvedByGroup || {}).forEach((key) => {
-    const resolvedCount = Object.entries(event.resolvedByGroup[key] || {})
-      .filter(([groupCode]) => activeGroups.has(groupCode))
-      .reduce((total, [, count]) => total + Number(count || 0), 0);
-    event.resolved[key] = resolvedCount;
-    event.eligibleParticipantCount[key] = eligibleCount;
-    if (eligibleCount > 0 && resolvedCount / eligibleCount >= 0.9) event.unlocked[key] = true;
-  });
+  refreshReflectionBoardEligibility(event, [...summariesByGroup.values()]);
 }
 
 function localGroup(roomCode) {
@@ -385,8 +616,9 @@ function emitLocalMissionGroup(roomCode) {
   listeners.forEach((callback) => callback(structuredClone(localGroup(roomCode))));
 }
 
-function chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now, excludeMissionId = "" }) {
+export function chooseMission({ participant, group, event, sharedChallenges, questions, roomCode, now, excludeMissionId = "" }) {
   const candidates = [];
+  const boardCandidates = [];
   for (const challenge of sharedChallenges) {
     const saved = group.challenges?.[challenge.id];
     const available = !saved || (saved.status !== "completed" && saved.status !== "skipped" && (saved.status !== "reserved" || Number(saved.leaseUntil || 0) <= now));
@@ -396,9 +628,10 @@ function chooseMission({ participant, group, event, sharedChallenges, questions,
     const key = String(questionNumber);
     if (!participant.reflectionStatus?.[key]) candidates.push({ id: `reflection__${key}`, type: "reflection", questionNumber, groupCode: roomCode, xp: 10 });
     if (event.unlocked?.[key] && participant.reflectionStatus?.[key] && !participant.boardCompleted?.[key]) {
-      candidates.push({ id: `board__${key}`, type: "board", questionNumber, groupCode: roomCode, xp: 2 });
+      boardCandidates.push({ id: `board__${key}`, type: "board", questionNumber, groupCode: roomCode, xp: 2 });
     }
   }
+  if (boardCandidates.length) return boardCandidates[Math.floor(Math.random() * boardCandidates.length)];
   if (!candidates.length) return null;
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
@@ -565,14 +798,8 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   const key = String(mission.questionNumber);
   if (!configured) {
     const participant = localParticipant(uid, mission.groupCode);
-    if (reflectionStatus && !participant.reflectionStatus[key]) {
-      participant.reflectionStatus[key] = reflectionStatus;
-      localMissionEvent.resolvedByGroup ||= {};
-      localMissionEvent.resolvedByGroup[key] ||= {};
-      if (Number(participant.groupXp || 0) > 0) {
-        localMissionEvent.resolvedByGroup[key][mission.groupCode] = Number(localMissionEvent.resolvedByGroup[key][mission.groupCode] || 0) + 1;
-      }
-    }
+    if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
+    if (reflectionStatus && !participant.reflectionStatus[key]) participant.reflectionStatus[key] = reflectionStatus;
     refreshLocalReflectionBoardEligibility(localMissionEvent);
     if (mission.type === "board") participant.boardCompleted[key] = true;
     participant.activeMission = null;
@@ -580,46 +807,43 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   }
   const services = await getServices();
   const participantRef = services.doc(services.db, "missionParticipants", uid);
-  const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
   const memberRef = services.doc(services.db, "leaderboardGroups", mission.groupCode, "members", uid);
-  // Complete the participant-owned mission first. The shared event document
-  // is intentionally updated afterwards so many simultaneous reflections do
-  // not make every participant wait on the same contended transaction.
-  const result = await services.runTransaction(services.db, async (transaction) => {
-    const participantSnapshot = await transaction.get(participantRef);
+  const summaryRef = services.doc(services.db, "leaderboardGroupSummaries", mission.groupCode);
+  await services.runTransaction(services.db, async (transaction) => {
+    const [participantSnapshot, memberSnapshot, summarySnapshot] = await Promise.all([
+      transaction.get(participantRef),
+      transaction.get(memberRef),
+      transaction.get(summaryRef),
+    ]);
     const participant = participantSnapshot.data() || { reflectionStatus: {}, boardCompleted: {} };
     if (participant.activeMission?.id !== mission.id) throw new Error("mission-not-owned");
     participant.reflectionStatus ||= {};
     participant.boardCompleted ||= {};
-    const newlyResolvedReflection = Boolean(reflectionStatus && !participant.reflectionStatus[key]);
-    if (reflectionStatus && !participant.reflectionStatus[key]) {
-      participant.reflectionStatus[key] = reflectionStatus;
-    }
+    const previousStatus = participant.reflectionStatus[key] || "";
+    if (reflectionStatus && !participant.reflectionStatus[key]) participant.reflectionStatus[key] = reflectionStatus;
     if (mission.type === "board") participant.boardCompleted[key] = true;
     participant.activeMission = null;
     transaction.set(participantRef, { ...participant, updatedAt: services.serverTimestamp() }, { merge: true });
-    return { unlocked: false, newlyResolvedReflection };
+    const member = memberSnapshot.data();
+    if (reflectionStatus && member) {
+      transaction.set(memberRef, {
+        reflectionStatus: { ...(member.reflectionStatus || {}), [key]: reflectionStatus },
+        updatedAt: services.serverTimestamp(),
+      }, { merge: true });
+    }
+    if (reflectionStatus && member?.active && !isResolvedReflectionStatus(previousStatus)) {
+      const summary = { groupCode: mission.groupCode, ...(summarySnapshot.data() || {}) };
+      transaction.set(summaryRef, {
+        ...nextSummaryAfterResolution(summary, key, true),
+        updatedAt: services.serverTimestamp(),
+      });
+    }
   });
-
-  if (result.newlyResolvedReflection) {
-    void (async () => {
-      const memberSnapshot = await services.getDoc(memberRef);
-      if (Number(memberSnapshot.data()?.groupXp || 0) > 0) {
-        await services.runTransaction(services.db, async (transaction) => {
-          const eventSnapshot = await transaction.get(eventRef);
-          const event = { resolvedByGroup: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
-          event.resolvedByGroup ||= {};
-          event.resolvedByGroup[key] ||= {};
-          event.resolvedByGroup[key][mission.groupCode] = Number(event.resolvedByGroup[key][mission.groupCode] || 0) + 1;
-          transaction.set(eventRef, { ...event, updatedAt: services.serverTimestamp() }, { merge: true });
-        });
-      }
-      await refreshReflectionBoardEligibilityFromFirestore();
-    })().catch((error) => {
-      console.warn("Unable to refresh reflection-board eligibility", error);
-    });
+  if (reflectionStatus) {
+    await rebuildGroupMembershipSummary(mission.groupCode);
+    await refreshReflectionBoardEligibilityFromFirestore();
   }
-  return { unlocked: result.unlocked };
+  return { unlocked: false };
 }
 
 export async function releaseActiveMission(mission) {

@@ -284,6 +284,9 @@ function sceneFeedback(scene, feedback) {
 export const b14Engine = Object.freeze({
   hintsAvailable: false,
   canvasSize: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+  shouldAutoSubmit(scene, instance) {
+    return instance?.mode === "mission" && Boolean(scene?.b14State?.completed);
+  },
   validate(payload, instance) {
     const errors = payloadErrors(payload, instance);
     return { ok: errors.length === 0, errors };

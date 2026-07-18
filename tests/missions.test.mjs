@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { claimRandomMission, finishPersonalMission, resetParticipantSession, skipSharedMission } from "../src/firebase.js";
+import { claimRandomMission, chooseMission, finishPersonalMission, resetParticipantSession, skipSharedMission } from "../src/firebase.js";
 
 test("a reserved team challenge cannot be assigned to a second group member", async () => {
   const challenges = [{ id: "3__quiz", questionNumber: 3, challengeKind: "quiz", challengeIndex: 0, xp: 10 }];
@@ -50,4 +50,18 @@ test("skipping a team challenge removes it permanently for the whole group", asy
   await resetParticipantSession();
   const teammate = await claimRandomMission({ roomCode: "Assis-Santa-Monica", sharedChallenges: challenges, questions: [] });
   assert.equal(teammate?.type, "complete");
+});
+
+test("an unlocked reflection board is prioritized over the random mission pool", () => {
+  const mission = chooseMission({
+    participant: { reflectionStatus: { 14: "submitted" }, boardCompleted: {} },
+    group: { challenges: {} },
+    event: { unlocked: { 14: true } },
+    sharedChallenges: [{ id: "14__quiz", questionNumber: 14, challengeKind: "quiz", xp: 10 }],
+    questions: [14, 25],
+    roomCode: "Assis-Sao-Jose",
+    now: Date.now(),
+  });
+  assert.equal(mission.type, "board");
+  assert.equal(mission.questionNumber, 14);
 });

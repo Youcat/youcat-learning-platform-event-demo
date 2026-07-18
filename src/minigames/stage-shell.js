@@ -73,6 +73,7 @@ export async function launchGameStage({
   let scene = null;
   let game = null;
   let destroyed = false;
+  let automaticSubmissionPending = false;
   const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
   const adaptResult = createResultAdapter({ onLabResult: onResult, onMissionResult: onResult });
 
@@ -133,6 +134,15 @@ export async function launchGameStage({
       if (changedScene) scene = changedScene;
       persist();
       renderEngineStatus();
+      if (
+        instance.mode === "mission"
+        && !submitted
+        && !automaticSubmissionPending
+        && engine.shouldAutoSubmit?.(scene, instance)
+      ) {
+        automaticSubmissionPending = true;
+        void submit().finally(() => { automaticSubmissionPending = false; });
+      }
     },
     onReady: (readyScene) => {
       scene = readyScene;
