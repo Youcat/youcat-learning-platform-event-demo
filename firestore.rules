@@ -170,6 +170,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /missionGroups/{roomId}/challenges/{challengeId} {
+      allow read: if signedIn() && validRoom(roomId);
+      allow create, update: if signedIn()
+        && validRoom(roomId)
+        && request.resource.data.challengeId == challengeId
+        && validQuestion(request.resource.data.questionNumber)
+        && request.resource.data.status in ["available", "reserved", "completed", "skipped"];
+      allow delete: if false;
+    }
+
     match /missionEvent/{documentId} {
       allow read, create, update: if signedIn() && documentId == "assis-2026-07-26";
       allow delete: if false;
@@ -199,6 +209,22 @@ service cloud.firestore {
         && validQuestion(request.resource.data.questionNumber)
         && rewardId == request.resource.data.authorUid + "__" + request.resource.data.questionNumber + "__" + request.auth.uid
         && request.resource.data.xp == 5
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+
+    match /heartVotes/{voteId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "authorUid", "voterUid", "reflectionId", "roomCode", "questionNumber", "createdAt"
+        ])
+        && request.resource.data.voterUid == request.auth.uid
+        && request.resource.data.authorUid != request.auth.uid
+        && validRoom(request.resource.data.roomCode)
+        && validQuestion(request.resource.data.questionNumber)
+        && voteId == request.auth.uid + "__" + request.resource.data.questionNumber + "__" + request.resource.data.reflectionId
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }

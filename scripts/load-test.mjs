@@ -30,11 +30,11 @@ import { GROUPS } from "../src/groups.js";
 
 const userCount = positiveInteger(process.env.LOAD_USERS, 200);
 const roomSize = positiveInteger(process.env.LOAD_ROOM_SIZE, 10);
-const questions = (process.env.LOAD_QUESTIONS || "3,14,25,34,59")
+const questions = (process.env.LOAD_QUESTIONS || "3,14,25,34,59,68,83,126,127,140")
   .split(",")
   .map(Number)
   .filter(Number.isInteger);
-const heartsPerQuestion = positiveInteger(process.env.LOAD_HEARTS_PER_QUESTION, 2);
+const heartsPerQuestion = positiveInteger(process.env.LOAD_HEARTS_PER_QUESTION, 3);
 const projectId = process.env.GCLOUD_PROJECT || "demo-youcat-loadtest";
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
@@ -52,6 +52,7 @@ const samples = {
   heartPropagation: [],
   leaderboardWrites: [],
   leaderboardPropagation: [],
+  challengeWrites: [],
 };
 const errors = [];
 let snapshotCallbacks = 0;
@@ -72,6 +73,10 @@ await withTimeout(leaderboardListeners.ready, "leaderboard propagation");
 samples.leaderboardPropagation.push(performance.now() - leaderboardStart);
 leaderboardListeners.unsubscribe();
 console.log("Leaderboard: complete.");
+
+console.log("Challenges: reserving and completing independent per-challenge documents.");
+await publishGroupChallenges();
+console.log("Challenges: complete.");
 
 for (const questionNumber of questions) {
   console.log(`Question ${questionNumber}: opening ${userCount} live feeds.`);
@@ -103,7 +108,11 @@ const result = {
     roomSize,
     questionsPerUser: questions.length,
     heartsPerUser: heartsPerQuestion * questions.length,
-    totalWrites: userCount * questions.length * (1 + heartsPerQuestion) + userCount * 3,
+    totalWrites: (
+      userCount * questions.length * (1 + heartsPerQuestion)
+      + userCount * 2
+      + (userCount / roomSize) * questions.length * 10
+    ),
     maximumConcurrentListeners: userCount,
   },
   elapsedSeconds: round(elapsedMs / 1000),
@@ -141,7 +150,8 @@ function openLeaderboardViews(user) {
   const ready = deferred();
   let initialSnapshots = 0;
   const readyGroups = new Set();
-  const unsubs = GROUPS.map((group) => {
+  const activeGroups = GROUPS.slice(0, userCount / roomSize);
+  const unsubs = activeGroups.map((group) => {
     const memberQuery = query(
       collection(user.db, "leaderboardGroups", group.code, "members"),
       where("active", "==", true),
@@ -150,27 +160,15 @@ function openLeaderboardViews(user) {
     return onSnapshot(memberQuery, (snapshot) => {
       snapshotCallbacks += 1;
       initialSnapshots += 1;
-      if (initialSnapshots === GROUPS.length + 1) initial.resolve();
+      if (initialSnapshots === activeGroups.length) initial.resolve();
       if (snapshot.size === roomSize) readyGroups.add(group.code);
       checkReady();
     }, ready.reject);
   });
-  let summaries = [];
-  const summaryUnsub = onSnapshot(
-    query(collection(user.db, "leaderboardGroupSummaries"), limit(20)),
-    (snapshot) => {
-      snapshotCallbacks += 1;
-      summaries = snapshot.docs.map((item) => item.data());
-      initialSnapshots += 1;
-      if (initialSnapshots === GROUPS.length + 1) initial.resolve();
-      checkReady();
-    },
-    ready.reject,
-  );
   function checkReady() {
-    if (readyGroups.size === GROUPS.length && summaries.length === GROUPS.length && summaries.reduce((sum, item) => sum + item.participants, 0) === userCount) ready.resolve();
+    if (readyGroups.size === activeGroups.length) ready.resolve();
   }
-  return { initial: initial.promise, ready: ready.promise, unsubscribe: () => { unsubs.forEach((fn) => fn()); summaryUnsub(); } };
+  return { initial: initial.promise, ready: ready.promise, unsubscribe: () => { unsubs.forEach((fn) => fn()); } };
 }
 
 async function publishLeaderboard(user) {
@@ -179,24 +177,15 @@ async function publishLeaderboard(user) {
   try {
     const participantRef = doc(user.db, "leaderboardParticipants", user.uid);
     const memberRef = doc(user.db, "leaderboardGroups", user.roomCode, "members", user.uid);
-    const summaryRef = doc(user.db, "leaderboardGroupSummaries", user.roomCode);
-    await runTransaction(user.db, async (transaction) => {
-      const [memberSnapshot, summarySnapshot] = await Promise.all([
-        transaction.get(memberRef),
-        transaction.get(summaryRef),
-      ]);
-      const previousXp = Number(memberSnapshot.data()?.groupXp || 0);
-      const summary = summarySnapshot.data() || {};
-      const totalXp = Number(summary.totalXp || 0) + xp - previousXp;
-      const participants = Number(summary.participants || 0) + (previousXp < 1 ? 1 : 0);
-      transaction.set(participantRef, {
+    await Promise.all([
+      setDoc(participantRef, {
         uid: user.uid,
         displayName: `Load User ${String(user.index + 1).padStart(3, "0")}`,
         currentGroup: user.roomCode,
         personalXp: xp,
         updatedAt: serverTimestamp(),
-      });
-      transaction.set(memberRef, {
+      }),
+      setDoc(memberRef, {
         uid: user.uid,
         groupCode: user.roomCode,
         displayName: `Load User ${String(user.index + 1).padStart(3, "0")}`,
@@ -205,20 +194,53 @@ async function publishLeaderboard(user) {
         questionXp: {},
         active: true,
         updatedAt: serverTimestamp(),
-      });
-      transaction.set(summaryRef, {
-        groupCode: user.roomCode,
-        totalXp,
-        participants,
-        averageXp: totalXp / participants,
-        updatedAt: serverTimestamp(),
-      });
-    });
+      }),
+    ]);
     samples.leaderboardWrites.push(performance.now() - start);
   } catch (error) {
     recordError("leaderboard", user.index, error);
     throw error;
   }
+}
+
+async function publishGroupChallenges() {
+  const activeGroupCount = userCount / roomSize;
+  const operations = [];
+  for (let groupIndex = 0; groupIndex < activeGroupCount; groupIndex += 1) {
+    for (const questionNumber of questions) {
+      for (let challengeIndex = 0; challengeIndex < 5; challengeIndex += 1) {
+        const user = users[(groupIndex * roomSize) + ((questionNumber + challengeIndex) % roomSize)];
+        const challengeId = `q${questionNumber}-${challengeIndex}`;
+        operations.push((async () => {
+          const start = performance.now();
+          const challengeRef = doc(user.db, "missionGroups", user.roomCode, "challenges", challengeId);
+          await setDoc(challengeRef, {
+            challengeId,
+            questionNumber: String(questionNumber),
+            status: "reserved",
+            reservedBy: user.uid,
+            leaseUntil: Date.now() + 300_000,
+            updatedAt: serverTimestamp(),
+          });
+          await runTransaction(user.db, async (transaction) => {
+            const snapshot = await transaction.get(challengeRef);
+            if (snapshot.data()?.reservedBy !== user.uid) throw new Error("reservation-lost");
+            transaction.set(challengeRef, {
+              ...snapshot.data(),
+              status: "completed",
+              completedBy: user.uid,
+              correct: challengeIndex % 4 !== 0,
+              xpAwarded: challengeIndex % 4 !== 0 ? 5 + challengeIndex : 0,
+              completedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          });
+          samples.challengeWrites.push(performance.now() - start);
+        })());
+      }
+    }
+  }
+  await withTimeout(Promise.all(operations), "independent challenge writes");
 }
 
 async function authenticateUser(user) {
@@ -242,19 +264,33 @@ function openFeed(user, questionNumber) {
   const heartsReady = deferred();
   let initialSeen = false;
 
-  const unsubscribe = onSnapshot(roomQuery, (snapshot) => {
+  let answerCount = 0;
+  let heartCount = 0;
+  const check = () => {
+    if (answerCount === roomSize) answersReady.resolve();
+    if (answerCount === roomSize && heartCount === roomSize * heartsPerQuestion) heartsReady.resolve();
+  };
+  const unsubscribeAnswers = onSnapshot(roomQuery, (snapshot) => {
     snapshotCallbacks += 1;
     if (!initialSeen) {
       initialSeen = true;
       initial.resolve();
     }
-    if (snapshot.size === roomSize) answersReady.resolve();
-    const heartCount = snapshot.docs.reduce((total, item) => total + (item.data().voters?.length || 0), 0);
-    if (snapshot.size === roomSize && heartCount === roomSize * heartsPerQuestion) heartsReady.resolve();
+    answerCount = snapshot.size;
+    check();
   }, (error) => {
     recordError("listener", user.index, error, questionNumber);
     initial.reject(error);
     answersReady.reject(error);
+    heartsReady.reject(error);
+  });
+  const voteQuery = query(collection(user.db, "heartVotes"), where("questionNumber", "==", String(questionNumber)), limit(userCount * heartsPerQuestion));
+  const unsubscribeVotes = onSnapshot(voteQuery, (snapshot) => {
+    snapshotCallbacks += 1;
+    heartCount = snapshot.docs.filter((item) => item.data().roomCode === user.roomCode).length;
+    check();
+  }, (error) => {
+    recordError("heart-listener", user.index, error, questionNumber);
     heartsReady.reject(error);
   });
 
@@ -262,7 +298,7 @@ function openFeed(user, questionNumber) {
     initial: initial.promise,
     answersReady: answersReady.promise,
     heartsReady: heartsReady.promise,
-    unsubscribe,
+    unsubscribe: () => { unsubscribeAnswers(); unsubscribeVotes(); },
   };
 }
 
@@ -273,7 +309,6 @@ async function publishAnswer(user, questionNumber) {
     await setDoc(answerRef, {
       authorUid: user.uid,
       name: `Load User ${String(user.index + 1).padStart(3, "0")}`,
-      age: 24,
       text: `Load-test reflection for question ${questionNumber}.`,
       voters: [],
       roomCode: user.roomCode,
@@ -295,8 +330,15 @@ function publishHearts(user, questionNumber) {
     const target = users[roomStart + targetPosition];
     const start = performance.now();
     try {
-      const answerRef = doc(user.db, "rooms", user.roomCode, "questions", String(questionNumber), "reflections", target.uid);
-      await updateDoc(answerRef, { voters: arrayUnion(user.uid) });
+      const voteRef = doc(user.db, "heartVotes", `${user.uid}__${questionNumber}__${target.uid}`);
+      await setDoc(voteRef, {
+        authorUid: target.uid,
+        voterUid: user.uid,
+        reflectionId: target.uid,
+        roomCode: user.roomCode,
+        questionNumber: String(questionNumber),
+        createdAt: serverTimestamp(),
+      });
       samples.heartWrites.push(performance.now() - start);
     } catch (error) {
       recordError("heart", user.index, error, questionNumber);

@@ -5,21 +5,23 @@ Mobile-first, Brazilian Portuguese demo for a 200-person event. The app contains
 ## Architecture
 
 - GitHub Pages serves the static Vite app.
-- Cloud Firestore stores group mission reservations, reflections, hearts, and live scores.
+- Cloud Firestore stores independent challenge reservations, reflections, hearts, and live member scores.
 - Firebase Anonymous Authentication gives each browser one persistent participant ID.
+- Firestore uses a persistent multi-tab browser cache. A service worker caches the used application shell and assets after the first successful load.
+- Participant actions enter a durable on-device outbox first. The interface advances immediately and synchronizes automatically after slow or interrupted connections recover.
 - The browser keeps the participant profile, group, reading progress, attempts, achievements, and XP until the participant explicitly starts again or clears browser data.
 - Reading XP uses a 400-words-per-minute timer and requires at least 85% scroll progress on long texts.
-- The home screen randomly assigns the next available mission. Question cards show only each group’s progress through the five shared challenges and cannot be opened directly.
+- The home screen randomly assigns the next available mission. Question cards show group progress and can be opened for reading and the global anonymous reflection overview, without exposing their challenges.
 - Every mission contains all reading pages. Reading XP can be earned only once per text.
-- Each question has five shared challenges: four games and one quiz. A Firestore transaction reserves each challenge for one group member for five minutes. Right or wrong, the first attempt permanently completes it for that group; a wrong answer awards 0 XP.
-- Every participant receives one optional personal-reflection mission per question. Reflection XP scales from 3 to 10 XP for answers up to 300 characters.
-- Reflection boards unlock permanently at 90% participation, with at least four active participants. Each participant can give up to three anonymous hearts per question.
+- Each question has five shared challenges: four games and one quiz. Every challenge has its own Firestore reservation document, so unrelated participants never contend on one large group record. Right or wrong, the first synchronized attempt permanently completes it for that group; a wrong answer awards 0 XP.
+- Every participant receives one optional personal-reflection mission per question. Answers over 30 characters award 5 XP and answers over 100 characters award 10 XP, up to 300 characters.
+- Reflection boards unlock permanently when 50% of the members of active groups have submitted or declined that question. An active group has at least two XP-contributing members. A board mission requires three anonymous hearts.
 - Group changes transfer all of the participant’s XP to the new group and release any unfinished mission.
-- Firestore stores compact leaderboard records and 20 group summaries. Leaderboard synchronization is delayed and batched to protect the Spark-plan allowance.
+- Firestore stores compact per-member leaderboard records. Group totals are derived from those independent records, avoiding a frequently updated shared summary hotspot. Synchronization remains delayed and coalesced to protect the Spark-plan allowance.
 - Reflections remain visible indefinitely. The demo does not automatically delete Firestore documents.
-- If Firebase variables are absent, the app runs as a safe local preview.
+- If Firebase variables are absent, the app runs as a safe local preview. With Firebase configured, temporary failures use the persistent cache and outbox; an on-screen chip reports offline, syncing, and recovery state.
 
-The shared challenge state is organized into 20 small-group rooms of roughly ten participants. Reflection boards are global and anonymous, and are opened only when assigned near the end of each question’s participation cycle.
+The shared challenge state is organized into 20 small-group rooms of roughly ten participants. Reflection boards are global and anonymous, and are prioritized after their participation threshold unlocks. During a complete outage, previously cached content remains readable. If no online reservation is available, a device may use a locally selected shared challenge; synchronization awards the group only when that challenge was not already completed elsewhere.
 
 ## Local preview
 
@@ -35,22 +37,21 @@ Use `?lang=en` for the development-language version. Use a predefined group code
 
 ## Minigame foundation
 
-The shared Phaser 3.90 runtime is lazy-loaded only after Home. Production startup remains on the existing HTML path, while bundled fixtures and retained engines can be reviewed in the isolated Game Lab. The non-production foundation proof remains available at `?lab=foundation-skeleton-v1&lang=en`. Every question retains four games and one quiz.
+The shared Phaser 3.90 runtime is loaded only when a Phaser challenge is actually mounted. It is not downloaded speculatively from Home. Production startup remains on the existing HTML path, while bundled fixtures and retained engines can be reviewed in the isolated Game Lab. The non-production foundation proof remains available at `?lab=foundation-skeleton-v1&lang=en`. Every question retains four games and one quiz.
 
 See [`docs/minigame-foundation.md`](docs/minigame-foundation.md) for the exact `GameInstance` and engine contracts, integration boundaries, and engine-worktree instructions. Use [`docs/minigame-ui-ux-review-checklist.md`](docs/minigame-ui-ux-review-checklist.md) for objective review before enabling an engine in missions.
 
 ## 200-user load test
 
-The reproducible emulator test models 200 participants in the 20 predefined groups. Each participant synchronizes XP, opens five questions, publishes five reflections, gives ten hearts, and has at most one reflection feed open at a time. It also verifies all current-group leaderboards and the 20 live group summaries. It uses local Firebase emulators, so it creates no production data and incurs no Firebase usage.
+The reproducible emulator test models 200 participants in the 20 predefined groups using the current schema. It completes all five independent challenges for every question and group, publishes ten reflections per participant, gives three hearts per question, and verifies live member leaderboards and global reflection overviews. It uses local Firebase emulators, so it creates no production data and incurs no Firebase usage.
 
 Requirements: Node.js 22, Java 21, and an internet connection for the first Firebase CLI/emulator download.
 
 ```sh
-npx --yes firebase-tools@15.23.0 emulators:exec \
-  --only auth,firestore \
-  --project demo-youcat-loadtest \
-  'LOAD_USERS=200 LOAD_ROOM_SIZE=10 LOAD_TIMEOUT_MS=120000 node scripts/load-test.mjs'
+LOAD_USERS=200 LOAD_ROOM_SIZE=10 npm run test:load
 ```
+
+`npm run test:load` uses 20 participants by default for a fast continuous-integration smoke test.
 
 See [`docs/load-test-report-2026-07-13.md`](docs/load-test-report-2026-07-13.md) for the verified event scenario and results.
 
@@ -90,10 +91,12 @@ Firebase Web app configuration values are public identifiers, not server secrets
 - Generate one QR code per room using the Pages URL plus `?room=ROOM-CODE`.
 - Ask 10–15 test users to join simultaneously on the venue Wi-Fi.
 - Verify that two members of the same group never receive the same shared challenge.
+- Switch one test phone to airplane mode after loading the app, complete a cached challenge, and verify the syncing chip clears after reconnection.
 - Verify that all reading pages appear in every assigned mission.
 - Verify that question progress advances after a shared challenge is submitted, including a wrong answer.
 - Verify that a participant cannot heart their own answer or heart the same answer twice.
 - Check Firebase Authentication and Firestore usage during the rehearsal.
+- Run `npm run test:rules`, `npm run test:load`, `npm run build`, and `npm run check:bundle` before deployment.
 - Schedule the temporary Authentication quota increase for the event window.
 - Keep the Firebase project for this event only; delete it manually if the stored reflections are no longer needed.
 

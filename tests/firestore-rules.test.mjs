@@ -64,3 +64,41 @@ test("ownership and content constraints are enforced", { skip: !emulatorAvailabl
   ));
   assert.ok(true);
 });
+
+test("a participant can reserve and complete an independent group challenge", { skip: !emulatorAvailable }, async () => {
+  const db = environment.authenticatedContext("participant-d").firestore();
+  const challengeRef = doc(db, "missionGroups/Assis-Sao-Jose/challenges/q14-quiz");
+  await assertSucceeds(setDoc(challengeRef, {
+    challengeId: "q14-quiz",
+    questionNumber: "14",
+    status: "reserved",
+    reservedBy: "participant-d",
+    leaseUntil: Date.now() + 60_000,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(setDoc(challengeRef, {
+    challengeId: "q14-quiz",
+    questionNumber: "14",
+    status: "completed",
+    completedBy: "participant-d",
+    correct: true,
+    xpAwarded: 10,
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test("heart votes are immutable and owned by the voter", { skip: !emulatorAvailable }, async () => {
+  const db = environment.authenticatedContext("participant-e").firestore();
+  const voteRef = doc(db, "heartVotes/participant-e__14__participant-a");
+  const vote = {
+    authorUid: "participant-a",
+    voterUid: "participant-e",
+    reflectionId: "participant-a",
+    roomCode: "Assis-Sao-Jose",
+    questionNumber: "14",
+    createdAt: serverTimestamp(),
+  };
+  await assertSucceeds(setDoc(voteRef, vote));
+  await assertFails(setDoc(voteRef, { ...vote, authorUid: "participant-b" }));
+});

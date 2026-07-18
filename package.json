@@ -11,7 +11,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "node scripts/check-content.mjs && node --test tests/*.test.mjs",
-    "test:rules": "node scripts/test-firestore-rules.mjs"
+    "test:rules": "node scripts/test-firestore-rules.mjs",
+    "test:load": "node scripts/test-load.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "engines": {
     "node": ">=22"

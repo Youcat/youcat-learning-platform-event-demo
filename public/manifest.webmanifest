@@ -1,0 +1,11 @@
+{
+  "name": "YOUCAT Assis Demo",
+  "short_name": "YOUCAT Assis",
+  "description": "YOUCAT Love Forever learning experience for Assis.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffdf8",
+  "theme_color": "#d60056",
+  "lang": "pt-BR"
+}

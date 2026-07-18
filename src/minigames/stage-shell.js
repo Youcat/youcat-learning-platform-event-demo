@@ -194,7 +194,21 @@ export async function launchGameStage({
       checkButton.textContent = copy[locale].challengeFinished;
     }
     persist();
-    await adaptResult(instance, evaluation, { hintsUsed });
+    try {
+      await adaptResult(instance, evaluation, { hintsUsed });
+    } catch (error) {
+      submitted = false;
+      resultShown = false;
+      scene.setLocked?.(false);
+      checkButton.disabled = false;
+      checkButton.textContent = copy[locale].finishChallenge;
+      feedback.textContent = locale === "pt"
+        ? "O resultado ficou salvo neste aparelho. Tente enviar novamente."
+        : "The result is saved on this device. Try sending it again.";
+      feedback.dataset.state = "wrong";
+      persist();
+      throw error;
+    }
   }
 
   async function handleStageClick(event) {

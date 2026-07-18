@@ -12,6 +12,8 @@ import { ACHIEVEMENTS, createProgressStore, readingReward } from "./progress.js"
 import { createWordSearch, pathBetweenCells, simplifyPath, validateStroke } from "./wordsearch.js";
 import { isSolved, moveTile, movableTileIndices, shuffleBoard, tileBackground } from "./image-shuffle.js";
 import { bindReaderOverscroll } from "./reader-overscroll.js";
+import { connectivitySnapshot, subscribeConnectivity, withNetworkDeadline } from "./connectivity.js";
+import { enqueueOutbox, flushOutbox, pendingOutboxCount, registerOutboxHandler, subscribeOutbox } from "./outbox.js";
 import {
   ensureParticipantSession,
   claimRandomMission,
@@ -45,6 +47,12 @@ const initialRoom = normalizeGroup(params.get("room") || "");
 const youcatLoveLogo = new URL("./assets/brand/youcat-love-red.svg", import.meta.url).href;
 const progress = createProgressStore();
 const CONTENT_VERSION = 8;
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("./sw.js").catch((error) => console.warn("Offline shell unavailable", error));
+  });
+}
 
 // GitHub Pages replaces Vite's hashed, on-demand game files on every deploy.
 // An already open app shell can otherwise ask for a removed game file and leave
@@ -258,56 +266,56 @@ const topics = {
 };
 
 const questionIllustrations = {
-  3: new URL("./assets/illustrations/questions/question-003-love-remains.png", import.meta.url).href,
-  14: new URL("./assets/illustrations/questions/question-014-self-gift.png", import.meta.url).href,
-  25: new URL("./assets/illustrations/questions/question-025-spiritual-direction.png", import.meta.url).href,
-  34: new URL("./assets/illustrations/questions/question-034-freedom-from-images.png", import.meta.url).href,
-  59: new URL("./assets/illustrations/questions/question-059-friendship.png", import.meta.url).href,
-  68: new URL("./assets/illustrations/questions/question-068-trust-before-marriage.png", import.meta.url).href,
-  83: new URL("./assets/illustrations/questions/question-083-commitment-foundation.png", import.meta.url).href,
-  126: new URL("./assets/illustrations/questions/question-126-lifelong-fidelity.png", import.meta.url).href,
-  127: new URL("./assets/illustrations/questions/question-127-fidelity-in-crisis.png", import.meta.url).href,
-  140: new URL("./assets/illustrations/questions/question-140-love-matures.png", import.meta.url).href,
+  3: new URL("./assets/illustrations/questions/question-003-love-remains.webp", import.meta.url).href,
+  14: new URL("./assets/illustrations/questions/question-014-self-gift.webp", import.meta.url).href,
+  25: new URL("./assets/illustrations/questions/question-025-spiritual-direction.webp", import.meta.url).href,
+  34: new URL("./assets/illustrations/questions/question-034-freedom-from-images.webp", import.meta.url).href,
+  59: new URL("./assets/illustrations/questions/question-059-friendship.webp", import.meta.url).href,
+  68: new URL("./assets/illustrations/questions/question-068-trust-before-marriage.webp", import.meta.url).href,
+  83: new URL("./assets/illustrations/questions/question-083-commitment-foundation.webp", import.meta.url).href,
+  126: new URL("./assets/illustrations/questions/question-126-lifelong-fidelity.webp", import.meta.url).href,
+  127: new URL("./assets/illustrations/questions/question-127-fidelity-in-crisis.webp", import.meta.url).href,
+  140: new URL("./assets/illustrations/questions/question-140-love-matures.webp", import.meta.url).href,
 };
 
 const gameIllustrations = {
-  "25:0": new URL("./assets/illustrations/games/question-025-emmaus-guide.png", import.meta.url).href,
-  "34:3": new URL("./assets/illustrations/games/question-034-freedom-plan.png", import.meta.url).href,
-  "59:1": new URL("./assets/illustrations/games/question-059-transparent-friendship.png", import.meta.url).href,
-  "68:3": new URL("./assets/illustrations/games/question-068-definitive-yes.png", import.meta.url).href,
-  "83:0": new URL("./assets/illustrations/games/question-083-choosing-not-drifting.png", import.meta.url).href,
-  "126:2": new URL("./assets/illustrations/games/question-126-prayer-fidelity.png", import.meta.url).href,
-  "140:1": new URL("./assets/illustrations/games/question-140-mature-love.png", import.meta.url).href,
+  "25:0": new URL("./assets/illustrations/games/question-025-emmaus-guide.webp", import.meta.url).href,
+  "34:3": new URL("./assets/illustrations/games/question-034-freedom-plan.webp", import.meta.url).href,
+  "59:1": new URL("./assets/illustrations/games/question-059-transparent-friendship.webp", import.meta.url).href,
+  "68:3": new URL("./assets/illustrations/games/question-068-definitive-yes.webp", import.meta.url).href,
+  "83:0": new URL("./assets/illustrations/games/question-083-choosing-not-drifting.webp", import.meta.url).href,
+  "126:2": new URL("./assets/illustrations/games/question-126-prayer-fidelity.webp", import.meta.url).href,
+  "140:1": new URL("./assets/illustrations/games/question-140-mature-love.webp", import.meta.url).href,
 };
 
 const achievementIllustrations = {
-  "first-steps": new URL("./assets/illustrations/achievements/achievement-first-steps.png", import.meta.url).href,
-  curious: new URL("./assets/illustrations/achievements/achievement-curious.png", import.meta.url).href,
-  explorer: new URL("./assets/illustrations/achievements/achievement-explorer.png", import.meta.url).href,
-  persevering: new URL("./assets/illustrations/achievements/achievement-persevering.png", import.meta.url).href,
+  "first-steps": new URL("./assets/illustrations/achievements/achievement-first-steps.webp", import.meta.url).href,
+  curious: new URL("./assets/illustrations/achievements/achievement-curious.webp", import.meta.url).href,
+  explorer: new URL("./assets/illustrations/achievements/achievement-explorer.webp", import.meta.url).href,
+  persevering: new URL("./assets/illustrations/achievements/achievement-persevering.webp", import.meta.url).href,
 };
 
 const groupIllustrations = {
-  "Assis-Sao-Jose": new URL("./assets/illustrations/groups/saint-sao-jose.png", import.meta.url).href,
-  "Assis-Sao-Francisco": new URL("./assets/illustrations/groups/saint-sao-francisco.png", import.meta.url).href,
-  "Assis-Santa-Clara": new URL("./assets/illustrations/groups/saint-santa-clara.png", import.meta.url).href,
-  "Assis-Santo-Antonio": new URL("./assets/illustrations/groups/saint-santo-antonio.png", import.meta.url).href,
-  "Assis-Sao-Joao-Paulo": new URL("./assets/illustrations/groups/saint-sao-joao-paulo-ii.png", import.meta.url).href,
-  "Assis-Santa-Teresa-de-Calcuta": new URL("./assets/illustrations/groups/saint-santa-teresa-de-calcuta.png", import.meta.url).href,
-  "Assis-Sao-Pedro": new URL("./assets/illustrations/groups/saint-sao-pedro.png", import.meta.url).href,
-  "Assis-Sao-Paulo": new URL("./assets/illustrations/groups/saint-sao-paulo.png", import.meta.url).href,
-  "Assis-Santa-Rita": new URL("./assets/illustrations/groups/saint-santa-rita.png", import.meta.url).href,
-  "Assis-Sao-Bento": new URL("./assets/illustrations/groups/saint-sao-bento.png", import.meta.url).href,
-  "Assis-Santa-Teresinha": new URL("./assets/illustrations/groups/saint-santa-teresinha.png", import.meta.url).href,
-  "Assis-Sao-Joao-Bosco": new URL("./assets/illustrations/groups/saint-sao-joao-bosco.png", import.meta.url).href,
-  "Assis-Santa-Faustina": new URL("./assets/illustrations/groups/saint-santa-faustina.png", import.meta.url).href,
-  "Assis-Santo-Agostinho": new URL("./assets/illustrations/groups/saint-santo-agostinho.png", import.meta.url).href,
-  "Assis-Santa-Monica": new URL("./assets/illustrations/groups/saint-santa-monica.png", import.meta.url).href,
-  "Assis-Sao-Padre-Pio": new URL("./assets/illustrations/groups/saint-sao-padre-pio.png", import.meta.url).href,
-  "Assis-Santa-Catarina": new URL("./assets/illustrations/groups/saint-santa-catarina-de-sena.png", import.meta.url).href,
-  "Assis-Sao-Domingos": new URL("./assets/illustrations/groups/saint-sao-domingos.png", import.meta.url).href,
-  "Assis-Santa-Gianna": new URL("./assets/illustrations/groups/saint-santa-gianna.png", import.meta.url).href,
-  "Assis-Sao-Maximiliano-Kolbe": new URL("./assets/illustrations/groups/saint-sao-maximiliano-kolbe.png", import.meta.url).href,
+  "Assis-Sao-Jose": new URL("./assets/illustrations/groups/saint-sao-jose.webp", import.meta.url).href,
+  "Assis-Sao-Francisco": new URL("./assets/illustrations/groups/saint-sao-francisco.webp", import.meta.url).href,
+  "Assis-Santa-Clara": new URL("./assets/illustrations/groups/saint-santa-clara.webp", import.meta.url).href,
+  "Assis-Santo-Antonio": new URL("./assets/illustrations/groups/saint-santo-antonio.webp", import.meta.url).href,
+  "Assis-Sao-Joao-Paulo": new URL("./assets/illustrations/groups/saint-sao-joao-paulo-ii.webp", import.meta.url).href,
+  "Assis-Santa-Teresa-de-Calcuta": new URL("./assets/illustrations/groups/saint-santa-teresa-de-calcuta.webp", import.meta.url).href,
+  "Assis-Sao-Pedro": new URL("./assets/illustrations/groups/saint-sao-pedro.webp", import.meta.url).href,
+  "Assis-Sao-Paulo": new URL("./assets/illustrations/groups/saint-sao-paulo.webp", import.meta.url).href,
+  "Assis-Santa-Rita": new URL("./assets/illustrations/groups/saint-santa-rita.webp", import.meta.url).href,
+  "Assis-Sao-Bento": new URL("./assets/illustrations/groups/saint-sao-bento.webp", import.meta.url).href,
+  "Assis-Santa-Teresinha": new URL("./assets/illustrations/groups/saint-santa-teresinha.webp", import.meta.url).href,
+  "Assis-Sao-Joao-Bosco": new URL("./assets/illustrations/groups/saint-sao-joao-bosco.webp", import.meta.url).href,
+  "Assis-Santa-Faustina": new URL("./assets/illustrations/groups/saint-santa-faustina.webp", import.meta.url).href,
+  "Assis-Santo-Agostinho": new URL("./assets/illustrations/groups/saint-santo-agostinho.webp", import.meta.url).href,
+  "Assis-Santa-Monica": new URL("./assets/illustrations/groups/saint-santa-monica.webp", import.meta.url).href,
+  "Assis-Sao-Padre-Pio": new URL("./assets/illustrations/groups/saint-sao-padre-pio.webp", import.meta.url).href,
+  "Assis-Santa-Catarina": new URL("./assets/illustrations/groups/saint-santa-catarina-de-sena.webp", import.meta.url).href,
+  "Assis-Sao-Domingos": new URL("./assets/illustrations/groups/saint-sao-domingos.webp", import.meta.url).href,
+  "Assis-Santa-Gianna": new URL("./assets/illustrations/groups/saint-santa-gianna.webp", import.meta.url).href,
+  "Assis-Sao-Maximiliano-Kolbe": new URL("./assets/illustrations/groups/saint-sao-maximiliano-kolbe.webp", import.meta.url).href,
 };
 
 function gameIllustration(number, gameIndex) {
@@ -408,6 +416,7 @@ const state = {
   lastMissionActivity: Date.now(),
   missionRenewTimer: null,
   leaderboardUnsubscribe: null,
+  leaderboardRoom: null,
   leaderboardMembers: [],
   leaderboardContributions: [],
   eventWinner: null,
@@ -432,6 +441,29 @@ function tr(value) {
 function c(key) {
   return copy[language][key];
 }
+
+function renderConnectivityStatus(snapshot = connectivitySnapshot()) {
+  let status = document.querySelector("#connectivity-status");
+  if (!status) {
+    status = document.createElement("div");
+    status.id = "connectivity-status";
+    status.className = "connectivity-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    document.body.append(status);
+  }
+  const pending = Math.max(snapshot.pending || 0, pendingOutboxCount());
+  status.classList.toggle("is-visible", !snapshot.online || pending > 0 || Boolean(snapshot.lastError));
+  status.dataset.tone = !snapshot.online ? "offline" : snapshot.lastError ? "recovery" : "syncing";
+  status.textContent = !snapshot.online
+    ? (language === "pt" ? `Salvo neste aparelho · ${pending} pendente${pending === 1 ? "" : "s"}` : `Saved on this device · ${pending} pending`)
+    : pending > 0
+      ? (language === "pt" ? `Sincronizando… ${pending}` : `Synchronizing… ${pending}`)
+      : (language === "pt" ? "Conexão recuperada" : "Connection restored");
+}
+
+subscribeConnectivity(renderConnectivityStatus);
+subscribeOutbox(() => renderConnectivityStatus());
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -506,27 +538,21 @@ function saveInteraction(number) {
   progress.saveInteraction(number, interactionFor(number));
 }
 
-async function syncLeaderboardNow(previousRoom = "") {
-  if (!state.profile) return;
-  await syncLeaderboard({
-    profile: {
-      ...state.profile,
-      room: state.room,
-      displayName: displayNameForLeaderboard(state.profile.name),
-    },
-    totalXp: progress.totalXp(),
-    groupXp: progress.allGroupXp(),
-    questionXp: progress.allGroupQuestionXp(),
-    previousRoom,
-  });
-}
-
 function scheduleLeaderboardSync(previousRoom = "", immediate = false) {
   clearTimeout(state.syncTimer);
   state.syncTimer = setTimeout(() => {
-    void syncLeaderboardNow(previousRoom).catch((error) => {
-      console.warn("Leaderboard sync will retry later", error);
-    });
+    if (!state.profile) return;
+    enqueueOutbox("leaderboard-sync", {
+      profile: {
+        ...state.profile,
+        room: state.room,
+        displayName: displayNameForLeaderboard(state.profile.name),
+      },
+      totalXp: progress.totalXp(),
+      groupXp: progress.allGroupXp(),
+      questionXp: progress.allGroupQuestionXp(),
+      previousRoom,
+    }, { id: `leaderboard:${participantUid() || "local"}` });
   }, immediate ? 0 : 10_000);
 }
 
@@ -567,7 +593,7 @@ function showAchievement(item) {
   overlay.type = "button";
   overlay.className = "achievement-celebration";
   overlay.dataset.action = "dismiss-achievement";
-  overlay.innerHTML = `<span>Conquista desbloqueada</span><img src="${achievementIllustrations[item.id]}" alt="" /><strong>${escapeHtml(item[language])}</strong><small>${item.xp} XP</small>`;
+  overlay.innerHTML = `<span>Conquista desbloqueada</span><img src="${achievementIllustrations[item.id]}" alt="" decoding="async" /><strong>${escapeHtml(item[language])}</strong><small>${item.xp} XP</small>`;
   document.body.append(overlay);
   progress.clearPendingAchievement();
   setTimeout(() => overlay.remove(), 3000);
@@ -605,6 +631,27 @@ function grantReward(id, xp, meta = {}) {
   return true;
 }
 
+registerOutboxHandler("leaderboard-sync", async (payload) => syncLeaderboard(payload));
+registerOutboxHandler("shared-completion", async ({ mission, correct, xpAwarded }) => {
+  const accepted = await completeSharedMission({ mission, correct, xpAwarded });
+  if (accepted && xpAwarded) grantReward(`team:${mission.groupCode}:${mission.id}`, xpAwarded, { type: "team-challenge", question: mission.questionNumber, groupCode: mission.groupCode });
+  if (accepted) void checkForEventWinner(mission.groupCode);
+  return accepted;
+});
+registerOutboxHandler("shared-skip", async ({ mission }) => skipSharedMission(mission));
+registerOutboxHandler("reflection-submit", async ({ mission, name, text }) => {
+  const result = await submitReflectionMission({ mission, name, text });
+  grantReward(`reflection:${mission.questionNumber}`, reflectionXp(text.length), { type: "reflection", question: mission.questionNumber, groupCode: mission.groupCode });
+  return result;
+});
+registerOutboxHandler("personal-finish", async ({ mission, reflectionStatus }) => finishPersonalMission({ mission, reflectionStatus }));
+registerOutboxHandler("heart", async ({ roomCode, questionNumber, reflectionId }) => {
+  const result = await giveHeart({ roomCode, questionNumber, reflectionId });
+  if (result.bonus) grantReward(`heart-giver:${questionNumber}`, 2, { type: "heart-giver", question: questionNumber });
+  return result;
+});
+registerOutboxHandler("board-finish", async ({ mission }) => finishPersonalMission({ mission }));
+
 function questionXp(number, group = null) {
   return Object.entries(progress.awards()).reduce((sum, [id, item]) => (
     (id.includes(`:${number}:`) || id.endsWith(`:${number}`)) && (!group || item.group === group) ? sum + item.xp : sum
@@ -620,7 +667,7 @@ function renderAchievementShelf() {
         const unlocked = total >= item.xp;
         const illustration = achievementIllustrations[item.id];
         return `<article class="achievement-card ${unlocked ? "is-unlocked" : "is-locked"}">
-          <img src="${illustration}" alt="" />
+          <img src="${illustration}" alt="" loading="lazy" decoding="async" />
           <strong>${escapeHtml(item[language])}</strong><span>${item.xp} XP</span>
         </article>`;
       }).join("")}
@@ -649,7 +696,7 @@ function groupOptions(selected = state.room) {
 
 function groupMark(group, compact = false) {
   const illustration = groupIllustrations[group.code];
-  return `<span class="group-mark ${compact ? "is-compact" : ""}" aria-hidden="true">${illustration ? `<img src="${illustration}" alt="" />` : `<span>${escapeHtml(group.saint.slice(0, 1))}</span><i>${escapeHtml(group.symbol)}</i>`}</span>`;
+  return `<span class="group-mark ${compact ? "is-compact" : ""}" aria-hidden="true">${illustration ? `<img src="${illustration}" alt="" loading="lazy" decoding="async" />` : `<span>${escapeHtml(group.saint.slice(0, 1))}</span><i>${escapeHtml(group.symbol)}</i>`}</span>`;
 }
 
 function welcomeBrandLockup() {
@@ -707,7 +754,6 @@ function renderWelcome() {
 
 function renderHome() {
   cleanupSubscription();
-  cleanupLeaderboardSubscription();
   cleanupMissionDashboard();
   state.view = "home";
   state.currentQuestion = null;
@@ -718,7 +764,7 @@ function renderHome() {
     return `
       <article class="question-card" style="--card-index:${index}">
         <button type="button" class="question-card-main" data-action="browse-question" data-question="${item.number}" aria-label="${escapeHtml(official.question)}">
-          <img class="question-card-illustration" src="${questionIllustrations[item.number]}" alt="" />
+          <img class="question-card-illustration" src="${questionIllustrations[item.number]}" alt="" loading="lazy" decoding="async" />
           <span class="question-card-copy">
             <span class="question-card-meta">
               <span>${c("question")} ${item.number}</span>
@@ -762,9 +808,6 @@ function renderHome() {
   if (state.missionStatus === "waiting") {
     state.missionWaitTimer = setTimeout(() => { void requestNextMission(); }, 15_000);
   }
-  void import("./minigames/runtime.js")
-    .then(({ preloadPhaserRuntimeAfterHome }) => preloadPhaserRuntimeAfterHome())
-    .catch(() => {});
 }
 
 function cleanupMissionDashboard() {
@@ -834,6 +877,7 @@ async function refreshReflectionCounts() {
 function cleanupLeaderboardSubscription() {
   if (state.leaderboardUnsubscribe) state.leaderboardUnsubscribe();
   state.leaderboardUnsubscribe = null;
+  state.leaderboardRoom = null;
 }
 
 function groupRankings() {
@@ -845,6 +889,11 @@ function currentGroupTotal() {
 }
 
 async function connectLeaderboards(rerender = false) {
+  if (state.leaderboardUnsubscribe && state.leaderboardRoom === state.room) {
+    if (rerender && state.view === "leaderboard") renderLeaderboard(false);
+    if (rerender && state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
+    return;
+  }
   cleanupLeaderboardSubscription();
   if (!isFirebaseConfigured()) {
     const local = {
@@ -884,6 +933,7 @@ async function connectLeaderboards(rerender = false) {
       if (state.view === "leaderboard") renderLeaderboard(false);
       if (state.view === "question" && state.completedMission) updateMissionGroupLeaderboard();
     });
+    state.leaderboardRoom = state.room;
   } catch {
     state.leaderboardStatus = "error";
   }
@@ -940,7 +990,7 @@ function renderGlobalOverview(number) {
     <main class="app-shell global-screen">
       <header class="global-heading">
         <p class="section-kicker">${c("question")} ${number}</p>
-        <img src="${questionIllustrations[number]}" alt="" />
+        <img src="${questionIllustrations[number]}" alt="" loading="lazy" decoding="async" />
         <h1>${c("allReflections")}</h1>
         <p>${escapeHtml(official.question)}</p>
         <span class="global-total">${state.reflectionCounts.get(number) ?? state.globalReflections.length} ${c("answers")}</span>
@@ -1021,7 +1071,7 @@ function renderQuestion(number, positions = null) {
   const finished = Boolean(state.completedMission);
   app.innerHTML = `<main class="app-shell question-screen"><div id="question-feed" class="question-feed">
     <section class="feed-section intro-section" data-section="intro"><div class="section-inner">
-      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
+      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" decoding="async" /></div>
       <h1>${escapeHtml(official.question)}</h1><div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
       <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
     </div></section>
@@ -1046,7 +1096,7 @@ function renderBrowseQuestion(number, positions = null) {
   const heartsGiven = (state.reflections.get(number) || []).filter((item) => (item.voters || []).includes(uid)).length;
   app.innerHTML = `<main class="app-shell question-screen browse-question-screen"><div id="question-feed" class="question-feed">
     <section class="feed-section intro-section" data-section="intro"><div class="section-inner">
-      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" /></div>
+      <p class="section-kicker">YOUCAT Love Forever ${number}</p><div class="intro-illustration"><img src="${questionIllustrations[number]}" alt="" decoding="async" /></div>
       <h1>${escapeHtml(official.question)}</h1><div class="topic-marker">${escapeHtml(tr(topics[number]))}</div>
       <p class="scroll-hint">${c("introHint")} <span aria-hidden="true">↓</span></p>
     </div></section>
@@ -1136,6 +1186,24 @@ function freshMissionInteraction() {
   return { attempted: false, succeeded: false, finished: false, selected: null, sequence: [], activeLeft: null, matched: [], foundWordIds: [], wordSearchStrokes: [], choiceOrders: {}, currentCorrect: null, message: "" };
 }
 
+function offlineSharedMission(excludeMissionId = "") {
+  const now = Date.now();
+  const available = sharedChallenges.filter((challenge) => {
+    if (challenge.id === excludeMissionId) return false;
+    const saved = state.missionGroupState.challenges?.[challenge.id];
+    return !saved || saved.status === "available" || (saved.status === "reserved" && Number(saved.leaseUntil || 0) <= now);
+  });
+  if (!available.length) return null;
+  const challenge = available[Math.floor(Math.random() * available.length)];
+  return {
+    ...challenge,
+    type: "shared",
+    groupCode: state.room,
+    offline: true,
+    expiresAt: now + 24 * 60 * 60 * 1000,
+  };
+}
+
 function missionStorageKey(mission) {
   return `mission-v2:${mission.groupCode}:${mission.id}`;
 }
@@ -1154,9 +1222,19 @@ async function requestNextMission(excludeMissionId = "") {
   state.missionStatus = "loading";
   renderHome();
   try {
-    if (state.pendingMissionCompletion) await state.pendingMissionCompletion;
-    await reconcileParticipantReflections(state.room);
-    const mission = await claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId });
+    if (state.pendingMissionCompletion) await withNetworkDeadline(state.pendingMissionCompletion, 2_000).catch(() => {});
+    await withNetworkDeadline(flushOutbox(), 2_000).catch(() => {});
+    await withNetworkDeadline(reconcileParticipantReflections(state.room), 4_000).catch(() => {});
+    let mission;
+    try {
+      mission = await withNetworkDeadline(
+        claimRandomMission({ roomCode: state.room, sharedChallenges, questions: questionNumbers, excludeMissionId }),
+        6_000,
+      );
+    } catch (error) {
+      mission = offlineSharedMission(excludeMissionId);
+      if (!mission) throw error;
+    }
     if (mission?.type === "complete") {
       state.missionStatus = "complete";
       showJourneyComplete();
@@ -1241,40 +1319,29 @@ async function completeTeamAttempt(correct, { render = true, positions = capture
   const mission = state.activeMission;
   if (!mission || mission.type !== "shared") return;
   const xp = correct ? mission.xp : 0;
-  try {
-    await completeSharedMission({ mission, correct, xpAwarded: xp });
-    state.missionCompletionIssue = "";
-    if (xp) grantReward(`team:${mission.groupCode}:${mission.id}`, xp, { type: "team-challenge", question: mission.questionNumber });
-    void checkForEventWinner(mission.groupCode);
-    saveMissionInteraction();
-    state.completedMission = mission;
-    state.activeMission = null;
-    clearInterval(state.missionRenewTimer);
-    if (!render) return;
-    renderQuestion(mission.questionNumber, positions);
-    void connectLeaderboards(true);
-    // Leave the result in view first. The overview is already available below for
-    // anyone who wants to continue immediately, then opens itself after feedback.
-    setTimeout(() => {
-      if (state.completedMission?.id === mission.id && state.view === "question") {
-        document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 3000);
-  } catch (error) {
-    console.error("Unable to complete team challenge", error);
-    if (String(error?.message || "").includes("mission-not-owned")) {
-      state.missionCompletionIssue = "unavailable";
-      state.completedMission = mission;
-      state.activeMission = null;
-      clearInterval(state.missionRenewTimer);
-      renderQuestion(mission.questionNumber, positions);
-      void connectLeaderboards(true);
-      requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
-      return;
+  enqueueOutbox("shared-completion", { mission, correct, xpAwarded: xp }, { id: `complete:${mission.groupCode}:${mission.id}` });
+  state.pendingMissionCompletion = Promise.resolve(flushOutbox())
+    .finally(() => { state.pendingMissionCompletion = null; });
+  state.missionCompletionIssue = "";
+  saveMissionInteraction();
+  state.missionGroupState.challenges ||= {};
+  state.missionGroupState.challenges[mission.id] = {
+    status: "completed",
+    completedBy: participantUid() || "local",
+    correct,
+    xpAwarded: xp,
+    questionNumber: String(mission.questionNumber),
+  };
+  state.completedMission = mission;
+  state.activeMission = null;
+  clearInterval(state.missionRenewTimer);
+  if (!render) return;
+  renderQuestion(mission.questionNumber, positions);
+  setTimeout(() => {
+    if (state.completedMission?.id === mission.id && state.view === "question") {
+      document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" });
     }
-    state.missionInteraction = loadMissionInteraction(mission);
-    renderQuestion(mission.questionNumber, positions);
-  }
+  }, 3000);
 }
 
 function completePersonalMissionUi(mission) {
@@ -1294,26 +1361,15 @@ async function finishReflectionMission(status) {
   const positions = capturePositions();
   state.submitting = true;
   renderQuestion(mission.questionNumber, positions);
-  try {
-    await finishPersonalMission({ mission, reflectionStatus: status });
-    completePersonalMissionUi(mission);
-  } catch (error) {
-    console.error("Unable to finalise reflection mission", error);
-    state.submitting = false;
-    renderQuestion(mission.questionNumber, positions);
-    const message = document.querySelector("#answer-message");
-    if (message) message.textContent = language === "pt"
-      ? "Não foi possível guardar sua escolha. Tente novamente."
-      : "Your choice could not be saved. Please try again.";
-  }
+  enqueueOutbox("personal-finish", { mission, reflectionStatus: status }, { id: `personal:${mission.groupCode}:${mission.id}` });
+  completePersonalMissionUi(mission);
 }
 
 async function finishBoardMission() {
   const mission = state.activeMission;
   if (!mission || mission.type !== "board") return;
   if (heartsGivenForQuestion(mission.questionNumber) < 3) return;
-  await finishPersonalMission({ mission });
-  void checkForEventWinner(mission.groupCode);
+  enqueueOutbox("board-finish", { mission }, { id: `board:${mission.groupCode}:${mission.id}` });
   state.completedMission = mission;
   state.activeMission = null;
   clearInterval(state.missionRenewTimer);
@@ -1485,7 +1541,7 @@ function renderGame(number, game, gameIndex, gameState) {
     return `<span class="sr-only" id="image-shuffle-help-${number}-${gameIndex}">${c("imageShuffleHelp")}</span>
       <div class="image-shuffle-game">
         <div class="image-shuffle-meta"><span>3 × 3</span><span>${puzzleState.puzzleMoves} ${c("imageShuffleMoves")}</span><button type="button" class="image-shuffle-reference-action" data-action="image-shuffle-reference">${c("imageShuffleReference")}</button></div>
-        ${puzzleState.puzzleReference ? `<img class="image-shuffle-reference" src="${illustration}" alt="${escapeHtml(title)}" />` : ""}
+        ${puzzleState.puzzleReference ? `<img class="image-shuffle-reference" src="${illustration}" alt="${escapeHtml(title)}" decoding="async" />` : ""}
         <div class="image-shuffle-board ${solved ? "is-solved" : ""}" role="grid" aria-label="${escapeHtml(`${title}, 3 by 3 image puzzle`)}" aria-describedby="image-shuffle-help-${number}-${gameIndex}">
           ${board.map((tile, index) => {
             if (tile === 0) return `<div class="image-shuffle-empty" role="gridcell" aria-label="${language === "pt" ? "Espaço vazio" : "Empty space"}" style="--tile-image:url('${illustration}')"></div>`;
@@ -1540,7 +1596,7 @@ function renderGame(number, game, gameIndex, gameState) {
         const block = game.blocks?.find((item) => item.id === id);
         return `<button type="button" class="move-block ${selectedIndex >= 0 ? "is-selected" : ""}" data-action="move-block" data-question="${number}" data-game="${gameIndex}" data-item="${id}" ${disabled ? "disabled" : ""} ${game.mode === "image" ? `style="--tile-image:url('${illustration}');--tile-x:${(Number(id) - 1) % 2};--tile-y:${Math.floor((Number(id) - 1) / 2)}"` : ""}>${selectedIndex >= 0 ? `<span class="token-order">${selectedIndex + 1}</span>` : ""}${game.mode === "image" ? `<span class="image-tile" aria-hidden="true"></span><span class="sr-only">${id}</span>` : escapeHtml(tr(block?.label || id))}</button>`;
       }).join("")}</div>`;
-    return `${board}${solved ? `<div class="move-reveal">${game.mode !== "quote" ? `<img src="${illustration}" alt="" />` : ""}<blockquote>“${escapeHtml(tr(game.reveal))}”</blockquote>${game.source ? `<p class="source-line">${escapeHtml(tr(game.source))}</p>` : ""}</div>` : ""}${gameMessage(gameState, game)}`;
+    return `${board}${solved ? `<div class="move-reveal">${game.mode !== "quote" ? `<img src="${illustration}" alt="" decoding="async" />` : ""}<blockquote>“${escapeHtml(tr(game.reveal))}”</blockquote>${game.source ? `<p class="source-line">${escapeHtml(tr(game.source))}</p>` : ""}</div>` : ""}${gameMessage(gameState, game)}`;
   }
   return "";
 }
@@ -2040,6 +2096,7 @@ app.addEventListener("submit", async (event) => {
     const room = normalizeGroup(form.get("room"));
     if (!room) return;
     const previousRoom = state.room;
+    cleanupLeaderboardSubscription();
     if (state.activeMission) await releaseActiveMission(state.activeMission);
     state.activeMission = null;
     state.completedMission = null;
@@ -2072,30 +2129,24 @@ app.addEventListener("submit", async (event) => {
     interaction.answer = text;
     saveInteraction(number);
     renderQuestion(number, positions);
-    try {
-      const result = await submitReflectionMission({
-        mission,
-        name: state.profile.name,
-        text,
-      });
-      const local = state.reflections.get(number) || [];
-      state.reflections.set(number, [{ ...result, id: result.id }, ...local.filter((item) => item.id !== result.id)]);
-      interaction.submitted = true;
-      saveInteraction(number);
-      const xpAwarded = reflectionXp(text.length);
-      grantReward(`reflection:${number}`, xpAwarded, { type: "reflection", question: number });
-      completePersonalMissionUi(mission);
-    } catch (error) {
-      console.error("Unable to publish reflection", error);
-      state.submitting = false;
-      interaction.answer = text;
-      saveInteraction(number);
-      renderQuestion(number, positions);
-      const failureMessage = document.querySelector("#answer-message");
-      if (failureMessage) failureMessage.textContent = language === "pt"
-        ? "Não foi possível compartilhar sua reflexão. Seu texto continua aqui — tente novamente."
-        : "Your reflection could not be shared. Your text is still here — please try again.";
-    }
+    const uid = participantUid() || "local";
+    enqueueOutbox("reflection-submit", { mission, name: state.profile.name, text }, { id: `reflection:${mission.groupCode}:${number}:${uid}` });
+    const local = state.reflections.get(number) || [];
+    const localReflection = {
+      id: uid,
+      authorUid: uid,
+      name: state.profile.name,
+      text,
+      voters: [],
+      roomCode: mission.groupCode,
+      questionNumber: String(number),
+      createdAt: { toMillis: () => Date.now() },
+      pending: true,
+    };
+    state.reflections.set(number, [localReflection, ...local.filter((item) => item.id !== uid)]);
+    interaction.submitted = true;
+    saveInteraction(number);
+    completePersonalMissionUi(mission);
   }
 });
 
@@ -2195,18 +2246,14 @@ app.addEventListener("click", async (event) => {
     const mission = state.activeMission;
     if (!mission || mission.type !== "shared" || mission.challengeKind !== "game") return;
     target.disabled = true;
-    try {
-      destroyActiveMinigame();
-      await skipSharedMission(mission);
-      void checkForEventWinner(mission.groupCode);
-      cleanupMissionDashboard();
-      state.activeMission = null;
-      state.missionInteraction = null;
-      await requestNextMission(mission.id);
-    } catch (error) {
-      console.error("Unable to skip team challenge", error);
-      target.disabled = false;
-    }
+    destroyActiveMinigame();
+    enqueueOutbox("shared-skip", { mission }, { id: `skip:${mission.groupCode}:${mission.id}` });
+    state.missionGroupState.challenges ||= {};
+    state.missionGroupState.challenges[mission.id] = { status: "skipped", skippedBy: participantUid() || "local", questionNumber: String(mission.questionNumber) };
+    cleanupMissionDashboard();
+    state.activeMission = null;
+    state.missionInteraction = null;
+    await requestNextMission(mission.id);
     return;
   }
 
@@ -2301,29 +2348,25 @@ app.addEventListener("click", async (event) => {
   if (action === "heart") {
     const number = Number(target.dataset.question);
     target.disabled = true;
-    try {
-      const result = await giveHeart({
-        roomCode: target.dataset.room || state.room,
-        questionNumber: number,
-        reflectionId: target.dataset.reflection,
-      });
-      const uid = result.uid;
-      if (result.bonus) grantReward(`heart-giver:${number}`, 2, { type: "heart-giver", question: number });
-      if (target.dataset.scope === "global") {
-        const reflection = state.globalReflections.find((item) => item.id === target.dataset.reflection);
-        if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
-        if (state.view === "global") renderGlobalOverview(number);
-      } else {
-        const reflections = state.reflections.get(number) || [];
-        const reflection = reflections.find((item) => item.id === target.dataset.reflection);
-        if (reflection && !reflection.voters.includes(uid)) reflection.voters.push(uid);
-        updateReflections(number);
-      }
-      if (result.count === 3 && state.activeMission?.type === "board" && state.activeMission.questionNumber === number) {
-        showHeartCompletionDialog();
-      }
-    } catch {
+    const uid = participantUid() || "local";
+    const collection = target.dataset.scope === "global" ? state.globalReflections : (state.reflections.get(number) || []);
+    const reflection = collection.find((item) => item.id === target.dataset.reflection);
+    if (!reflection || reflection.authorUid === uid || (reflection.voters || []).includes(uid) || heartsGivenForQuestion(number) >= 3) {
       target.disabled = false;
+      return;
+    }
+    reflection.voters ||= [];
+    reflection.voters.push(uid);
+    enqueueOutbox("heart", {
+      roomCode: target.dataset.room || reflection.roomCode || state.room,
+      questionNumber: number,
+      reflectionId: reflection.id,
+    }, { id: `heart:${uid}:${number}:${reflection.id}` });
+    if (target.dataset.scope === "global") {
+      if (state.view === "global") renderGlobalOverview(number);
+    } else updateReflections(number);
+    if (heartsGivenForQuestion(number) === 3 && state.activeMission?.type === "board" && state.activeMission.questionNumber === number) {
+      showHeartCompletionDialog();
     }
   }
 });
