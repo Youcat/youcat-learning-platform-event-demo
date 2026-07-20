@@ -2,7 +2,10 @@ import {
   calculateReflectionBoardEligibility,
   isResolvedReflectionStatus,
 } from "./reflections.js";
-import { isGroupJourneyComplete } from "./event-winner.js";
+import {
+  aggregateGroupStandings,
+  isStandingWinnerEligible,
+} from "./event-winner.js";
 
 const env = import.meta.env || {};
 const config = {
@@ -23,6 +26,7 @@ const localMissionGroups = new Map();
 const localMissionParticipants = new Map();
 const localMissionListeners = new Map();
 const localMissionEvent = { activeCount: 0, resolved: {}, resolvedByGroup: {}, unlocked: {} };
+const localEventListeners = new Set();
 const localHeartAllocations = new Map();
 const reconciledReflectionUsers = new Set();
 const MISSION_LEASE_MS = 5 * 60 * 1000;
@@ -164,12 +168,14 @@ export async function deactivateParticipantMembership(roomCode) {
     const participant = localMissionParticipants.get(uid);
     if (participant) participant.active = false;
     refreshLocalReflectionBoardEligibility(localMissionEvent);
+    await tryDeclareEventWinner({ roomCode });
     return;
   }
   const services = await getServices();
   const memberRef = services.doc(services.db, "leaderboardGroups", roomCode, "members", uid);
   await services.setDoc(memberRef, { active: false, updatedAt: services.serverTimestamp() }, { merge: true });
   await refreshReflectionBoardEligibilityFromFirestore();
+  await tryDeclareEventWinner({ roomCode });
 }
 
 async function refreshReflectionBoardEligibilityFromFirestore() {
@@ -229,40 +235,55 @@ export async function subscribeToLeaderboards(roomCode, callback, onError) {
   );
   let members = [];
   let groups = [];
-  let winner = null;
-  const emit = () => callback({ members, groups, winner });
+  const emit = () => callback({ members, groups });
   const unsubMembers = services.onSnapshot(membersQuery, (snapshot) => {
     members = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
     emit();
   }, onError);
   const unsubEvent = services.onSnapshot(eventQuery, (snapshot) => {
-    const byGroup = new Map();
-    snapshot.docs.forEach((item) => {
-      const member = item.data();
-      const summary = byGroup.get(member.groupCode) || { groupCode: member.groupCode, totalXp: 0, participants: 0, members: 0, averageXp: 0 };
-      summary.members += 1;
-      if (Number(member.groupXp || 0) > 0) {
-        summary.participants += 1;
-        summary.totalXp += Number(member.groupXp || 0);
-      }
-      byGroup.set(member.groupCode, summary);
-    });
-    groups = [...byGroup.values()].map((summary) => ({
-      ...summary,
-      active: summary.participants >= 2,
-      averageXp: summary.participants ? summary.totalXp / summary.participants : 0,
-    }));
+    groups = aggregateGroupStandings(snapshot.docs.map((item) => item.data()))
+      .map((summary) => ({ ...summary, active: true }));
     emit();
   }, onError);
-  const winnerRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
-  const unsubWinner = services.onSnapshot(winnerRef, (snapshot) => {
-    winner = snapshot.data()?.winnerGroup ? {
-      groupCode: snapshot.data().winnerGroup,
-      totalXp: Number(snapshot.data()?.winnerXp || 0),
-    } : null;
-    emit();
-  }, onError);
-  return () => { unsubMembers(); unsubEvent(); unsubWinner(); };
+  return () => { unsubMembers(); unsubEvent(); };
+}
+
+function normalizeEventWinner(data) {
+  if (!data?.winnerGroup) return null;
+  return {
+    groupCode: data.winnerGroup,
+    totalXp: Number(data.winnerXp || 0),
+    targetXp: Number(data.winnerTarget || 0),
+    memberCount: Number(data.winnerMemberCount || 0),
+    declaredAt: data.winnerDeclaredAt || null,
+    finalStandings: Array.isArray(data.finalStandings)
+      ? data.finalStandings.map((standing) => ({
+        groupCode: String(standing.groupCode || ""),
+        totalXp: Number(standing.totalXp || 0),
+        targetXp: Number(standing.targetXp || 0),
+        members: Number(standing.members || 0),
+        participants: Number(standing.participants || 0),
+      }))
+      : [],
+  };
+}
+
+export async function subscribeToEventWinner(callback, onError) {
+  if (!configured) {
+    localEventListeners.add(callback);
+    callback(normalizeEventWinner(localMissionEvent));
+    return () => localEventListeners.delete(callback);
+  }
+  const services = await getServices();
+  const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
+  return services.onSnapshot(eventRef, (snapshot) => callback(normalizeEventWinner(snapshot.data())), onError);
+}
+
+export async function getEventWinner() {
+  if (!configured) return normalizeEventWinner(localMissionEvent);
+  const services = await getServices();
+  const snapshot = await services.getDoc(services.doc(services.db, "missionEvent", "assis-2026-07-26"));
+  return normalizeEventWinner(snapshot.data());
 }
 
 export async function subscribeToRoom(roomCode, questionNumber, callback, onError) {
@@ -598,6 +619,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
   const uid = await ensureParticipantSession();
   const now = Date.now();
   if (!configured) {
+    if (localMissionEvent.winnerGroup) return { type: "winner" };
     const participant = localParticipant(uid, roomCode);
     const group = localGroup(roomCode);
     if (!participant.active) { participant.active = true; localMissionEvent.activeCount += 1; }
@@ -638,6 +660,7 @@ export async function claimRandomMission({ roomCode, sharedChallenges, questions
   const group = { groupCode: roomCode, challenges: { ...(legacyGroupSnapshot.data()?.challenges || {}) }, progress: {} };
   challengeSnapshot.docs.forEach((snapshot) => { group.challenges[snapshot.id] = snapshot.data(); });
   const event = { activeCount: 0, resolved: {}, unlocked: {}, ...(eventSnapshot.data() || {}) };
+  if (event.winnerGroup) return { type: "winner" };
   if (participant.activeMission?.expiresAt > now && participant.activeMission.groupCode === roomCode) return participant.activeMission;
 
   // Only participants competing for the same challenge now touch the same
@@ -856,14 +879,21 @@ export async function finishPersonalMission({ mission, reflectionStatus = "" }) 
   return { unlocked: false };
 }
 
-export async function tryDeclareEventWinner({ roomCode, challengeIds, questions }) {
+export async function tryDeclareEventWinner({ roomCode }) {
   if (!configured) {
-    if (localMissionEvent.winnerGroup) return localMissionEvent.winnerGroup;
-    const members = [...localMissionParticipants.values()].filter((item) => item.currentGroup === roomCode);
-    if (!isGroupJourneyComplete({ members, group: localGroup(roomCode), challengeIds, questions })) return null;
+    if (localMissionEvent.winnerGroup) return normalizeEventWinner(localMissionEvent);
+    const standings = aggregateGroupStandings([...localMissionParticipants.values()]);
+    const winner = standings.find((standing) => standing.groupCode === roomCode);
+    if (!isStandingWinnerEligible(winner)) return null;
     localMissionEvent.winnerGroup = roomCode;
-    localMissionEvent.winnerXp = 0;
-    return roomCode;
+    localMissionEvent.winnerXp = winner.totalXp;
+    localMissionEvent.winnerTarget = winner.targetXp;
+    localMissionEvent.winnerMemberCount = winner.members;
+    localMissionEvent.winnerDeclaredAt = Date.now();
+    localMissionEvent.finalStandings = standings;
+    const result = normalizeEventWinner(localMissionEvent);
+    localEventListeners.forEach((listener) => listener(result));
+    return result;
   }
 
   const services = await getServices();
@@ -872,29 +902,40 @@ export async function tryDeclareEventWinner({ roomCode, challengeIds, questions 
     services.where("active", "==", true),
     services.limit(200),
   );
-  const [membersSnapshot, challengeSnapshot, legacyGroupSnapshot] = await Promise.all([
-    services.getDocs(membersQuery),
-    services.getDocs(services.collection(services.db, "missionGroups", roomCode, "challenges")),
-    services.getDoc(services.doc(services.db, "missionGroups", roomCode)),
-  ]);
-  const members = membersSnapshot.docs.map((snapshot) => snapshot.data());
-  const groupTotalXp = members.reduce((sum, member) => sum + Number(member.groupXp || 0), 0);
-  const group = { groupCode: roomCode, challenges: { ...(legacyGroupSnapshot.data()?.challenges || {}) } };
-  challengeSnapshot.docs.forEach((snapshot) => { group.challenges[snapshot.id] = snapshot.data(); });
-  if (!isGroupJourneyComplete({ members, group, challengeIds, questions })) return null;
+  const membersSnapshot = await services.getDocsFromServer(membersQuery);
+  const candidate = aggregateGroupStandings(membersSnapshot.docs.map((snapshot) => snapshot.data()))[0];
+  if (!candidate || candidate.groupCode !== roomCode || !isStandingWinnerEligible(candidate)) return null;
+
+  const allMembersSnapshot = await services.getDocsFromServer(services.query(
+    services.collectionGroup(services.db, "members"),
+    services.where("active", "==", true),
+    services.limit(500),
+  ));
+  const finalStandings = aggregateGroupStandings(allMembersSnapshot.docs.map((snapshot) => snapshot.data()));
+  const winner = finalStandings.find((standing) => standing.groupCode === roomCode);
+  if (!isStandingWinnerEligible(winner)) return null;
 
   const eventRef = services.doc(services.db, "missionEvent", "assis-2026-07-26");
   return services.runTransaction(services.db, async (transaction) => {
     const eventSnapshot = await transaction.get(eventRef);
-    const existing = eventSnapshot.data()?.winnerGroup;
+    const existing = normalizeEventWinner(eventSnapshot.data());
     if (existing) return existing;
     transaction.set(eventRef, {
       winnerGroup: roomCode,
-      winnerXp: groupTotalXp,
+      winnerXp: winner.totalXp,
+      winnerTarget: winner.targetXp,
+      winnerMemberCount: winner.members,
+      finalStandings,
       winnerDeclaredAt: services.serverTimestamp(),
       updatedAt: services.serverTimestamp(),
     }, { merge: true });
-    return roomCode;
+    return {
+      groupCode: roomCode,
+      totalXp: winner.totalXp,
+      targetXp: winner.targetXp,
+      memberCount: winner.members,
+      finalStandings,
+    };
   });
 }
 

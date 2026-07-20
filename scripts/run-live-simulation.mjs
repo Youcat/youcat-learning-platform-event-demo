@@ -15,7 +15,7 @@ import {
 import activities from "../src/data/approved-activities.js";
 import { GROUPS } from "../src/groups.js";
 import { REFLECTION_BOARD_UNLOCK_RATIO } from "../src/reflections.js";
-import { isGroupJourneyComplete } from "../src/event-winner.js";
+import { aggregateGroupStandings, isStandingWinnerEligible } from "../src/event-winner.js";
 
 const ENV = Object.fromEntries(readFileSync(new URL("../.env.local", import.meta.url), "utf8")
   .split(/\r?\n/)
@@ -285,6 +285,7 @@ async function awardXp(bot, xp, questionNumber) {
   bot.totalXp += xp;
   bot.groupXp += xp;
   bot.questionXp[questionNumber] = Number(bot.questionXp[questionNumber] || 0) + xp;
+  await tryDeclareWinner(bot.room);
 }
 
 async function completeChallenge(bot) {
@@ -452,33 +453,30 @@ async function tryDeclareWinner(roomCode) {
   const eventRef = doc(referenceBot.db, "missionEvent", EVENT_ID);
   const existing = await getDoc(eventRef);
   if (existing.data()?.winnerGroup) return existing.data().winnerGroup;
-  const [membersSnapshot, groupSnapshot, summarySnapshot] = await Promise.all([
-    getDocs(collection(referenceBot.db, "leaderboardGroups", roomCode, "members")),
-    getDoc(doc(referenceBot.db, "missionGroups", roomCode)),
-    getDoc(doc(referenceBot.db, "leaderboardGroupSummaries", roomCode)),
-  ]);
-  const complete = isGroupJourneyComplete({
-    members: membersSnapshot.docs.map((snapshot) => snapshot.data()),
-    group: groupSnapshot.data() || { challenges: {} },
-    challengeIds: sharedChallenges.map((challenge) => challenge.id),
-    questions: questionNumbers,
-  });
-  if (!complete) return null;
-  const winnerXp = Number(summarySnapshot.data()?.totalXp || 0);
+  const membersSnapshot = await getDocs(collection(referenceBot.db, "leaderboardGroups", roomCode, "members"));
+  const candidate = aggregateGroupStandings(membersSnapshot.docs.map((snapshot) => snapshot.data()))[0];
+  if (!candidate || candidate.groupCode !== roomCode || !isStandingWinnerEligible(candidate)) return null;
+  const allMemberSnapshots = await Promise.all(groupPlans.map((plan) => getDocs(collection(referenceBot.db, "leaderboardGroups", plan.code, "members"))));
+  const finalStandings = aggregateGroupStandings(allMemberSnapshots.flatMap((snapshot) => snapshot.docs.map((item) => item.data())));
+  const winnerStanding = finalStandings.find((standing) => standing.groupCode === roomCode);
+  if (!isStandingWinnerEligible(winnerStanding)) return null;
   const winner = await runTransaction(referenceBot.db, async (transaction) => {
     const eventSnapshot = await transaction.get(eventRef);
     if (eventSnapshot.data()?.winnerGroup) return eventSnapshot.data().winnerGroup;
     transaction.set(eventRef, {
       winnerGroup: roomCode,
-      winnerXp,
+      winnerXp: winnerStanding.totalXp,
+      winnerTarget: winnerStanding.targetXp,
+      winnerMemberCount: winnerStanding.members,
+      finalStandings,
       winnerDeclaredAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }, { merge: true });
     return roomCode;
   });
   if (winner === roomCode) {
-    console.log(`WINNER_DECLARED ${roomCode} (${winnerXp} XP)`);
-    writeStatus("winner", { winnerGroup: roomCode, winnerXp });
+    console.log(`WINNER_DECLARED ${roomCode} (${winnerStanding.totalXp}/${winnerStanding.targetXp} XP)`);
+    writeStatus("winner", { winnerGroup: roomCode, winnerXp: winnerStanding.totalXp, winnerTarget: winnerStanding.targetXp });
   }
   return winner;
 }

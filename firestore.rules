@@ -181,7 +181,38 @@ service cloud.firestore {
     }
 
     match /missionEvent/{documentId} {
-      allow read, create, update: if signedIn() && documentId == "assis-2026-07-26";
+      function validWinnerResult() {
+        return !request.resource.data.keys().hasAny(["winnerGroup"])
+          || (validRoom(request.resource.data.winnerGroup)
+            && request.resource.data.winnerXp is int
+            && request.resource.data.winnerXp >= 0
+            && request.resource.data.winnerTarget is int
+            && request.resource.data.winnerTarget >= 500
+            && request.resource.data.winnerMemberCount is int
+            && request.resource.data.winnerMemberCount >= 2
+            && request.resource.data.finalStandings is list
+            && request.resource.data.finalStandings.size() >= 1
+            && request.resource.data.winnerDeclaredAt is timestamp);
+      }
+
+      function winnerResultIsImmutable() {
+        return !resource.data.keys().hasAny(["winnerGroup"])
+          || (request.resource.data.winnerGroup == resource.data.winnerGroup
+            && request.resource.data.winnerXp == resource.data.winnerXp
+            && request.resource.data.winnerTarget == resource.data.winnerTarget
+            && request.resource.data.winnerMemberCount == resource.data.winnerMemberCount
+            && request.resource.data.finalStandings == resource.data.finalStandings
+            && request.resource.data.winnerDeclaredAt == resource.data.winnerDeclaredAt);
+      }
+
+      allow read: if signedIn() && documentId == "assis-2026-07-26";
+      allow create: if signedIn()
+        && documentId == "assis-2026-07-26"
+        && validWinnerResult();
+      allow update: if signedIn()
+        && documentId == "assis-2026-07-26"
+        && validWinnerResult()
+        && winnerResultIsImmutable();
       allow delete: if false;
     }
 

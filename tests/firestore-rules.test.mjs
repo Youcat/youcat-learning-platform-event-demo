@@ -6,7 +6,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 
 let environment;
 const emulatorAvailable = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
@@ -101,4 +101,39 @@ test("heart votes are immutable and owned by the voter", { skip: !emulatorAvaila
   };
   await assertSucceeds(setDoc(voteRef, vote));
   await assertFails(setDoc(voteRef, { ...vote, authorUid: "participant-b" }));
+});
+
+test("simultaneous declarations produce one immutable frozen winner", { skip: !emulatorAvailable }, async () => {
+  const firstDb = environment.authenticatedContext("participant-f").firestore();
+  const secondDb = environment.authenticatedContext("participant-g").firestore();
+  const eventRef = doc(firstDb, "missionEvent/assis-2026-07-26");
+  const standings = [
+    { groupCode: "Assis-Sao-Jose", totalXp: 1300, targetXp: 1300, members: 10, participants: 10, averageXp: 130 },
+    { groupCode: "Assis-Santa-Clara", totalXp: 1305, targetXp: 1300, members: 10, participants: 10, averageXp: 131 },
+  ];
+  const declare = (db, standing) => runTransaction(db, async (transaction) => {
+    const ref = doc(db, "missionEvent/assis-2026-07-26");
+    const snapshot = await transaction.get(ref);
+    if (snapshot.data()?.winnerGroup) return snapshot.data().winnerGroup;
+    transaction.set(ref, {
+      winnerGroup: standing.groupCode,
+      winnerXp: standing.totalXp,
+      winnerTarget: standing.targetXp,
+      winnerMemberCount: standing.members,
+      finalStandings: standings,
+      winnerDeclaredAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return standing.groupCode;
+  });
+  await Promise.all([declare(firstDb, standings[0]), declare(secondDb, standings[1])]);
+  const winnerSnapshot = await getDoc(eventRef);
+  const winner = winnerSnapshot.data();
+  assert.ok([standings[0].groupCode, standings[1].groupCode].includes(winner.winnerGroup));
+  await assertSucceeds(updateDoc(eventRef, { resolved: { 14: 8 }, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(eventRef, {
+    winnerGroup: winner.winnerGroup === standings[0].groupCode ? standings[1].groupCode : standings[0].groupCode,
+    winnerXp: 1400,
+    updatedAt: serverTimestamp(),
+  }));
 });

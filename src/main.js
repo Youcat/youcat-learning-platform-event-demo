@@ -12,6 +12,7 @@ import { ACHIEVEMENTS, createProgressStore, readingReward } from "./progress.js"
 import { createWordSearch, pathBetweenCells, simplifyPath, validateStroke } from "./wordsearch.js";
 import { isSolved, moveTile, movableTileIndices, shuffleBoard, tileBackground } from "./image-shuffle.js";
 import { bindReaderOverscroll } from "./reader-overscroll.js";
+import { winnerTargetForMembers } from "./event-winner.js";
 import { connectivitySnapshot, subscribeConnectivity, withNetworkDeadline } from "./connectivity.js";
 import { enqueueOutbox, flushOutbox, pendingOutboxCount, registerOutboxHandler, subscribeOutbox } from "./outbox.js";
 import {
@@ -20,6 +21,7 @@ import {
   completeSharedMission,
   deactivateParticipantMembership,
   finishPersonalMission,
+  getEventWinner,
   getGlobalReflections,
   getQuestionReflectionCounts,
   giveHeart,
@@ -32,6 +34,7 @@ import {
   skipSharedMission,
   subscribeToGlobalQuestion,
   subscribeToHeartRewards,
+  subscribeToEventWinner,
   subscribeToLeaderboards,
   subscribeToMissionGroup,
   subscribeToQuestionGroupTotal,
@@ -383,7 +386,6 @@ const sharedChallenges = learningContent.flatMap((item) => [
   ...item.games.map((game, index) => ({ id: `${item.number}__game-${index}`, questionNumber: item.number, challengeKind: "game", challengeIndex: index, xp: gameXp(game) })),
 ]);
 const questionNumbers = officialContent.questions.map((item) => item.number);
-const sharedChallengeIds = sharedChallenges.map((challenge) => challenge.id);
 
 const state = {
   view: "welcome",
@@ -420,8 +422,9 @@ const state = {
   leaderboardMembers: [],
   leaderboardContributions: [],
   eventWinner: null,
+  eventReadOnly: false,
+  eventResultUnsubscribe: null,
   leaderboardStatus: "idle",
-  groupGoalCelebrated: false,
   readingCleanup: null,
   syncTimer: null,
   submitting: false,
@@ -599,21 +602,8 @@ function showAchievement(item) {
   setTimeout(() => overlay.remove(), 3000);
 }
 
-function showGroupGoalCelebration() {
-  if (state.groupGoalCelebrated) return;
-  state.groupGoalCelebrated = true;
-  const group = groupByCode(state.room);
-  const overlay = document.createElement("button");
-  overlay.type = "button";
-  overlay.className = "achievement-celebration group-celebration";
-  overlay.dataset.action = "dismiss-achievement";
-  overlay.innerHTML = `<span>${c("groupGoal")}</span>${groupMark(group)}<strong>500 XP</strong><small>${escapeHtml(group.saint)}</small>`;
-  document.body.append(overlay);
-  playRewardSound();
-  setTimeout(() => overlay.remove(), 3000);
-}
-
 function grantReward(id, xp, meta = {}) {
+  if (state.eventWinner) return false;
   const group = meta.groupCode || state.room;
   const result = progress.awardOnce(id, xp, group, meta);
   if (!result.awarded) return false;
@@ -631,11 +621,15 @@ function grantReward(id, xp, meta = {}) {
   return true;
 }
 
-registerOutboxHandler("leaderboard-sync", async (payload) => syncLeaderboard(payload));
+registerOutboxHandler("leaderboard-sync", async (payload) => {
+  const uid = await syncLeaderboard(payload);
+  await tryDeclareEventWinner({ roomCode: payload.profile.room });
+  if (payload.previousRoom) await tryDeclareEventWinner({ roomCode: payload.previousRoom });
+  return uid;
+});
 registerOutboxHandler("shared-completion", async ({ mission, correct, xpAwarded }) => {
   const accepted = await completeSharedMission({ mission, correct, xpAwarded });
   if (accepted && xpAwarded) grantReward(`team:${mission.groupCode}:${mission.id}`, xpAwarded, { type: "team-challenge", question: mission.questionNumber, groupCode: mission.groupCode });
-  if (accepted) void checkForEventWinner(mission.groupCode);
   return accepted;
 });
 registerOutboxHandler("shared-skip", async ({ mission }) => skipSharedMission(mission));
@@ -757,6 +751,7 @@ function renderHome() {
   cleanupMissionDashboard();
   state.view = "home";
   state.currentQuestion = null;
+  const readOnly = Boolean(state.eventWinner && state.eventReadOnly);
   const cards = officialContent.questions.map((item, index) => {
     const official = item.official[language];
     const completed = Number(state.missionGroupState.progress?.[item.number] || 0);
@@ -786,27 +781,80 @@ function renderHome() {
       <header class="home-heading">
         <p class="brand-kicker">YOUCAT</p>
         <h1>${c("teamProgress")}</h1>
-        <button type="button" class="room-chip" data-action="change-group">${c("roomLabel")} ${escapeHtml(groupDisplayName(state.room))}</button>
+        <button type="button" class="room-chip" data-action="change-group" ${readOnly ? "disabled" : ""}>${c("roomLabel")} ${escapeHtml(groupDisplayName(state.room))}</button>
         <strong class="home-xp">${currentGroupTotal()} XP</strong>
       </header>
+      ${readOnly ? `<section class="event-readonly-banner"><strong>${language === "pt" ? "Evento concluído" : "Event complete"}</strong><span>${language === "pt" ? "Explore as leituras e as reflexões sem ganhar XP." : "Explore readings and reflections without earning XP."}</span><button type="button" data-action="open-final-result">${language === "pt" ? "Ver resultado final" : "View final result"}</button></section>` : ""}
       <section class="group-home-card">
         ${groupMark(groupByCode(state.room), true)}
         <div><span>${c("yourGroup")}</span><strong>${escapeHtml(groupByCode(state.room).saint)}</strong></div>
         <button type="button" data-action="open-leaderboard">${c("leaderboard")} →</button>
       </section>
-      ${renderAchievementShelf()}
-      <section class="mission-launch">
+      ${readOnly ? "" : renderAchievementShelf()}
+      ${readOnly ? "" : `<section class="mission-launch">
         <button type="button" class="primary-action" data-action="next-mission" ${state.missionClaiming ? "disabled" : ""}>${c("getChallenge")}</button>
-      </section>
+      </section>`}
       <section class="question-list" aria-label="${c("teamProgress")}">${cards}</section>
       ${bottomNavigation(false)}
     </main>
   `;
   window.scrollTo({ top: 0, behavior: "auto" });
-  void connectMissionDashboard();
+  if (!readOnly) void connectMissionDashboard();
   clearTimeout(state.missionWaitTimer);
   if (state.missionStatus === "waiting") {
     state.missionWaitTimer = setTimeout(() => { void requestNextMission(); }, 15_000);
+  }
+}
+
+function finaleCelebration() {
+  const confetti = Array.from({ length: 34 }, (_, index) => {
+    const x = (index * 29 + 7) % 100;
+    const delay = (index % 7) * 0.1;
+    const duration = 3.2 + (index % 5) * 0.1;
+    return `<i class="finale-confetti" style="--x:${x};--delay:${delay}s;--duration:${duration}s;--turn:${(index % 5) * 72}deg"></i>`;
+  }).join("");
+  const fireworks = [16, 50, 83].map((x, index) => `<span class="finale-firework" style="--x:${x}%;--y:${22 + index * 13}%;--delay:${0.35 + index * 0.8}s">${Array.from({ length: 10 }, () => "<i></i>").join("")}</span>`).join("");
+  return `<div class="finale-celebration" aria-hidden="true">${confetti}${fireworks}</div>`;
+}
+
+function renderEventFinale() {
+  const winner = state.eventWinner;
+  if (!winner) return;
+  cleanupSubscription();
+  cleanupMissionDashboard();
+  cleanupLeaderboardSubscription();
+  destroyActiveMinigame();
+  if (state.activeMission) void releaseActiveMission(state.activeMission).catch(() => {});
+  state.activeMission = null;
+  state.completedMission = null;
+  state.view = "event-finale";
+  state.eventReadOnly = false;
+  const winningParticipant = state.room === winner.groupCode;
+  const winningGroup = groupByCode(winner.groupCode);
+  const standings = winner.finalStandings || [];
+  const declaredAt = winner.declaredAt?.toMillis?.() || winner.declaredAt || `${winner.totalXp}-${winner.targetXp}`;
+  const celebrationKey = `youcat-assis:winner-celebrated:${winner.groupCode}:${declaredAt}`;
+  const shouldCelebrate = winningParticipant && !sessionStorage.getItem(celebrationKey);
+  app.innerHTML = `<main class="app-shell event-finale-screen ${winningParticipant ? "is-winning-group" : "is-other-group"}">
+    ${winningParticipant ? finaleCelebration() : ""}
+    <section class="event-finale-hero">
+      <p class="section-kicker">${language === "pt" ? "Evento concluído" : "Event complete"}</p>
+      ${groupMark(winningGroup, true)}
+      <h1>${winningParticipant ? (language === "pt" ? "Seu grupo venceu!" : "Your group won!") : `${escapeHtml(groupDisplayName(winner.groupCode))} ${language === "pt" ? "venceu!" : "won!"}`}</h1>
+      <p>${language === "pt" ? "Foi o primeiro grupo a alcançar a sua meta." : "It was the first group to reach its target."}</p>
+      <strong class="finale-score">${winner.totalXp} / ${winner.targetXp} XP</strong>
+    </section>
+    <section class="finale-ranking">
+      <h2>${language === "pt" ? "Classificação final" : "Final leaderboard"}</h2>
+      <ol class="ranking-list">${standings.map((standing, index) => `<li class="${standing.groupCode === winner.groupCode ? "is-event-winner" : ""}">${groupMark(groupByCode(standing.groupCode), true)}<b>${index + 1}</b><span>${escapeHtml(groupDisplayName(standing.groupCode))}<small>${standing.members} ${language === "pt" ? "membros" : "members"}</small></span><strong>${standing.totalXp} XP<small>${language === "pt" ? "meta" : "target"}: ${standing.targetXp}</small></strong></li>`).join("")}</ol>
+    </section>
+    <button type="button" class="primary-action finale-explore-action" data-action="continue-after-event">${language === "pt" ? "Continuar explorando" : "Continue exploring"}</button>
+    ${bottomNavigation(false)}
+  </main>`;
+  window.scrollTo({ top: 0, behavior: "auto" });
+  if (shouldCelebrate) {
+    sessionStorage.setItem(celebrationKey, "1");
+    playRewardSound();
   }
 }
 
@@ -839,11 +887,36 @@ async function connectHeartRewards() {
 async function bootstrapParticipantSession() {
   try {
     await withNetworkDeadline(ensureParticipantSession(), 6_000);
+    state.eventWinner = await withNetworkDeadline(getEventWinner(), 4_000).catch(() => state.eventWinner);
+    void connectEventResult();
+    if (state.eventWinner && !state.eventReadOnly) {
+      renderEventFinale();
+      return;
+    }
     scheduleLeaderboardSync("", true);
     void connectHeartRewards();
   } catch (error) {
     console.warn("Participant session will synchronize when the connection recovers.", error);
     scheduleLeaderboardSync("", true);
+  }
+}
+
+function cleanupEventResult() {
+  if (state.eventResultUnsubscribe) state.eventResultUnsubscribe();
+  state.eventResultUnsubscribe = null;
+}
+
+async function connectEventResult() {
+  cleanupEventResult();
+  try {
+    state.eventResultUnsubscribe = await subscribeToEventWinner((winner) => {
+      const firstAnnouncement = Boolean(winner) && !state.eventWinner;
+      state.eventWinner = winner;
+      if (!winner || !state.profile || state.eventReadOnly) return;
+      if (firstAnnouncement || state.view !== "event-finale") renderEventFinale();
+    }, (error) => console.warn("The final result will appear after reconnection.", error));
+  } catch (error) {
+    console.warn("The final result listener will reconnect later.", error);
   }
 }
 
@@ -903,6 +976,12 @@ function currentGroupTotal() {
   return Number(state.leaderboardContributions.find((item) => item.groupCode === state.room)?.totalXp || progress.groupXp(state.room));
 }
 
+function currentGroupTarget() {
+  const remote = state.leaderboardContributions.find((item) => item.groupCode === state.room);
+  const memberCount = Number(remote?.members || state.leaderboardMembers.length || 1);
+  return winnerTargetForMembers(memberCount);
+}
+
 async function connectLeaderboards(rerender = false) {
   if (state.leaderboardUnsubscribe && state.leaderboardRoom === state.room) {
     if (rerender && state.view === "leaderboard") renderLeaderboard(false);
@@ -930,12 +1009,9 @@ async function connectLeaderboards(rerender = false) {
   }
   state.leaderboardStatus = "loading";
   try {
-    state.leaderboardUnsubscribe = await subscribeToLeaderboards(state.room, ({ members, groups, winner }) => {
-      const previousTotal = currentGroupTotal();
+    state.leaderboardUnsubscribe = await subscribeToLeaderboards(state.room, ({ members, groups }) => {
       state.leaderboardMembers = rankMembers(members);
       state.leaderboardContributions = groups;
-      state.eventWinner = winner;
-      if (previousTotal < 500 && currentGroupTotal() >= 500) showGroupGoalCelebration();
       state.leaderboardStatus = "ready";
       if (state.view === "home") {
         const homeXp = document.querySelector(".home-xp");
@@ -959,11 +1035,13 @@ function renderLeaderboard(resetScroll = true) {
   const groupTotal = currentGroupTotal();
   const members = state.leaderboardMembers;
   const groups = groupRankings();
+  const groupTarget = currentGroupTarget();
+  const goalRatio = Math.min(100, groupTotal / Math.max(1, groupTarget) * 100);
   app.innerHTML = `
     <main class="app-shell leaderboard-screen">
       <header class="leaderboard-heading">
         <p class="brand-kicker">YOUCAT</p><h1>${c("leaderboard")}</h1>
-        <div class="group-goal"><span>${c("groupGoal")}: ${Math.min(groupTotal, 500)}/500 XP</span><i style="--goal:${Math.min(100, groupTotal / 5)}%"></i></div>
+        <div class="group-goal"><span>${c("groupGoal")}: ${Math.min(groupTotal, groupTarget)}/${groupTarget} XP</span><i style="--goal:${goalRatio}%"></i></div>
       </header>
       <section class="ranking-section">
         <h2>${c("yourGroup")} · ${escapeHtml(groupDisplayName(state.room))}</h2>
@@ -972,7 +1050,6 @@ function renderLeaderboard(resetScroll = true) {
       </section>
       <section class="ranking-section event-ranking">
         <h2>${c("eventGroups")}</h2>
-        ${state.eventWinner ? `<div class="event-winner">${groupMark(groupByCode(state.eventWinner.groupCode), true)}<span><small>${c("eventWinner")}</small><strong>${escapeHtml(groupByCode(state.eventWinner.groupCode).saint)}</strong></span><b>${state.eventWinner.totalXp} XP</b></div>` : ""}
         <p class="ranking-note">XP total · mínimo de 2 participantes com XP</p>
         <ol class="ranking-list">${groups.map((group, index) => `<li>${groupMark(groupByCode(group.code), true)}<b>${index + 1}</b><span>${escapeHtml(groupDisplayName(group.code))}</span><strong>${group.total} XP</strong></li>`).join("") || `<li class="ranking-empty">Os grupos aparecerão quando duas pessoas contribuírem com XP.</li>`}</ol>
       </section>
@@ -1232,6 +1309,10 @@ function saveMissionInteraction() {
 }
 
 async function requestNextMission(excludeMissionId = "") {
+  if (state.eventWinner) {
+    renderEventFinale();
+    return;
+  }
   if (state.missionClaiming) return;
   state.missionClaiming = true;
   state.missionStatus = "loading";
@@ -1253,6 +1334,11 @@ async function requestNextMission(excludeMissionId = "") {
     if (mission?.type === "complete") {
       state.missionStatus = "complete";
       showJourneyComplete();
+      return;
+    }
+    if (mission?.type === "winner") {
+      state.eventWinner = await getEventWinner();
+      renderEventFinale();
       return;
     }
     if (!mission) {
@@ -1393,14 +1479,6 @@ async function finishBoardMission() {
   requestAnimationFrame(() => document.querySelector('[data-section="overview"]')?.scrollIntoView({ behavior: "smooth" }));
 }
 
-async function checkForEventWinner(roomCode) {
-  try {
-    await tryDeclareEventWinner({ roomCode, challengeIds: sharedChallengeIds, questions: questionNumbers });
-  } catch (error) {
-    console.warn("Unable to check event winner", error);
-  }
-}
-
 function heartsGivenForQuestion(number) {
   const uid = participantUid();
   return (state.reflections.get(number) || [])
@@ -1463,6 +1541,7 @@ function readingAttributes(id, text) {
 }
 
 function renderReadingRing(id, text) {
+  if (state.eventWinner && state.eventReadOnly) return "";
   const reward = readingReward(text);
   const reading = progress.reading(id);
   const awarded = progress.hasAward(id);
@@ -1811,9 +1890,9 @@ function renderReflectionCards(reflections, number, showRoom) {
           <p class="reflection-author">${c("anonymousReflection")} ${isOwn ? `<span>· ${c("ownAnswer")}</span>` : ""}</p>
           <p>${escapeHtml(reflection.text)}</p>
         </div>
-        <button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" data-room="${escapeHtml(reflection.roomCode || "")}" data-scope="${showRoom ? "global" : "room"}" ${hasHearted || isOwn || heartsGiven >= 3 ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
+        ${state.eventWinner && state.eventReadOnly ? `<span class="heart-button is-readonly" aria-label="${voters.length} ${c("hearts")}"><span aria-hidden="true">♡</span><strong>${voters.length}</strong></span>` : `<button type="button" class="heart-button ${hasHearted ? "is-hearted" : ""}" data-action="heart" data-reflection="${escapeHtml(reflection.id)}" data-question="${number}" data-room="${escapeHtml(reflection.roomCode || "")}" data-scope="${showRoom ? "global" : "room"}" ${hasHearted || isOwn || heartsGiven >= 3 ? "disabled" : ""} aria-label="${voters.length} ${c("hearts")}">
           <span aria-hidden="true">♡</span><strong>${voters.length}</strong>
-        </button>
+        </button>`}
       </article>
     `;
   }).join("");
@@ -1844,6 +1923,7 @@ function cleanupReadingTimers() {
 }
 
 function bindReadingTimers() {
+  if (state.eventWinner && state.eventReadOnly) return;
   cleanupReadingTimers();
   const panels = [...document.querySelectorAll("[data-reading-id]")];
   if (!panels.length) return;
@@ -2112,7 +2192,6 @@ app.addEventListener("submit", async (event) => {
     state.missionInteraction = null;
     progress.transferAwardsToGroup(room);
     state.room = room;
-    state.groupGoalCelebrated = false;
     state.profile = { ...state.profile, room };
     progress.setProfile(state.profile);
     progress.setSound(form.get("sound") === "on");
@@ -2191,6 +2270,7 @@ app.addEventListener("click", async (event) => {
     cleanupSubscription();
     cleanupLeaderboardSubscription();
     cleanupHeartRewards();
+    cleanupEventResult();
     if (state.activeMission) await releaseActiveMission(state.activeMission);
     await deactivateParticipantMembership(state.room);
     progress.reset();
@@ -2203,12 +2283,20 @@ app.addEventListener("click", async (event) => {
   }
 
   if (action === "change-group") {
+    if (state.eventWinner) {
+      renderEventFinale();
+      return;
+    }
     cleanupMissionDashboard();
     renderGroupChooser();
     return;
   }
 
   if (action === "open-leaderboard") {
+    if (state.eventWinner) {
+      renderEventFinale();
+      return;
+    }
     cleanupSubscription();
     cleanupMissionDashboard();
     scheduleLeaderboardSync("", true);
@@ -2225,12 +2313,17 @@ app.addEventListener("click", async (event) => {
   if (action === "home") {
     if (state.profile) {
       destroyActiveMinigame();
+      if (state.eventWinner) state.eventReadOnly = true;
       renderHome();
     }
     return;
   }
 
   if (action === "next-mission") {
+    if (state.eventWinner) {
+      renderEventFinale();
+      return;
+    }
     state.completedMission = null;
     state.missionCompletionIssue = "";
     state.missionInteraction = null;
@@ -2350,6 +2443,7 @@ app.addEventListener("click", async (event) => {
   }
 
   if (action === "heart") {
+    if (state.eventWinner) return;
     const number = Number(target.dataset.question);
     target.disabled = true;
     const uid = participantUid() || "local";
@@ -2372,6 +2466,17 @@ app.addEventListener("click", async (event) => {
     if (heartsGivenForQuestion(number) === 3 && state.activeMission?.type === "board" && state.activeMission.questionNumber === number) {
       showHeartCompletionDialog();
     }
+  }
+
+  if (action === "continue-after-event") {
+    state.eventReadOnly = true;
+    renderHome();
+    return;
+  }
+
+  if (action === "open-final-result") {
+    renderEventFinale();
+    return;
   }
 });
 

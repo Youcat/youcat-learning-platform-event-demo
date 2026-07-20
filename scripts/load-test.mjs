@@ -18,6 +18,7 @@ import {
   doc,
   enableNetwork,
   getCountFromServer,
+  getDoc,
   getFirestore,
   getDocs,
   limit,
@@ -31,6 +32,7 @@ import {
   where,
 } from "firebase/firestore";
 import { GROUPS } from "../src/groups.js";
+import { aggregateGroupStandings, isStandingWinnerEligible } from "../src/event-winner.js";
 
 const userCount = positiveInteger(process.env.LOAD_USERS, 200);
 const roomSize = positiveInteger(process.env.LOAD_ROOM_SIZE, 10);
@@ -63,6 +65,7 @@ const samples = {
   leaderboardPropagation: [],
   challengeWrites: [],
   connectionRecovery: [],
+  winnerPropagation: [],
 };
 const errors = [];
 let snapshotCallbacks = 0;
@@ -110,6 +113,8 @@ for (const questionNumber of questions) {
   await verifyGlobalOverview(users[0], questionNumber);
   console.log(`Question ${questionNumber}: complete.`);
 }
+
+await verifyWinnerRace();
 
 await Promise.all(users.map(cleanUpUser));
 
@@ -216,6 +221,79 @@ async function publishLeaderboard(user) {
     recordError("leaderboard", user.index, error);
     throw error;
   }
+}
+
+async function verifyWinnerRace() {
+  if (userCount < roomSize * 2) return;
+  console.log("Winner race: staging two groups at their size-adjusted targets.");
+  const contenders = users.slice(0, roomSize * 2);
+  await Promise.all(contenders.map((user, index) => updateDoc(
+    doc(user.db, "leaderboardGroups", user.roomCode, "members", user.uid),
+    { groupXp: index < roomSize ? 130 : 131, updatedAt: serverTimestamp() },
+  )));
+
+  const allSnapshots = await Promise.all(GROUPS.slice(0, userCount / roomSize).map((group) => getDocs(
+    query(collection(users[0].db, "leaderboardGroups", group.code, "members"), where("active", "==", true), limit(100)),
+  )));
+  const finalStandings = aggregateGroupStandings(allSnapshots.flatMap((snapshot) => snapshot.docs.map((item) => item.data())));
+  const candidates = finalStandings.filter((standing) => isStandingWinnerEligible(standing)).slice(0, 2);
+  if (candidates.length !== 2) throw new Error("Load test could not stage two eligible winner candidates.");
+
+  const eventPath = "missionEvent/assis-2026-07-26";
+  const unsubscribers = [];
+  const winnerReceipts = users.map((user) => new Promise((resolve, reject) => {
+    const unsubscribe = onSnapshot(doc(user.db, eventPath), (snapshot) => {
+      snapshotCallbacks += 1;
+      if (snapshot.data()?.winnerGroup) resolve(snapshot.data().winnerGroup);
+    }, reject);
+    unsubscribers.push(unsubscribe);
+  }));
+  const declare = (user, standing) => runTransaction(user.db, async (transaction) => {
+    const eventRef = doc(user.db, eventPath);
+    const snapshot = await transaction.get(eventRef);
+    if (snapshot.data()?.winnerGroup) return snapshot.data().winnerGroup;
+    transaction.set(eventRef, {
+      winnerGroup: standing.groupCode,
+      winnerXp: standing.totalXp,
+      winnerTarget: standing.targetXp,
+      winnerMemberCount: standing.members,
+      finalStandings,
+      winnerDeclaredAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    return standing.groupCode;
+  });
+
+  const winnerStartedAt = performance.now();
+  await Promise.all([
+    declare(users[0], candidates[0]),
+    declare(users[roomSize], candidates[1]),
+  ]);
+  const receivedWinners = await withTimeout(Promise.all(winnerReceipts), "winner propagation");
+  samples.winnerPropagation.push(performance.now() - winnerStartedAt);
+  unsubscribers.forEach((unsubscribe) => unsubscribe());
+  if (new Set(receivedWinners).size !== 1) throw new Error("Connected participants received different winners.");
+
+  const eventRef = doc(users[0].db, eventPath);
+  const frozenBefore = (await getDoc(eventRef)).data();
+  const lateUser = users[roomSize * 2] || users.at(-1);
+  await updateDoc(doc(lateUser.db, "leaderboardGroups", lateUser.roomCode, "members", lateUser.uid), {
+    groupXp: 5000,
+    updatedAt: serverTimestamp(),
+  });
+  await declare(lateUser, {
+    groupCode: lateUser.roomCode,
+    totalXp: 5000,
+    targetXp: 1300,
+    members: roomSize,
+    participants: 2,
+  });
+  const frozenAfter = (await getDoc(eventRef)).data();
+  if (frozenAfter.winnerGroup !== frozenBefore.winnerGroup
+    || JSON.stringify(frozenAfter.finalStandings) !== JSON.stringify(frozenBefore.finalStandings)) {
+    throw new Error("A late write changed the frozen winner result.");
+  }
+  console.log(`Winner race: ${frozenAfter.winnerGroup} frozen and delivered to ${receivedWinners.length} listeners.`);
 }
 
 async function publishGroupChallenges() {
